@@ -1,4 +1,4 @@
-const SENTENCES = [
+const SENTENCES1 = [
 // === CATEGORY 1: Greetings & Farewells ===
 ["Привет!","Privet!","Hello! (informal)","Greetings & Farewells"],
 ["Здравствуйте!","Zdravstvuyte!","Hello! (formal)","Greetings & Farewells"],

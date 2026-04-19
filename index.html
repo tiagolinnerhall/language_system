@@ -3,613 +3,169 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>1000 Russian Sentences for Daily Life</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+<title>LangMaster - Learn Any Language with 3000 Sentences</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--primary:#4338ca;--primary-light:#6366f1;--primary-bg:rgba(67,56,202,0.08);--accent:#f59e0b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,0.08);--shadow-lg:0 4px 12px rgba(0,0,0,0.12);--green:#10b981;--red:#ef4444}
-[data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--primary:#818cf8;--primary-light:#a5b4fc;--primary-bg:rgba(129,140,248,0.12);--border:#334155;--shadow:0 1px 3px rgba(0,0,0,0.3);--shadow-lg:0 4px 12px rgba(0,0,0,0.4)}
-body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
-.header{position:sticky;top:0;z-index:100;background:var(--card);border-bottom:1px solid var(--border);box-shadow:var(--shadow);padding:16px 24px}
-.header-top{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto;flex-wrap:wrap;gap:12px}
-.header h1{font-size:1.5rem;font-weight:700;color:var(--primary)}
-.header h1 span{font-weight:300;color:var(--text2);font-size:1rem;display:block}
-.header-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.progress-wrap{max-width:1200px;margin:8px auto 0}
-.progress-bar{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--green),#34d399);border-radius:3px;transition:width .4s ease}
-.progress-text{font-size:.75rem;color:var(--text3);margin-top:2px}
-.filters{max-width:1200px;margin:8px auto 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.filters input,.filters select{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem;outline:none;transition:border .2s}
-.filters input:focus,.filters select:focus{border-color:var(--primary)}
-.filters input{flex:1;min-width:200px}
-.btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
-.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-light)}
-.btn-secondary{background:var(--primary-bg);color:var(--primary)}.btn-secondary:hover{background:var(--primary);color:#fff}
-.btn-icon{background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;color:var(--text2);transition:all .2s;display:flex;align-items:center;justify-content:center}
-.btn-icon:hover{background:var(--primary-bg);color:var(--primary)}
-.speed-control{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text2)}
-.speed-control input[type=range]{width:80px;accent-color:var(--primary)}
-.container{max-width:1200px;margin:0 auto;padding:20px 24px}
-.category{margin-bottom:20px}
-.category-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--card);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow);user-select:none}
-.category-header:hover{box-shadow:var(--shadow-lg);border-color:var(--primary)}
-.category-header h2{font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:10px}
-.category-header .cat-count{font-size:.8rem;font-weight:400;color:var(--text3);background:var(--primary-bg);padding:2px 10px;border-radius:20px}
-.category-header .cat-learned{font-size:.75rem;color:var(--green);margin-left:4px}
-.chevron{transition:transform .3s;font-size:1.2rem;color:var(--text3)}
-.category.open .chevron{transform:rotate(180deg)}
-.sentences{display:none;padding:8px 0}
-.category.open .sentences{display:block}
-.sentence{display:flex;align-items:flex-start;gap:12px;padding:14px 20px;margin:6px 0;background:var(--card);border:1px solid var(--border);border-radius:10px;transition:all .2s;box-shadow:var(--shadow)}
-.sentence:hover{box-shadow:var(--shadow-lg);border-color:var(--primary-light)}
-.sentence.playing{border-color:var(--primary);background:var(--primary-bg)}
-.sentence.playing .russian{color:var(--primary)}
-.s-num{font-size:.75rem;font-weight:600;color:var(--text3);min-width:30px;padding-top:4px}
-.s-content{flex:1}
-.russian{font-size:1.2rem;font-weight:600;color:var(--text);cursor:pointer;transition:color .2s;line-height:1.4}
-.russian:hover{color:var(--primary)}
-.translit{font-size:.9rem;font-style:italic;color:var(--text3);margin:2px 0}
-.english{font-size:.95rem;color:var(--text2)}
-.s-actions{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:2px}
-.speak-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--text2);font-size:1.1rem}
-.speak-btn:hover,.speak-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-.speak-btn.active{animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-.check-btn{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:transparent;font-size:.8rem}
-.check-btn:hover{border-color:var(--green)}
-.check-btn.learned{background:var(--green);border-color:var(--green);color:#fff}
-.play-all-btn{margin:8px 0 4px 0}
+:root{--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--primary:#4338ca;--primary-light:#6366f1;--primary-bg:rgba(67,56,202,0.08);--accent:#f59e0b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,0.08);--shadow-lg:0 8px 25px rgba(0,0,0,0.12);--green:#10b981}
+[data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--primary:#818cf8;--primary-light:#a5b4fc;--primary-bg:rgba(129,140,248,0.12);--border:#334155;--shadow:0 1px 3px rgba(0,0,0,0.3);--shadow-lg:0 8px 25px rgba(0,0,0,0.4)}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
+
+/* Nav */
+nav{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto;padding:20px 24px}
+.logo{font-size:1.5rem;font-weight:800;color:var(--primary);text-decoration:none;display:flex;align-items:center;gap:8px}
+.logo span{font-size:1.8rem}
+.nav-right{display:flex;align-items:center;gap:16px}
 .theme-toggle{font-size:1.3rem;cursor:pointer;background:none;border:none;padding:6px;border-radius:50%;transition:all .2s}
 .theme-toggle:hover{background:var(--primary-bg)}
-.empty-state{text-align:center;padding:60px 20px;color:var(--text3);font-size:1.1rem}
-@media(max-width:768px){
-.header{padding:12px 16px}
-.header h1{font-size:1.2rem}
-.header h1 span{font-size:.85rem}
-.container{padding:16px}
-.sentence{padding:12px 14px;gap:8px}
-.russian{font-size:1.05rem}
-.filters input{min-width:140px}
-.header-controls{gap:8px}
-.speed-control input[type=range]{width:60px}
-}
-.fade-in{animation:fadeIn .3s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-/* Review Bin */
-.bin-btn{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:.85rem;color:var(--text3)}
-.bin-btn:hover{border-color:var(--accent);color:var(--accent)}
-.bin-btn.in-bin{background:var(--accent);border-color:var(--accent);color:#fff}
-.bin-badge{background:var(--accent);color:#fff;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:20px;margin-left:4px;min-width:20px;text-align:center;display:inline-block}
-.bin-view{display:none}
-.bin-view.active{display:block}
-.main-view.hidden{display:none}
-.bin-header{text-align:center;padding:30px 20px 10px;max-width:800px;margin:0 auto}
-.bin-header h2{font-size:1.4rem;font-weight:700;color:var(--accent);margin-bottom:4px}
-.bin-header p{color:var(--text3);font-size:.9rem;margin-bottom:16px}
-.bin-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
-.bin-card{max-width:700px;margin:10px auto;padding:20px 24px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);transition:all .3s}
-.bin-card.playing{border-color:var(--primary);box-shadow:var(--shadow-lg)}
-.bin-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.bin-card-num{font-size:.75rem;color:var(--text3);font-weight:600}
-.bin-card-actions{display:flex;gap:8px;align-items:center}
-.bin-card .hidden-text{filter:blur(8px);user-select:none;pointer-events:none;transition:filter .3s}
-.bin-card .hidden-text.revealed{filter:none;user-select:auto;pointer-events:auto}
-.reveal-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--text3);font-size:1rem}
-.reveal-btn:hover{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
-.reveal-btn.revealed{background:var(--primary);color:#fff;border-color:var(--primary)}
-.remove-bin-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--green);font-size:1.1rem}
-.remove-bin-btn:hover{background:var(--green);color:#fff;border-color:var(--green)}
-.bin-card .russian{font-size:1.3rem;font-weight:700;margin-bottom:6px;cursor:pointer}
-.bin-card .translit{font-size:.95rem;margin-bottom:4px}
-.bin-card .english{font-size:1rem}
-.bin-empty{text-align:center;padding:80px 20px;color:var(--text3)}
-.bin-empty .big-icon{font-size:3rem;margin-bottom:12px}
-.bin-empty p{font-size:1.1rem;margin-bottom:20px}
-.bin-progress{max-width:700px;margin:0 auto 10px;padding:0 24px}
-.bin-progress-bar{width:100%;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
-.bin-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#fbbf24);border-radius:4px;transition:width .4s}
-.bin-progress-text{font-size:.8rem;color:var(--text3);margin-top:4px;text-align:center}
+/* Hero */
+.hero{text-align:center;padding:60px 24px 40px;max-width:800px;margin:0 auto}
+.hero h1{font-size:2.8rem;font-weight:800;line-height:1.2;margin-bottom:16px}
+.hero h1 .highlight{background:linear-gradient(135deg,var(--primary),var(--primary-light));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:1.15rem;color:var(--text2);max-width:600px;margin:0 auto 12px}
+.hero-stats{display:flex;justify-content:center;gap:32px;margin-top:24px;flex-wrap:wrap}
+.hero-stat{text-align:center}
+.hero-stat .num{font-size:2rem;font-weight:800;color:var(--primary)}
+.hero-stat .label{font-size:.85rem;color:var(--text3)}
+
+/* Grid */
+.section-title{max-width:1200px;margin:0 auto;padding:40px 24px 16px;font-size:1.3rem;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;max-width:1200px;margin:0 auto;padding:0 24px 60px}
+.lang-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;cursor:pointer;transition:all .25s;box-shadow:var(--shadow);position:relative;overflow:hidden;text-decoration:none;color:var(--text);display:block}
+.lang-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px);border-color:var(--primary-light)}
+.lang-card.coming-soon{opacity:.6;cursor:default}
+.lang-card.coming-soon:hover{transform:none;box-shadow:var(--shadow);border-color:var(--border)}
+.lang-card .flag{font-size:2.5rem;margin-bottom:12px;display:block}
+.lang-card .lang-name{font-size:1.2rem;font-weight:700;margin-bottom:2px}
+.lang-card .lang-native{font-size:.95rem;color:var(--text3);margin-bottom:12px}
+.lang-card .lang-info{display:flex;gap:16px;font-size:.8rem;color:var(--text2)}
+.lang-card .lang-info span{display:flex;align-items:center;gap:4px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:600;position:absolute;top:16px;right:16px}
+.badge-live{background:rgba(16,185,129,.15);color:var(--green)}
+.badge-soon{background:var(--primary-bg);color:var(--text3)}
+.badge-new{background:rgba(245,158,11,.15);color:var(--accent)}
+
+/* Features */
+.features{max-width:1200px;margin:0 auto;padding:20px 24px 60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px}
+.feature{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:var(--shadow)}
+.feature .icon{font-size:2rem;margin-bottom:10px}
+.feature h3{font-size:1rem;font-weight:700;margin-bottom:6px}
+.feature p{font-size:.9rem;color:var(--text2)}
+
+/* Footer */
+footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;border-top:1px solid var(--border)}
+
+@media(max-width:768px){
+.hero h1{font-size:1.8rem}
+.hero p{font-size:1rem}
+.hero-stats{gap:20px}
+.hero-stat .num{font-size:1.5rem}
+.grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.lang-card{padding:18px}
+.lang-card .flag{font-size:2rem}
+}
 </style>
 </head>
 <body>
-<div class="header">
- <div class="header-top">
-  <h1>1000 Russian Sentences<span>for Daily Life</span></h1>
-  <div class="header-controls">
-   <div class="speed-control">
-    <label>Speed:</label>
-    <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.1" value="0.85">
-    <span id="speedVal">0.85x</span>
-   </div>
-   <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
-   <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Review Bin <span class="bin-badge" id="binBadge">0</span></button>
-   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
-  </div>
+
+<nav>
+ <a class="logo" href="/"><span>&#127891;</span> LangMaster</a>
+ <div class="nav-right">
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
  </div>
- <div class="progress-wrap">
-  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-  <div class="progress-text" id="progressText">0 / 0 learned</div>
+</nav>
+
+<div class="hero">
+ <h1>Master Any Language with <span class="highlight">3000 Sentences</span></h1>
+ <p>Click any sentence to hear native pronunciation. Track your progress. Practice weak spots in the Review Bin. Export to PDF.</p>
+ <p style="font-size:.95rem;color:var(--text3)">Based on frequency research: 3000 sentences covers 95% of daily conversation.</p>
+ <div class="hero-stats">
+  <div class="hero-stat"><div class="num">20</div><div class="label">Languages</div></div>
+  <div class="hero-stat"><div class="num">3000</div><div class="label">Sentences Each</div></div>
+  <div class="hero-stat"><div class="num">75</div><div class="label">Categories</div></div>
+  <div class="hero-stat"><div class="num">&#8734;</div><div class="label">Free Audio</div></div>
  </div>
- <div class="filters">
-  <input type="text" id="searchInput" placeholder="Search in Russian, English, or transliteration..." oninput="filterSentences()">
-  <select id="categoryFilter" onchange="filterSentences()"><option value="">All Categories</option></select>
-  <label style="display:flex;align-items:center;gap:4px;font-size:.85rem;color:var(--text2);cursor:pointer">
-   <input type="checkbox" id="unlearnedOnly" onchange="filterSentences()"> Unlearned only
-  </label>
-  <button class="btn btn-secondary" onclick="toggleAll(true)">Expand All</button>
-  <button class="btn btn-secondary" onclick="toggleAll(false)">Collapse All</button>
- </div>
-</div>
-<div class="main-view" id="mainView">
- <div class="container" id="app"></div>
-</div>
-<div class="bin-view" id="binView">
- <div class="bin-header">
-  <h2>&#128221; Review Bin</h2>
-  <p>Sentences you need to practice. Audio plays first &mdash; text is hidden until you reveal it.</p>
- </div>
- <div class="bin-progress" id="binProgressWrap">
-  <div class="bin-progress-bar"><div class="bin-progress-fill" id="binProgressFill" style="width:0%"></div></div>
-  <div class="bin-progress-text" id="binProgressText">0 sentences remaining</div>
- </div>
- <div class="bin-actions">
-  <button class="btn btn-primary" onclick="shuffleBin()" style="background:var(--accent)">&#128256; Shuffle</button>
-  <button class="btn btn-secondary" id="binPlayAllBtn" onclick="playAllBin()">&#9654; Play All (audio only)</button>
-  <button class="btn btn-secondary" onclick="revealAllBin()">&#128065; Reveal All</button>
-  <button class="btn btn-secondary" onclick="hideAllBin()">&#128064; Hide All</button>
- </div>
- <div id="binCards"></div>
 </div>
 
-<script src="data.js"></script>
+<div class="features">
+ <div class="feature">
+  <div class="icon">&#128264;</div>
+  <h3>Click-to-Speak Audio</h3>
+  <p>Click any sentence to hear it pronounced. Adjust speed to match your learning pace.</p>
+ </div>
+ <div class="feature">
+  <div class="icon">&#128221;</div>
+  <h3>Review Bin</h3>
+  <p>Dump sentences you don't know into the bin. Audio-first practice with hidden text until you're ready.</p>
+ </div>
+ <div class="feature">
+  <div class="icon">&#128196;</div>
+  <h3>PDF Export</h3>
+  <p>Download the full course as a beautifully formatted PDF for offline study.</p>
+ </div>
+ <div class="feature">
+  <div class="icon">&#127793;</div>
+  <h3>Progress Tracking</h3>
+  <p>Mark sentences as learned. See your progress per category and overall completion.</p>
+ </div>
+</div>
+
+<h2 class="section-title">Choose a Language</h2>
+<div class="grid" id="langGrid"></div>
+
+<footer>
+ LangMaster &mdash; Learn any language with real daily-life sentences.
+</footer>
+
+<script src="languages/config.js"></script>
 <script>
-const app=document.getElementById('app');
-const searchInput=document.getElementById('searchInput');
-const categoryFilter=document.getElementById('categoryFilter');
-const unlearnedOnly=document.getElementById('unlearnedOnly');
-const speedSlider=document.getElementById('speedSlider');
-const speedVal=document.getElementById('speedVal');
-const progressFill=document.getElementById('progressFill');
-const progressText=document.getElementById('progressText');
-
-let learned=JSON.parse(localStorage.getItem('ru_learned')||'{}');
-let reviewBin=JSON.parse(localStorage.getItem('ru_review_bin')||'{}');
-let binOrder=[];
-let binViewActive=false;
-let currentSpeaking=null;
-let speechRate=0.85;
-let selectedIdx=-1;
-
-speedSlider.addEventListener('input',()=>{speechRate=parseFloat(speedSlider.value);speedVal.textContent=speechRate+'x'});
-
-// Group sentences by category
-function getCategories(){
- const cats=new Map();
- SENTENCES.forEach((s,i)=>{
-  const c=s[3];
-  if(!cats.has(c))cats.set(c,[]);
-  cats.get(c).push({r:s[0],t:s[1],e:s[2],cat:c,idx:i});
- });
- return cats;
-}
-
-// Populate category filter
-function populateCategoryFilter(){
- const cats=getCategories();
- cats.forEach((_,name)=>{
-  const opt=document.createElement('option');
-  opt.value=name;opt.textContent=name;
-  categoryFilter.appendChild(opt);
- });
-}
-
-// Update progress
-function updateProgress(){
- const total=SENTENCES.length;
- const done=Object.keys(learned).length;
- const pct=total?Math.round(done/total*100):0;
- progressFill.style.width=pct+'%';
- progressText.textContent=done+' / '+total+' learned ('+pct+'%)';
-}
-
-// Render
-function render(){
- const cats=getCategories();
- const search=searchInput.value.toLowerCase();
- const catFilter=categoryFilter.value;
- const unlearned=unlearnedOnly.checked;
- app.innerHTML='';
- let globalNum=0;
- let anyResults=false;
-
- cats.forEach((sentences,catName)=>{
-  if(catFilter&&catName!==catFilter)return;
-  const filtered=sentences.filter(s=>{
-   if(unlearned&&learned[s.idx])return false;
-   if(search){
-    return s.r.toLowerCase().includes(search)||s.t.toLowerCase().includes(search)||s.e.toLowerCase().includes(search);
-   }
-   return true;
-  });
-  if(!filtered.length)return;
-  anyResults=true;
-
-  const catLearnedCount=sentences.filter(s=>learned[s.idx]).length;
-  const div=document.createElement('div');
-  div.className='category open fade-in';
-  div.innerHTML=`
-   <div class="category-header" onclick="this.parentElement.classList.toggle('open')">
-    <h2>${catName} <span class="cat-count">${filtered.length} sentences</span>${catLearnedCount?`<span class="cat-learned">&#10003; ${catLearnedCount} learned</span>`:''}</h2>
-    <span class="chevron">&#9660;</span>
-   </div>
-   <div class="sentences">
-    <button class="btn btn-secondary play-all-btn" onclick="playAllInCategory(this,'${catName.replace(/'/g,"\\'")}')">&#9654; Play All in This Category</button>
-    ${filtered.map(s=>{
-     globalNum++;
-     return `
-     <div class="sentence" data-idx="${s.idx}" id="s${s.idx}">
-      <div class="s-num">${globalNum}</div>
-      <div class="s-content">
-       <div class="russian" onclick="speak(${s.idx})">${s.r}</div>
-       <div class="translit">${s.t}</div>
-       <div class="english">${s.e}</div>
-      </div>
-      <div class="s-actions">
-       <button class="speak-btn" onclick="speak(${s.idx})" title="Listen">&#128264;</button>
-       <button class="check-btn ${learned[s.idx]?'learned':''}" onclick="toggleLearned(${s.idx},this)" title="Mark as learned">${learned[s.idx]?'&#10003;':''}</button>
-       <button class="bin-btn ${reviewBin[s.idx]?'in-bin':''}" onclick="toggleBin(${s.idx},this)" title="${reviewBin[s.idx]?'Remove from review bin':'Add to review bin'}">${reviewBin[s.idx]?'&#128221;':'&#128221;'}</button>
-      </div>
-     </div>`;
-    }).join('')}
-   </div>`;
-  app.appendChild(div);
- });
-
- if(!anyResults){
-  app.innerHTML='<div class="empty-state">No sentences found. Try a different search term.</div>';
- }
- updateProgress();
-}
-
-function speak(idx){
- window.speechSynthesis.cancel();
- document.querySelectorAll('.sentence.playing').forEach(el=>el.classList.remove('playing'));
- document.querySelectorAll('.speak-btn.active').forEach(el=>el.classList.remove('active'));
-
- const s=SENTENCES[idx];
- const u=new SpeechSynthesisUtterance(s[0]);
- u.lang='ru-RU';u.rate=speechRate;
- const el=document.getElementById('s'+idx);
- if(el){
-  el.classList.add('playing');
-  const btn=el.querySelector('.speak-btn');
-  if(btn)btn.classList.add('active');
-  el.scrollIntoView({behavior:'smooth',block:'nearest'});
- }
- u.onend=()=>{
-  if(el){el.classList.remove('playing');const btn=el.querySelector('.speak-btn');if(btn)btn.classList.remove('active')}
-  currentSpeaking=null;
- };
- currentSpeaking=idx;
- window.speechSynthesis.speak(u);
- selectedIdx=idx;
-}
-
-async function playAllInCategory(btn,catName){
- const cat=getCategories().get(catName);
- if(!cat)return;
- btn.textContent='⏹ Stop';
- btn.onclick=()=>{window.speechSynthesis.cancel();btn.textContent='▶ Play All in This Category';btn.onclick=()=>playAllInCategory(btn,catName)};
- for(const s of cat){
-  await new Promise(resolve=>{
-   window.speechSynthesis.cancel();
-   const u=new SpeechSynthesisUtterance(s.r);
-   u.lang='ru-RU';u.rate=speechRate;
-   const el=document.getElementById('s'+s.idx);
-   if(el){el.classList.add('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.add('active')}
-   u.onend=()=>{if(el){el.classList.remove('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.remove('active')}resolve()};
-   u.onerror=()=>resolve();
-   window.speechSynthesis.speak(u);
-  });
- }
- btn.textContent='▶ Play All in This Category';
- btn.onclick=()=>playAllInCategory(btn,catName);
-}
-
-function toggleLearned(idx,btn){
- if(learned[idx]){delete learned[idx];btn.classList.remove('learned');btn.innerHTML=''}
- else{learned[idx]=true;btn.classList.add('learned');btn.innerHTML='&#10003;'}
- localStorage.setItem('ru_learned',JSON.stringify(learned));
- updateProgress();
- // Update category header learned count
- const catEl=btn.closest('.category');
- if(catEl){
-  const catHeader=catEl.querySelector('.cat-learned');
-  const catName=SENTENCES[idx][3];
-  const cats=getCategories();
-  const catSentences=cats.get(catName)||[];
-  const learnedCount=catSentences.filter(s=>learned[s.idx]).length;
-  if(catHeader){catHeader.innerHTML=learnedCount?`&#10003; ${learnedCount} learned`:''}
- }
-}
-
-function filterSentences(){render()}
-
-function toggleAll(open){
- document.querySelectorAll('.category').forEach(c=>{
-  if(open)c.classList.add('open');else c.classList.remove('open');
- });
-}
-
 function toggleTheme(){
  const d=document.documentElement;
  const isDark=d.getAttribute('data-theme')==='dark';
  d.setAttribute('data-theme',isDark?'':'dark');
- document.getElementById('themeToggle').textContent=isDark?'🌙':'☀️';
- localStorage.setItem('ru_theme',isDark?'':'dark');
+ document.getElementById('themeToggle').textContent=isDark?'\u{1F319}':'\u2600\uFE0F';
+ localStorage.setItem('lang_theme',isDark?'':'dark');
 }
 
-// Keyboard shortcuts
-document.addEventListener('keydown',e=>{
- if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
- if(e.code==='Space'){
-  e.preventDefault();
-  if(currentSpeaking!==null){window.speechSynthesis.cancel()}
-  else if(selectedIdx>=0){speak(selectedIdx)}
- }
- if(e.code==='ArrowDown'){
-  e.preventDefault();
-  const next=Math.min((selectedIdx<0?-1:selectedIdx)+1,SENTENCES.length-1);
-  speak(next);
- }
- if(e.code==='ArrowUp'){
-  e.preventDefault();
-  const prev=Math.max((selectedIdx<0?1:selectedIdx)-1,0);
-  speak(prev);
- }
-});
+function renderGrid(){
+ const grid=document.getElementById('langGrid');
+ const entries=Object.entries(LANGUAGES);
 
-// PDF Export
-function exportPDF(){
- const{jsPDF}=window.jspdf;
- const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-
- doc.setFont('helvetica','bold');
- doc.setFontSize(18);
- doc.text('1000 Russian Sentences for Daily Life',105,20,{align:'center'});
- doc.setFontSize(10);
- doc.setFont('helvetica','normal');
- doc.text('Complete guide to everyday Russian phrases',105,28,{align:'center'});
-
- let y=35;
- const cats=getCategories();
- let num=0;
-
- cats.forEach((sentences,catName)=>{
-  if(y>250){doc.addPage();y=20}
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(13);
-  doc.setTextColor(67,56,202);
-  doc.text(catName,14,y);
-  y+=3;
-  doc.setDrawColor(67,56,202);
-  doc.line(14,y,196,y);
-  y+=5;
-
-  const rows=sentences.map(s=>{
-   num++;
-   return[num,s.r,s.t,s.e];
-  });
-
-  doc.autoTable({
-   startY:y,
-   head:[['#','Russian','Transliteration','English']],
-   body:rows,
-   margin:{left:14,right:14},
-   styles:{fontSize:8,cellPadding:2,overflow:'linebreak',font:'helvetica'},
-   headStyles:{fillColor:[67,56,202],textColor:255,fontStyle:'bold'},
-   columnStyles:{0:{cellWidth:10},1:{cellWidth:50,fontStyle:'bold'},2:{cellWidth:55,textColor:[100,100,100],fontStyle:'italic'},3:{cellWidth:55}},
-   didDrawPage:()=>{
-    doc.setFontSize(8);doc.setTextColor(150);
-    doc.text('1000 Russian Sentences for Daily Life',105,290,{align:'center'});
-   }
-  });
-  y=doc.lastAutoTable.finalY+10;
+ // Sort: available first, then by name
+ entries.sort((a,b)=>{
+  if(a[1].status==='available'&&b[1].status!=='available')return -1;
+  if(a[1].status!=='available'&&b[1].status==='available')return 1;
+  return a[1].name.localeCompare(b[1].name);
  });
 
- doc.save('1000_Russian_Sentences.pdf');
-}
+ grid.innerHTML=entries.map(([key,lang])=>{
+  const isAvailable=lang.status==='available';
+  const href=isAvailable?`app.html?lang=${key}`:'#';
+  const badgeClass=isAvailable?'badge-live':'badge-soon';
+  const badgeText=isAvailable?'AVAILABLE':'COMING SOON';
+  const cardClass=isAvailable?'lang-card':'lang-card coming-soon';
+  const sentences=lang.sentences||'3000';
+  const categories=lang.categories||'75';
 
-// === Review Bin Functions ===
-function toggleBin(idx,btn){
- if(reviewBin[idx]){
-  delete reviewBin[idx];
-  if(btn){btn.classList.remove('in-bin');btn.title='Add to review bin'}
- } else {
-  reviewBin[idx]=true;
-  if(btn){btn.classList.add('in-bin');btn.title='Remove from review bin'}
- }
- localStorage.setItem('ru_review_bin',JSON.stringify(reviewBin));
- updateBinBadge();
-}
-
-function updateBinBadge(){
- const count=Object.keys(reviewBin).length;
- document.getElementById('binBadge').textContent=count;
-}
-
-function toggleBinView(){
- binViewActive=!binViewActive;
- const mv=document.getElementById('mainView');
- const bv=document.getElementById('binView');
- const btn=document.getElementById('binToggleBtn');
- if(binViewActive){
-  mv.classList.add('hidden');
-  bv.classList.add('active');
-  btn.innerHTML='&#x2190; Back to All <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
-  renderBinView();
- } else {
-  mv.classList.remove('hidden');
-  bv.classList.remove('active');
-  btn.innerHTML='&#128221; Review Bin <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
-  render();
- }
-}
-
-function shuffleArray(arr){
- for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}
- return arr;
-}
-
-function renderBinView(){
- const container=document.getElementById('binCards');
- const indices=Object.keys(reviewBin).map(Number);
-
- // Update progress
- const total=indices.length;
- document.getElementById('binProgressFill').style.width='0%';
- document.getElementById('binProgressText').textContent=total+' sentence'+(total!==1?'s':'')+' remaining';
-
- if(!indices.length){
-  container.innerHTML=`<div class="bin-empty"><div class="big-icon">&#127881;</div><p>Review bin is empty! Great job!</p><button class="btn btn-primary" onclick="toggleBinView()">&#x2190; Back to sentences</button></div>`;
-  return;
- }
-
- // Use current bin order or create new shuffled one
- if(!binOrder.length||binOrder.some(i=>!reviewBin[i])){
-  binOrder=shuffleArray([...indices]);
- }
-
- container.innerHTML=binOrder.map((idx,i)=>{
-  const s=SENTENCES[idx];
-  return `
-  <div class="bin-card" id="bin${idx}">
-   <div class="bin-card-top">
-    <div class="bin-card-num">#${i+1} of ${total}</div>
-    <div class="bin-card-actions">
-     <button class="speak-btn" onclick="speakBin(${idx})" title="Listen">&#128264;</button>
-     <button class="reveal-btn" onclick="toggleReveal(${idx},this)" title="Reveal text">&#128065;</button>
-     <button class="remove-bin-btn" onclick="removeFromBin(${idx})" title="I learned this! Remove from bin">&#10003;</button>
-    </div>
+  return `<a class="${cardClass}" href="${href}" ${!isAvailable?'onclick="return false"':''}>
+   <span class="badge ${badgeClass}">${badgeText}</span>
+   <span class="flag">${lang.flag}</span>
+   <div class="lang-name">${lang.name}</div>
+   <div class="lang-native">${lang.native}</div>
+   <div class="lang-info">
+    <span>&#128214; ${sentences} sentences</span>
+    <span>&#128193; ${categories} categories</span>
    </div>
-   <div class="s-content">
-    <div class="russian hidden-text" data-reveal="${idx}" onclick="speakBin(${idx})">${s[0]}</div>
-    <div class="translit hidden-text" data-reveal="${idx}">${s[1]}</div>
-    <div class="english hidden-text" data-reveal="${idx}">${s[2]}</div>
-   </div>
-  </div>`;
+  </a>`;
  }).join('');
-}
-
-function speakBin(idx){
- window.speechSynthesis.cancel();
- document.querySelectorAll('.bin-card.playing').forEach(el=>el.classList.remove('playing'));
- document.querySelectorAll('.bin-card .speak-btn.active').forEach(el=>el.classList.remove('active'));
-
- const s=SENTENCES[idx];
- const u=new SpeechSynthesisUtterance(s[0]);
- u.lang='ru-RU';u.rate=speechRate;
- const el=document.getElementById('bin'+idx);
- if(el){
-  el.classList.add('playing');
-  const btn=el.querySelector('.speak-btn');
-  if(btn)btn.classList.add('active');
-  el.scrollIntoView({behavior:'smooth',block:'nearest'});
- }
- u.onend=()=>{
-  if(el){el.classList.remove('playing');const btn=el.querySelector('.speak-btn');if(btn)btn.classList.remove('active')}
- };
- window.speechSynthesis.speak(u);
-}
-
-function toggleReveal(idx,btn){
- const els=document.querySelectorAll(`[data-reveal="${idx}"]`);
- const isRevealed=els[0]&&els[0].classList.contains('revealed');
- els.forEach(el=>{
-  if(isRevealed)el.classList.remove('revealed');
-  else el.classList.add('revealed');
- });
- if(btn){
-  if(isRevealed){btn.classList.remove('revealed');btn.title='Reveal text'}
-  else{btn.classList.add('revealed');btn.title='Hide text'}
- }
-}
-
-function removeFromBin(idx){
- delete reviewBin[idx];
- localStorage.setItem('ru_review_bin',JSON.stringify(reviewBin));
- updateBinBadge();
- // Animate removal
- const el=document.getElementById('bin'+idx);
- if(el){
-  el.style.transition='all .3s';
-  el.style.transform='translateX(100px)';
-  el.style.opacity='0';
-  setTimeout(()=>{
-   binOrder=binOrder.filter(i=>i!==idx);
-   renderBinView();
-  },300);
- }
- // Update badge in button
- const btn=document.getElementById('binToggleBtn');
- btn.innerHTML='&#x2190; Back to All <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
-}
-
-function shuffleBin(){
- binOrder=shuffleArray(Object.keys(reviewBin).map(Number));
- renderBinView();
-}
-
-async function playAllBin(){
- const btn=document.getElementById('binPlayAllBtn');
- const indices=binOrder.length?[...binOrder]:Object.keys(reviewBin).map(Number);
- if(!indices.length)return;
-
- btn.innerHTML='&#9632; Stop';
- let stopped=false;
- btn.onclick=()=>{stopped=true;window.speechSynthesis.cancel();btn.innerHTML='&#9654; Play All (audio only)';btn.onclick=()=>playAllBin()};
-
- for(const idx of indices){
-  if(stopped)break;
-  await new Promise(resolve=>{
-   window.speechSynthesis.cancel();
-   const s=SENTENCES[idx];
-   const u=new SpeechSynthesisUtterance(s[0]);
-   u.lang='ru-RU';u.rate=speechRate;
-   const el=document.getElementById('bin'+idx);
-   if(el){el.classList.add('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.add('active');el.scrollIntoView({behavior:'smooth',block:'center'})}
-   u.onend=()=>{if(el){el.classList.remove('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.remove('active')}resolve()};
-   u.onerror=()=>resolve();
-   window.speechSynthesis.speak(u);
-  });
-  // Small pause between sentences
-  if(!stopped)await new Promise(r=>setTimeout(r,500));
- }
- btn.innerHTML='&#9654; Play All (audio only)';
- btn.onclick=()=>playAllBin();
-}
-
-function revealAllBin(){
- document.querySelectorAll('.bin-card .hidden-text').forEach(el=>el.classList.add('revealed'));
- document.querySelectorAll('.bin-card .reveal-btn').forEach(el=>{el.classList.add('revealed');el.title='Hide text'});
-}
-
-function hideAllBin(){
- document.querySelectorAll('.bin-card .hidden-text').forEach(el=>el.classList.remove('revealed'));
- document.querySelectorAll('.bin-card .reveal-btn').forEach(el=>{el.classList.remove('revealed');el.title='Reveal text'});
 }
 
 // Init
 (function(){
- const savedTheme=localStorage.getItem('ru_theme');
- if(savedTheme==='dark'){document.documentElement.setAttribute('data-theme','dark');document.getElementById('themeToggle').textContent='☀️'}
- populateCategoryFilter();
- render();
- updateBinBadge();
+ const savedTheme=localStorage.getItem('lang_theme');
+ if(savedTheme==='dark'){document.documentElement.setAttribute('data-theme','dark');document.getElementById('themeToggle').textContent='\u2600\uFE0F'}
+ renderGrid();
 })();
 </script>
 </body>
