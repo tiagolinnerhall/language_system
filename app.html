@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lang5K - Loading...</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--primary:#4338ca;--primary-light:#6366f1;--primary-bg:rgba(67,56,202,0.08);--accent:#f59e0b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,0.08);--shadow-lg:0 4px 12px rgba(0,0,0,0.12);--green:#10b981;--red:#ef4444}
+:root{--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--primary:#4338ca;--primary-light:#6366f1;--primary-bg:rgba(67,56,202,0.08);--accent:#f59e0b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,0.08);--shadow-lg:0 4px 12px rgba(0,0,0,0.12);--green:#10b981;--red:#ef4444;--orange:#f97316}
 [data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--primary:#818cf8;--primary-light:#a5b4fc;--primary-bg:rgba(129,140,248,0.12);--border:#334155;--shadow:0 1px 3px rgba(0,0,0,0.3);--shadow-lg:0 4px 12px rgba(0,0,0,0.4)}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
 .header{position:sticky;top:0;z-index:100;background:var(--card);border-bottom:1px solid var(--border);box-shadow:var(--shadow);padding:16px 24px}
@@ -76,6 +76,11 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .filters input{min-width:140px}
 .header-controls{gap:8px}
 .speed-control input[type=range]{width:60px}
+.study-card{margin:12px 16px!important;padding:24px 20px!important}
+.study-card .study-target{font-size:1.4rem!important}
+.study-start{margin:20px 16px!important;padding:30px 20px!important}
+.study-header-bar{padding:12px 16px!important}
+.streak-display{font-size:.85rem!important}
 }
 .fade-in{animation:fadeIn .3s ease}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -114,6 +119,98 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .bin-progress-bar{width:100%;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
 .bin-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#fbbf24);border-radius:4px;transition:width .4s}
 .bin-progress-text{font-size:.8rem;color:var(--text3);margin-top:4px;text-align:center}
+
+/* Study Mode */
+.study-view{display:none}
+.study-view.active{display:block}
+.study-header-bar{display:flex;align-items:center;justify-content:space-between;max-width:700px;margin:0 auto;padding:16px 24px;gap:16px}
+.study-progress-wrap{flex:1}
+.study-progress-outer{width:100%;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.study-progress-inner{height:100%;background:linear-gradient(90deg,var(--primary),var(--primary-light));border-radius:4px;transition:width .4s}
+.study-progress-label{font-size:.75rem;color:var(--text3);margin-top:3px}
+.study-exit-btn{font-size:.85rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;transition:all .2s}
+.study-exit-btn:hover{border-color:var(--red);color:var(--red)}
+
+.study-start{max-width:500px;margin:40px auto;padding:40px 30px;background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);text-align:center}
+.study-start h2{font-size:1.6rem;font-weight:800;margin-bottom:6px;color:var(--text)}
+.study-start .study-subtitle{color:var(--text3);font-size:.95rem;margin-bottom:24px}
+.study-stats-row{display:flex;justify-content:center;gap:24px;margin-bottom:24px;flex-wrap:wrap}
+.study-stat{text-align:center}
+.study-stat .stat-num{font-size:2rem;font-weight:800;color:var(--primary)}
+.study-stat .stat-label{font-size:.8rem;color:var(--text3)}
+.study-stat .stat-num.orange{color:var(--orange)}
+.study-stat .stat-num.green{color:var(--green)}
+.study-goal-picker{margin-bottom:24px}
+.study-goal-picker label{font-size:.85rem;color:var(--text2);display:block;margin-bottom:8px}
+.goal-options{display:flex;justify-content:center;gap:8px}
+.goal-opt{padding:8px 16px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s;background:var(--card);color:var(--text2)}
+.goal-opt:hover{border-color:var(--primary-light)}
+.goal-opt.active{border-color:var(--primary);background:var(--primary-bg);color:var(--primary)}
+.study-start-btn{padding:14px 40px;font-size:1.1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;box-shadow:0 4px 15px rgba(67,56,202,0.3);transition:all .2s}
+.study-start-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(67,56,202,0.4)}
+.study-time-est{font-size:.8rem;color:var(--text3);margin-top:10px}
+
+.study-card{max-width:600px;margin:20px auto;padding:32px 28px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);animation:fadeIn .3s ease}
+.study-card-label{display:inline-block;padding:3px 12px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;margin-bottom:16px;letter-spacing:.5px}
+.study-card-label.new{background:rgba(16,185,129,.15);color:var(--green)}
+.study-card-label.review{background:var(--primary-bg);color:var(--primary)}
+.study-card .study-english{font-size:1.3rem;color:var(--text);font-weight:600;margin-bottom:16px;line-height:1.4}
+.study-card .study-prompt{font-size:.9rem;color:var(--text3);margin-bottom:12px}
+.study-type-input{width:100%;padding:14px 18px;border:2px solid var(--border);border-radius:12px;font-size:1.1rem;background:var(--bg);color:var(--text);outline:none;transition:border .2s;font-family:inherit}
+.study-type-input:focus{border-color:var(--primary)}
+.study-type-input::placeholder{color:var(--text3)}
+.study-reveal-btn{width:100%;padding:14px;margin-top:14px;font-size:1rem;font-weight:600;border:none;border-radius:12px;cursor:pointer;background:var(--primary);color:#fff;transition:all .2s}
+.study-reveal-btn:hover{background:var(--primary-light)}
+
+.study-answer-section{margin-top:20px;padding-top:20px;border-top:2px solid var(--border)}
+.study-target{font-size:1.6rem;font-weight:800;color:var(--text);margin-bottom:4px;cursor:pointer}
+.study-target:hover{color:var(--primary)}
+.study-translit{font-size:1rem;color:var(--text3);font-style:italic;margin-bottom:4px}
+.study-english-answer{font-size:.95rem;color:var(--text2);margin-bottom:12px}
+.study-typed-answer{padding:10px 14px;border-radius:8px;font-size:.95rem;margin-bottom:14px}
+.study-typed-answer.correct{background:rgba(16,185,129,.1);border:1px solid var(--green);color:var(--green)}
+.study-typed-answer.wrong{background:rgba(239,68,68,.1);border:1px solid var(--red);color:var(--red)}
+.study-rating{display:flex;gap:12px;justify-content:center}
+.study-rating button{flex:1;padding:14px;font-size:1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;transition:all .2s}
+.btn-again{background:rgba(239,68,68,.12);color:var(--red)}.btn-again:hover{background:var(--red);color:#fff}
+.btn-good{background:rgba(16,185,129,.12);color:var(--green)}.btn-good:hover{background:var(--green);color:#fff}
+.study-box-info{text-align:center;font-size:.8rem;color:var(--text3);margin-top:10px}
+
+.study-summary{max-width:500px;margin:40px auto;padding:40px 30px;background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);text-align:center;animation:fadeIn .4s ease}
+.study-summary h2{font-size:1.5rem;font-weight:800;margin-bottom:4px}
+.study-summary .summary-sub{color:var(--text3);font-size:.95rem;margin-bottom:24px}
+.summary-stats{display:flex;justify-content:center;gap:20px;margin-bottom:24px;flex-wrap:wrap}
+.summary-stat{text-align:center;padding:12px 16px;background:var(--bg);border-radius:12px;min-width:90px}
+.summary-stat .s-num{font-size:1.8rem;font-weight:800}
+.summary-stat .s-label{font-size:.75rem;color:var(--text3)}
+
+/* Streak */
+.streak-display{display:flex;align-items:center;gap:6px;font-size:.95rem;font-weight:700;color:var(--orange);padding:4px 12px;background:rgba(249,115,22,.1);border-radius:20px}
+.streak-display.inactive{color:var(--text3);background:var(--primary-bg)}
+.streak-fire{font-size:1.1rem}
+
+/* Study Button */
+.btn-study{background:linear-gradient(135deg,var(--green),#34d399);color:#fff;font-weight:700;padding:8px 18px;font-size:.9rem;border-radius:10px;box-shadow:0 2px 8px rgba(16,185,129,.3)}
+.btn-study:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,.4)}
+.btn-study .due-badge{background:rgba(255,255,255,.3);padding:1px 8px;border-radius:12px;font-size:.75rem;margin-left:4px}
+
+/* Milestone */
+.milestone-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;animation:fadeIn .3s}
+.milestone-card{background:var(--card);border-radius:24px;padding:40px;text-align:center;max-width:400px;margin:20px;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:milestoneIn .5s ease}
+@keyframes milestoneIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.milestone-emoji{font-size:4rem;margin-bottom:12px}
+.milestone-title{font-size:1.5rem;font-weight:800;color:var(--primary);margin-bottom:6px}
+.milestone-text{color:var(--text2);font-size:1rem;margin-bottom:20px}
+.milestone-close{padding:12px 30px;font-size:1rem;font-weight:600;border:none;border-radius:12px;cursor:pointer;background:var(--primary);color:#fff;transition:all .2s}
+.milestone-close:hover{background:var(--primary-light)}
+
+/* SRS box indicator */
+.srs-indicator{font-size:.65rem;padding:1px 6px;border-radius:8px;font-weight:600;margin-left:4px}
+.srs-box-1{background:rgba(239,68,68,.15);color:var(--red)}
+.srs-box-2{background:rgba(249,115,22,.15);color:var(--orange)}
+.srs-box-3{background:rgba(245,158,11,.15);color:var(--accent)}
+.srs-box-4{background:rgba(16,185,129,.15);color:var(--green)}
+.srs-box-5{background:rgba(67,56,202,.15);color:var(--primary)}
 </style>
 </head>
 <body>
@@ -121,13 +218,15 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
  <div class="header-top">
   <h1 id="pageTitle">Loading...<span id="pageSubtitle"></span></h1>
   <div class="header-controls">
+   <div class="streak-display inactive" id="streakDisplay"><span class="streak-fire">&#128293;</span> <span id="streakCount">0</span> day streak</div>
+   <button class="btn btn-study" id="studyBtn" onclick="startStudyView()">&#9654; Study <span class="due-badge" id="dueBadge">0</span></button>
    <div class="speed-control">
     <label>Speed:</label>
     <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.1" value="0.85">
     <span id="speedVal">0.85x</span>
    </div>
    <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
-   <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Review Bin <span class="bin-badge" id="binBadge">0</span></button>
+   <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Bin <span class="bin-badge" id="binBadge">0</span></button>
    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
   </div>
  </div>
@@ -135,7 +234,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
   <div class="progress-text" id="progressText">0 / 0 learned</div>
  </div>
- <div class="filters">
+ <div class="filters" id="filtersBar">
   <input type="text" id="searchInput" placeholder="Search sentences..." oninput="filterSentences()">
   <select id="categoryFilter" onchange="filterSentences()"><option value="">All Categories</option></select>
   <label style="display:flex;align-items:center;gap:4px;font-size:.85rem;color:var(--text2);cursor:pointer">
@@ -145,9 +244,11 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <button class="btn btn-secondary" onclick="toggleAll(false)">Collapse All</button>
  </div>
 </div>
+
 <div class="main-view" id="mainView">
  <div class="container" id="app"><div class="loading">Loading sentences...</div></div>
 </div>
+
 <div class="bin-view" id="binView">
  <div class="bin-header">
   <h2>&#128221; Review Bin</h2>
@@ -165,6 +266,19 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
  </div>
  <div id="binCards"></div>
 </div>
+
+<div class="study-view" id="studyView">
+ <div class="study-header-bar" id="studyHeaderBar" style="display:none">
+  <div class="study-progress-wrap">
+   <div class="study-progress-outer"><div class="study-progress-inner" id="studyProgressFill" style="width:0%"></div></div>
+   <div class="study-progress-label" id="studyProgressLabel">0 / 0</div>
+  </div>
+  <button class="study-exit-btn" onclick="exitStudy()">&#10005; End Session</button>
+ </div>
+ <div id="studyContent"></div>
+</div>
+
+<div id="milestoneOverlay"></div>
 
 <script src="languages/config.js"></script>
 <script>
@@ -190,11 +304,25 @@ const progressText=document.getElementById('progressText');
 
 let learned=JSON.parse(localStorage.getItem(storagePrefix+'learned')||'{}');
 let reviewBin=JSON.parse(localStorage.getItem(storagePrefix+'review_bin')||'{}');
+let srsData=JSON.parse(localStorage.getItem(storagePrefix+'srs')||'{}');
+let userStats=JSON.parse(localStorage.getItem(storagePrefix+'stats')||'{}');
 let binOrder=[];
 let binViewActive=false;
+let studyViewActive=false;
 let currentSpeaking=null;
 let speechRate=0.85;
 let selectedIdx=-1;
+
+// SRS Constants (Leitner system)
+const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
+const MILESTONES=[10,25,50,100,250,500,1000,2500,5000];
+
+// Study session state
+let studyQueue=[];
+let studyIndex=0;
+let studySessionStats={newCount:0,reviewCount:0,againCount:0,goodCount:0};
+let studyRevealed=false;
+let dailyNewGoal=10;
 
 // Set page title
 document.getElementById('pageTitle').innerHTML=LANG.flag+' '+LANG.name+' Sentences<span><a href="index.html">&#8592; All Languages</a> &mdash; '+LANG.sentences+' sentences for daily life</span>';
@@ -219,16 +347,12 @@ async function loadLanguageData(){
   for(const file of LANG.files){
    await loadScript('languages/'+langKey+'/'+file);
   }
-  // Combine all data arrays
   if(typeof SENTENCES_DATA!=='undefined') SENTENCES=SENTENCES.concat(SENTENCES_DATA);
-  // Support legacy variable names
   if(typeof window.SENTENCES_LEGACY!=='undefined') SENTENCES=SENTENCES.concat(window.SENTENCES_LEGACY);
-  // Check for numbered arrays: SENTENCES1, SENTENCES2, etc.
   for(let i=1;i<=10;i++){
    const varName='SENTENCES'+i;
    if(typeof window[varName]!=='undefined') SENTENCES=SENTENCES.concat(window[varName]);
   }
-  // Also check plain SENTENCES if defined by data file (for legacy data1.js)
   if(SENTENCES.length===0 && typeof window._SENT!=='undefined') SENTENCES=window._SENT;
 
   if(!SENTENCES.length){
@@ -238,12 +362,14 @@ async function loadLanguageData(){
   populateCategoryFilter();
   render();
   updateBinBadge();
+  updateStreakDisplay();
+  updateDueBadge();
  }catch(e){
   app.innerHTML='<div class="empty-state">Error loading language data: '+e.message+'</div>';
  }
 }
 
-// Group sentences by category
+// === Core functions ===
 function getCategories(){
  const cats=new Map();
  SENTENCES.forEach((s,i)=>{
@@ -304,11 +430,13 @@ function render(){
     <button class="btn btn-secondary play-all-btn" onclick="playAllInCategory(this,'${catName.replace(/'/g,"\\'")}')">&#9654; Play All in This Category</button>
     ${filtered.map(s=>{
      globalNum++;
+     const srsInfo=srsData[s.idx];
+     const srsLabel=srsInfo?`<span class="srs-indicator srs-box-${srsInfo.box}">Box ${srsInfo.box}</span>`:'';
      return `
      <div class="sentence" data-idx="${s.idx}" id="s${s.idx}">
       <div class="s-num">${globalNum}</div>
       <div class="s-content">
-       <div class="target-lang" onclick="speak(${s.idx})">${s.r}</div>
+       <div class="target-lang" onclick="speak(${s.idx})">${s.r} ${srsLabel}</div>
        <div class="translit">${s.t}</div>
        <div class="english">${s.e}</div>
       </div>
@@ -353,6 +481,13 @@ function speak(idx){
  selectedIdx=idx;
 }
 
+function speakText(text){
+ window.speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(text);
+ u.lang=langCode;u.rate=speechRate;
+ window.speechSynthesis.speak(u);
+}
+
 async function playAllInCategory(btn,catName){
  const cat=getCategories().get(catName);
  if(!cat)return;
@@ -376,16 +511,16 @@ async function playAllInCategory(btn,catName){
 
 function toggleLearned(idx,btn){
  if(learned[idx]){delete learned[idx];btn.classList.remove('learned');btn.innerHTML=''}
- else{learned[idx]=true;btn.classList.add('learned');btn.innerHTML='&#10003;'}
+ else{learned[idx]=true;btn.classList.add('learned');btn.innerHTML='&#10003;';checkMilestone(Object.keys(learned).length)}
  localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
  updateProgress();
  const catEl=btn.closest('.category');
  if(catEl){
-  const catHeader=catEl.querySelector('.cat-learned');
   const catName=SENTENCES[idx][3];
   const cats=getCategories();
   const catSentences=cats.get(catName)||[];
   const learnedCount=catSentences.filter(s=>learned[s.idx]).length;
+  const catHeader=catEl.querySelector('.cat-learned');
   if(catHeader){catHeader.innerHTML=learnedCount?`&#10003; ${learnedCount} learned`:''}
  }
 }
@@ -409,6 +544,19 @@ function toggleTheme(){
 // Keyboard shortcuts
 document.addEventListener('keydown',e=>{
  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+ if(studyViewActive){
+  if(e.code==='Space'||e.code==='Enter'){
+   e.preventDefault();
+   if(studyRevealed){
+    // Space/Enter = Good when revealed
+   } else {
+    revealStudyCard();
+   }
+  }
+  if(e.key==='1'&&studyRevealed){e.preventDefault();rateStudyCard(false)}
+  if(e.key==='2'&&studyRevealed){e.preventDefault();rateStudyCard(true)}
+  return;
+ }
  if(e.code==='Space'){
   e.preventDefault();
   if(currentSpeaking!==null){window.speechSynthesis.cancel()}
@@ -426,22 +574,19 @@ document.addEventListener('keydown',e=>{
  }
 });
 
-// PDF Export
+// === PDF Export ===
 function exportPDF(){
  const{jsPDF}=window.jspdf;
  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-
  doc.setFont('helvetica','bold');
  doc.setFontSize(18);
  doc.text(LANG.name+' Sentences for Daily Life',105,20,{align:'center'});
  doc.setFontSize(10);
  doc.setFont('helvetica','normal');
  doc.text('Complete guide to everyday '+LANG.name+' phrases - lang5k.com',105,28,{align:'center'});
-
  let y=35;
  const cats=getCategories();
  let num=0;
-
  cats.forEach((sentences,catName)=>{
   if(y>250){doc.addPage();y=20}
   doc.setFont('helvetica','bold');
@@ -452,12 +597,7 @@ function exportPDF(){
   doc.setDrawColor(67,56,202);
   doc.line(14,y,196,y);
   y+=5;
-
-  const rows=sentences.map(s=>{
-   num++;
-   return[num,s.r,s.t,s.e];
-  });
-
+  const rows=sentences.map(s=>{num++;return[num,s.r,s.t,s.e]});
   doc.autoTable({
    startY:y,
    head:[['#',LANG.name,'Transliteration','English']],
@@ -466,14 +606,10 @@ function exportPDF(){
    styles:{fontSize:8,cellPadding:2,overflow:'linebreak',font:'helvetica'},
    headStyles:{fillColor:[67,56,202],textColor:255,fontStyle:'bold'},
    columnStyles:{0:{cellWidth:10},1:{cellWidth:50,fontStyle:'bold'},2:{cellWidth:55,textColor:[100,100,100],fontStyle:'italic'},3:{cellWidth:55}},
-   didDrawPage:()=>{
-    doc.setFontSize(8);doc.setTextColor(150);
-    doc.text(LANG.name+' Sentences - lang5k.com',105,290,{align:'center'});
-   }
+   didDrawPage:()=>{doc.setFontSize(8);doc.setTextColor(150);doc.text(LANG.name+' Sentences - lang5k.com',105,290,{align:'center'})}
   });
   y=doc.lastAutoTable.finalY+10;
  });
-
  doc.save(LANG.name+'_Sentences_Lang5K.pdf');
 }
 
@@ -491,24 +627,27 @@ function toggleBin(idx,btn){
 }
 
 function updateBinBadge(){
- const count=Object.keys(reviewBin).length;
- document.getElementById('binBadge').textContent=count;
+ document.getElementById('binBadge').textContent=Object.keys(reviewBin).length;
 }
 
 function toggleBinView(){
+ if(studyViewActive)return;
  binViewActive=!binViewActive;
  const mv=document.getElementById('mainView');
  const bv=document.getElementById('binView');
  const btn=document.getElementById('binToggleBtn');
+ const fb=document.getElementById('filtersBar');
  if(binViewActive){
   mv.classList.add('hidden');
   bv.classList.add('active');
-  btn.innerHTML='&#x2190; Back to All <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
+  fb.style.display='none';
+  btn.innerHTML='&#x2190; Back <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
   renderBinView();
  } else {
   mv.classList.remove('hidden');
   bv.classList.remove('active');
-  btn.innerHTML='&#128221; Review Bin <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
+  fb.style.display='';
+  btn.innerHTML='&#128221; Bin <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
   render();
  }
 }
@@ -559,7 +698,6 @@ function speakBin(idx){
  window.speechSynthesis.cancel();
  document.querySelectorAll('.bin-card.playing').forEach(el=>el.classList.remove('playing'));
  document.querySelectorAll('.bin-card .speak-btn.active').forEach(el=>el.classList.remove('active'));
-
  const s=SENTENCES[idx];
  const u=new SpeechSynthesisUtterance(s[0]);
  u.lang=langCode;u.rate=speechRate;
@@ -604,7 +742,7 @@ function removeFromBin(idx){
   },300);
  }
  const btn=document.getElementById('binToggleBtn');
- btn.innerHTML='&#x2190; Back to All <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
+ btn.innerHTML='&#x2190; Back <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
 }
 
 function shuffleBin(){
@@ -616,11 +754,9 @@ async function playAllBin(){
  const btn=document.getElementById('binPlayAllBtn');
  const indices=binOrder.length?[...binOrder]:Object.keys(reviewBin).map(Number);
  if(!indices.length)return;
-
  btn.innerHTML='&#9632; Stop';
  let stopped=false;
  btn.onclick=()=>{stopped=true;window.speechSynthesis.cancel();btn.innerHTML='&#9654; Play All (audio only)';btn.onclick=()=>playAllBin()};
-
  for(const idx of indices){
   if(stopped)break;
   await new Promise(resolve=>{
@@ -650,10 +786,437 @@ function hideAllBin(){
  document.querySelectorAll('.bin-card .reveal-btn').forEach(el=>{el.classList.remove('revealed');el.title='Reveal text'});
 }
 
-// Init
+// ============================================================
+// === SPACED REPETITION (Leitner System) + STUDY MODE ===
+// ============================================================
+
+function getToday(){
+ return new Date().toISOString().slice(0,10);
+}
+
+function getTodayStats(){
+ const today=getToday();
+ if(!userStats.date||userStats.date!==today){
+  userStats.date=today;
+  userStats.todayNew=0;
+  userStats.todayReviews=0;
+  saveStats();
+ }
+ return userStats;
+}
+
+function saveStats(){
+ localStorage.setItem(storagePrefix+'stats',JSON.stringify(userStats));
+}
+
+function saveSRS(){
+ localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
+}
+
+function getDueReviews(){
+ const today=getToday();
+ return Object.entries(srsData)
+  .filter(([idx,data])=>data.nextReview<=today && !learned[idx])
+  .sort((a,b)=>a[1].box-b[1].box)
+  .map(([idx])=>parseInt(idx));
+}
+
+function getNewSentences(limit){
+ return SENTENCES.map((_,i)=>i)
+  .filter(i=>!srsData[i]&&!learned[i])
+  .slice(0,limit);
+}
+
+function processRating(idx,correct){
+ const data=srsData[idx]||{box:0,correctStreak:0};
+ if(correct){
+  data.box=Math.min((data.box||0)+1,5);
+  data.correctStreak=(data.correctStreak||0)+1;
+ } else {
+  data.box=1;
+  data.correctStreak=0;
+ }
+ const today=new Date();
+ data.lastReview=getToday();
+ const daysUntilNext=LEITNER_DAYS[data.box]||1;
+ const nextDate=new Date(today);
+ nextDate.setDate(nextDate.getDate()+daysUntilNext);
+ data.nextReview=nextDate.toISOString().slice(0,10);
+ srsData[idx]=data;
+ saveSRS();
+
+ // Graduate from Box 5 → learned
+ if(correct&&data.box>=5){
+  learned[idx]=true;
+  localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
+  checkMilestone(Object.keys(learned).length);
+ }
+}
+
+function updateDueBadge(){
+ const due=getDueReviews().length;
+ const stats=getTodayStats();
+ const newAvail=Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0));
+ const newSentences=getNewSentences(newAvail);
+ const total=due+newSentences.length;
+ document.getElementById('dueBadge').textContent=total;
+}
+
+// === Streak System ===
+function updateStreak(){
+ const today=getToday();
+ if(userStats.lastStudyDate===today)return; // already counted today
+
+ const yesterday=new Date();
+ yesterday.setDate(yesterday.getDate()-1);
+ const yesterdayStr=yesterday.toISOString().slice(0,10);
+
+ if(userStats.lastStudyDate===yesterdayStr){
+  userStats.currentStreak=(userStats.currentStreak||0)+1;
+ } else if(!userStats.lastStudyDate){
+  userStats.currentStreak=1;
+ } else {
+  userStats.currentStreak=1; // streak broken
+ }
+
+ userStats.lastStudyDate=today;
+ userStats.longestStreak=Math.max(userStats.longestStreak||0,userStats.currentStreak);
+ saveStats();
+}
+
+function updateStreakDisplay(){
+ const el=document.getElementById('streakDisplay');
+ const countEl=document.getElementById('streakCount');
+ const streak=userStats.currentStreak||0;
+
+ // Check if streak is still valid (did we miss a day?)
+ const today=getToday();
+ const yesterday=new Date();
+ yesterday.setDate(yesterday.getDate()-1);
+ const yesterdayStr=yesterday.toISOString().slice(0,10);
+
+ let displayStreak=streak;
+ if(userStats.lastStudyDate && userStats.lastStudyDate!==today && userStats.lastStudyDate!==yesterdayStr){
+  displayStreak=0; // streak broken
+ }
+
+ countEl.textContent=displayStreak;
+ if(displayStreak>0){
+  el.classList.remove('inactive');
+ } else {
+  el.classList.add('inactive');
+ }
+}
+
+// === Milestone System ===
+function checkMilestone(totalLearned){
+ if(MILESTONES.includes(totalLearned)){
+  showMilestone(totalLearned);
+ }
+}
+
+function showMilestone(count){
+ const overlay=document.getElementById('milestoneOverlay');
+ let emoji='&#127881;',msg='';
+ if(count>=5000){emoji='&#127942;';msg='You\'ve mastered the entire course!'}
+ else if(count>=2500){emoji='&#128142;';msg='More than halfway to full mastery!'}
+ else if(count>=1000){emoji='&#11088;';msg='You can handle most daily conversations!'}
+ else if(count>=500){emoji='&#128640;';msg='You\'re building serious fluency!'}
+ else if(count>=250){emoji='&#128170;';msg='You\'re on a roll!'}
+ else if(count>=100){emoji='&#127775;';msg='Triple digits - amazing progress!'}
+ else if(count>=50){emoji='&#128293;';msg='You\'re picking up speed!'}
+ else if(count>=25){emoji='&#127793;';msg='Great start, keep it up!'}
+ else{emoji='&#127881;';msg='You\'re on your way!'}
+
+ overlay.innerHTML=`
+  <div class="milestone-overlay" onclick="closeMilestone()">
+   <div class="milestone-card" onclick="event.stopPropagation()">
+    <div class="milestone-emoji">${emoji}</div>
+    <div class="milestone-title">${count} Sentences Learned!</div>
+    <div class="milestone-text">${msg}</div>
+    <button class="milestone-close" onclick="closeMilestone()">Keep Going!</button>
+   </div>
+  </div>`;
+}
+
+function closeMilestone(){
+ document.getElementById('milestoneOverlay').innerHTML='';
+}
+
+// === Study View ===
+function startStudyView(){
+ if(binViewActive)return;
+
+ studyViewActive=true;
+ document.getElementById('mainView').classList.add('hidden');
+ document.getElementById('filtersBar').style.display='none';
+ document.getElementById('studyView').classList.add('active');
+
+ const stats=getTodayStats();
+ dailyNewGoal=userStats.dailyGoal||10;
+
+ showStudyStart();
+}
+
+function showStudyStart(){
+ const due=getDueReviews();
+ const stats=getTodayStats();
+ const remainingNew=Math.max(0,dailyNewGoal-(stats.todayNew||0));
+ const newAvail=getNewSentences(remainingNew);
+ const totalSession=due.length+newAvail.length;
+ const estMinutes=Math.max(1,Math.round(totalSession*0.8));
+
+ document.getElementById('studyHeaderBar').style.display='none';
+ document.getElementById('studyContent').innerHTML=`
+  <div class="study-start fade-in">
+   <h2>&#128218; Today's Study Session</h2>
+   <div class="study-subtitle">${LANG.flag} ${LANG.name}</div>
+   <div class="study-stats-row">
+    <div class="study-stat"><div class="stat-num orange">${due.length}</div><div class="stat-label">Reviews Due</div></div>
+    <div class="study-stat"><div class="stat-num green">${newAvail.length}</div><div class="stat-label">New Sentences</div></div>
+    <div class="study-stat"><div class="stat-num">${Object.keys(learned).length}</div><div class="stat-label">Total Learned</div></div>
+   </div>
+   <div class="study-goal-picker">
+    <label>New sentences per day:</label>
+    <div class="goal-options">
+     ${[5,10,15,20].map(n=>`<div class="goal-opt ${dailyNewGoal===n?'active':''}" onclick="setDailyGoal(${n})">${n}</div>`).join('')}
+    </div>
+   </div>
+   ${totalSession>0?`
+    <button class="study-start-btn" onclick="beginStudySession()">Start Studying</button>
+    <div class="study-time-est">~${estMinutes} min estimated</div>
+   `:`
+    <div style="color:var(--green);font-weight:600;font-size:1.1rem;margin:20px 0">&#10003; All done for today! Come back tomorrow.</div>
+    <button class="btn btn-secondary" onclick="exitStudy()">Back to Browse</button>
+   `}
+  </div>`;
+}
+
+function setDailyGoal(n){
+ dailyNewGoal=n;
+ userStats.dailyGoal=n;
+ saveStats();
+ showStudyStart();
+}
+
+function beginStudySession(){
+ // Build queue: reviews first, then new
+ const stats=getTodayStats();
+ const due=getDueReviews();
+ const remainingNew=Math.max(0,dailyNewGoal-(stats.todayNew||0));
+ const newCards=getNewSentences(remainingNew);
+
+ studyQueue=[];
+ due.forEach(idx=>studyQueue.push({idx,type:'review'}));
+ newCards.forEach(idx=>studyQueue.push({idx,type:'new'}));
+
+ if(!studyQueue.length){
+  showStudyStart();
+  return;
+ }
+
+ studyIndex=0;
+ studySessionStats={newCount:0,reviewCount:0,againCount:0,goodCount:0};
+ studyRevealed=false;
+
+ document.getElementById('studyHeaderBar').style.display='flex';
+ updateStreak();
+ updateStreakDisplay();
+ showStudyCard();
+}
+
+function showStudyCard(){
+ if(studyIndex>=studyQueue.length){
+  showStudySummary();
+  return;
+ }
+
+ const item=studyQueue[studyIndex];
+ const s=SENTENCES[item.idx];
+ const isNew=item.type==='new';
+ studyRevealed=false;
+
+ // Update progress bar
+ const pct=Math.round(studyIndex/studyQueue.length*100);
+ document.getElementById('studyProgressFill').style.width=pct+'%';
+ document.getElementById('studyProgressLabel').textContent=(studyIndex+1)+' / '+studyQueue.length+(isNew?' (new)':' (review)');
+
+ const srsInfo=srsData[item.idx];
+ const boxLabel=srsInfo?'Box '+srsInfo.box:'New';
+
+ if(isNew){
+  // New card: show everything, user clicks Next
+  document.getElementById('studyContent').innerHTML=`
+   <div class="study-card fade-in">
+    <span class="study-card-label new">NEW SENTENCE</span>
+    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}')" style="margin-bottom:6px">${s[0]}</div>
+    <div class="translit" style="font-size:1rem;margin-bottom:4px">${s[1]}</div>
+    <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${s[2]}</div>
+    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}')" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
+    <button class="study-reveal-btn" onclick="nextNewCard()" style="background:var(--green)">Got it! Next &#8594;</button>
+   </div>`;
+  // Auto-play audio
+  speakText(s[0]);
+ } else {
+  // Review card: show English, user recalls, then reveals
+  document.getElementById('studyContent').innerHTML=`
+   <div class="study-card fade-in">
+    <span class="study-card-label review">REVIEW &middot; ${boxLabel}</span>
+    <div class="study-english">${s[2]}</div>
+    <div class="study-prompt">Try to recall the ${LANG.name} sentence...</div>
+    <input type="text" class="study-type-input" id="studyInput" placeholder="Type your answer (optional)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+    <button class="study-reveal-btn" onclick="revealStudyCard()">Show Answer</button>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Press Enter to reveal &middot; Then 1=Again, 2=Good</div>
+   </div>`;
+  // Auto-play audio
+  speakText(s[0]);
+  // Focus the input (slight delay for animation)
+  setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
+ }
+}
+
+function nextNewCard(){
+ const item=studyQueue[studyIndex];
+ // Enter into SRS as Box 1, review tomorrow
+ const tomorrow=new Date();
+ tomorrow.setDate(tomorrow.getDate()+1);
+ srsData[item.idx]={
+  box:1,
+  nextReview:tomorrow.toISOString().slice(0,10),
+  lastReview:getToday(),
+  correctStreak:0
+ };
+ saveSRS();
+
+ // Update stats
+ studySessionStats.newCount++;
+ userStats.todayNew=(userStats.todayNew||0)+1;
+ saveStats();
+
+ studyIndex++;
+ showStudyCard();
+}
+
+function revealStudyCard(){
+ if(studyRevealed)return;
+ studyRevealed=true;
+
+ const item=studyQueue[studyIndex];
+ const s=SENTENCES[item.idx];
+ const srsInfo=srsData[item.idx]||{box:1};
+ const typedAnswer=(document.getElementById('studyInput')||{}).value||'';
+
+ // Compare typed answer
+ let typedHTML='';
+ if(typedAnswer.trim()){
+  const isCorrect=typedAnswer.trim().toLowerCase()===s[0].toLowerCase();
+  typedHTML=`<div class="study-typed-answer ${isCorrect?'correct':'wrong'}">Your answer: ${typedAnswer}</div>`;
+ }
+
+ document.getElementById('studyContent').innerHTML=`
+  <div class="study-card fade-in">
+   <span class="study-card-label review">REVIEW &middot; Box ${srsInfo.box}</span>
+   <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text3)">${s[2]}</div>
+   <div class="study-answer-section">
+    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}')">${s[0]}</div>
+    <div class="study-translit">${s[1]}</div>
+    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}')" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
+    ${typedHTML}
+    <div class="study-rating">
+     <button class="btn-again" onclick="rateStudyCard(false)">&#10060; Again (1)</button>
+     <button class="btn-good" onclick="rateStudyCard(true)">&#10003; Good (2)</button>
+    </div>
+    <div class="study-box-info" id="studyBoxInfo">Box ${srsInfo.box}</div>
+   </div>
+  </div>`;
+
+ speakText(s[0]);
+}
+
+function rateStudyCard(correct){
+ const item=studyQueue[studyIndex];
+ const oldBox=(srsData[item.idx]||{box:1}).box||1;
+
+ processRating(item.idx,correct);
+
+ const newBox=srsData[item.idx].box;
+ const nextDays=LEITNER_DAYS[newBox]||1;
+
+ // Update stats
+ studySessionStats.reviewCount++;
+ if(correct)studySessionStats.goodCount++;
+ else studySessionStats.againCount++;
+ userStats.todayReviews=(userStats.todayReviews||0)+1;
+ saveStats();
+
+ // Brief feedback
+ const info=document.getElementById('studyBoxInfo');
+ if(info){
+  if(correct){
+   info.textContent=`Box ${oldBox} \u2192 Box ${newBox} (review in ${nextDays} day${nextDays>1?'s':''})`;
+   info.style.color='var(--green)';
+  } else {
+   info.textContent=`Back to Box 1 (review tomorrow)`;
+   info.style.color='var(--red)';
+  }
+ }
+
+ // Move to next card after brief delay
+ setTimeout(()=>{
+  studyIndex++;
+  showStudyCard();
+ },800);
+}
+
+function showStudySummary(){
+ document.getElementById('studyHeaderBar').style.display='none';
+ const totalDone=studySessionStats.newCount+studySessionStats.reviewCount;
+ const accuracy=studySessionStats.reviewCount>0?Math.round(studySessionStats.goodCount/studySessionStats.reviewCount*100):100;
+ const totalLearned=Object.keys(learned).length;
+ const totalInSRS=Object.keys(srsData).length;
+
+ document.getElementById('studyContent').innerHTML=`
+  <div class="study-summary fade-in">
+   <h2>&#127881; Session Complete!</h2>
+   <div class="summary-sub">Great work! Keep coming back daily for best results.</div>
+   <div class="summary-stats">
+    <div class="summary-stat"><div class="s-num" style="color:var(--green)">${studySessionStats.newCount}</div><div class="s-label">New Learned</div></div>
+    <div class="summary-stat"><div class="s-num" style="color:var(--primary)">${studySessionStats.reviewCount}</div><div class="s-label">Reviewed</div></div>
+    <div class="summary-stat"><div class="s-num" style="color:${accuracy>=80?'var(--green)':'var(--orange)'}"> ${accuracy}%</div><div class="s-label">Accuracy</div></div>
+    <div class="summary-stat"><div class="s-num" style="color:var(--orange)">${userStats.currentStreak||0}</div><div class="s-label">Day Streak</div></div>
+   </div>
+   <div style="margin-bottom:20px">
+    <div style="font-size:.9rem;color:var(--text2);margin-bottom:4px">Overall Progress</div>
+    <div style="font-size:1.4rem;font-weight:800;color:var(--primary)">${totalLearned} / ${SENTENCES.length} learned</div>
+    <div style="font-size:.85rem;color:var(--text3)">${totalInSRS} sentences in active review</div>
+   </div>
+   <button class="study-start-btn" onclick="exitStudy()" style="background:var(--primary)">Back to Browse</button>
+  </div>`;
+
+ updateProgress();
+ updateDueBadge();
+ updateStreakDisplay();
+}
+
+function exitStudy(){
+ window.speechSynthesis.cancel();
+ studyViewActive=false;
+ document.getElementById('studyView').classList.remove('active');
+ document.getElementById('mainView').classList.remove('hidden');
+ document.getElementById('filtersBar').style.display='';
+ document.getElementById('studyHeaderBar').style.display='none';
+ render();
+ updateDueBadge();
+}
+
+// === Init ===
 (function(){
  const savedTheme=localStorage.getItem('lang_theme');
  if(savedTheme==='dark'){document.documentElement.setAttribute('data-theme','dark');document.getElementById('themeToggle').textContent='\u2600\uFE0F'}
+
+ // Load saved daily goal
+ if(userStats.dailyGoal)dailyNewGoal=userStats.dailyGoal;
+
  loadLanguageData();
 })();
 </script>
