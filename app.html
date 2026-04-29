@@ -4,12 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lang5K - Loading...</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--primary:#4338ca;--primary-light:#6366f1;--primary-bg:rgba(67,56,202,0.08);--accent:#f59e0b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,0.08);--shadow-lg:0 4px 12px rgba(0,0,0,0.12);--green:#10b981;--red:#ef4444;--orange:#f97316}
+:root{--bg:#f3f5f8;--card:#fff;--text:#111827;--text2:#4b5563;--text3:#6b7280;--primary:#2563eb;--primary-light:#0ea5e9;--primary-bg:rgba(37,99,235,0.08);--accent:#d97706;--border:#dbe3ee;--shadow:0 1px 3px rgba(15,23,42,0.08);--shadow-lg:0 10px 28px rgba(15,23,42,0.14);--green:#059669;--red:#dc2626;--orange:#ea580c}
 [data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--primary:#818cf8;--primary-light:#a5b4fc;--primary-bg:rgba(129,140,248,0.12);--border:#334155;--shadow:0 1px 3px rgba(0,0,0,0.3);--shadow-lg:0 4px 12px rgba(0,0,0,0.4)}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
 .header{position:sticky;top:0;z-index:100;background:var(--card);border-bottom:1px solid var(--border);box-shadow:var(--shadow);padding:16px 24px}
@@ -27,6 +29,17 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .filters input,.filters select{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem;outline:none;transition:border .2s}
 .filters input:focus,.filters select:focus{border-color:var(--primary)}
 .filters input{flex:1;min-width:200px}
+.mode-tabs{max-width:1200px;margin:10px auto 0;display:flex;gap:8px;flex-wrap:wrap}
+.mode-tab{padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text2);font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s}
+.mode-tab:hover{border-color:var(--primary);color:var(--primary)}
+.mode-tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.dashboard{max-width:1200px;margin:16px auto 0;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.dash-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.dash-card .dash-num{font-size:1.45rem;font-weight:800;color:var(--primary)}
+.dash-card .dash-label{font-size:.78rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.audio-notice{max-width:1200px;margin:14px auto 0;padding:0 24px}
+.audio-notice-inner{background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.25);color:var(--text2);border-radius:12px;padding:12px 14px;font-size:.88rem}
+.audio-notice-inner strong{color:var(--text)}
 .btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-light)}
 .btn-secondary{background:var(--primary-bg);color:var(--primary)}.btn-secondary:hover{background:var(--primary);color:#fff}
@@ -92,6 +105,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .bin-badge{background:var(--accent);color:#fff;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:20px;margin-left:4px;min-width:20px;text-align:center;display:inline-block}
 .bin-view{display:none}
 .bin-view.active{display:block}
+.practice-view{display:none}
+.practice-view.active{display:block}
 .main-view.hidden{display:none}
 .bin-header{text-align:center;padding:30px 20px 10px;max-width:800px;margin:0 auto}
 .bin-header h2{font-size:1.4rem;font-weight:700;color:var(--accent);margin-bottom:4px}
@@ -211,6 +226,21 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .srs-box-3{background:rgba(245,158,11,.15);color:var(--accent)}
 .srs-box-4{background:rgba(16,185,129,.15);color:var(--green)}
 .srs-box-5{background:rgba(67,56,202,.15);color:var(--primary)}
+
+/* Active practice modes */
+.practice-shell{max-width:720px;margin:24px auto;padding:0 24px}
+.practice-card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);padding:28px;text-align:center}
+.practice-kicker{font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--primary);margin-bottom:8px}
+.practice-card h2{font-size:1.45rem;margin-bottom:6px}
+.practice-card p{color:var(--text3);font-size:.92rem;margin-bottom:18px}
+.practice-english{font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:14px}
+.practice-target{font-size:1.65rem;font-weight:800;line-height:1.45;margin:14px 0;color:var(--text)}
+.cloze-gap{display:inline-block;min-width:92px;border-bottom:3px solid var(--primary);color:transparent;background:var(--primary-bg);border-radius:6px;padding:0 8px}
+.practice-input{width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text);font-size:1.05rem;font-family:inherit;outline:none;margin:10px 0}
+.practice-input:focus{border-color:var(--primary)}
+.practice-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.practice-feedback{margin-top:14px;padding:12px;border-radius:12px;background:var(--bg);color:var(--text2);font-size:.95rem}
+.practice-feedback strong{color:var(--text)}
 </style>
 </head>
 <body>
@@ -234,6 +264,13 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
   <div class="progress-text" id="progressText">0 / 0 learned</div>
  </div>
+ <div class="mode-tabs" id="modeTabs">
+  <button class="mode-tab active" data-mode="browse" onclick="showBrowseView()">Browse</button>
+  <button class="mode-tab" data-mode="study" onclick="startStudyView()">Study</button>
+  <button class="mode-tab" data-mode="cloze" onclick="showClozeView()">Cloze</button>
+  <button class="mode-tab" data-mode="dictation" onclick="showDictationView()">Dictation</button>
+  <button class="mode-tab" data-mode="bin" onclick="toggleBinView()">Review Bin <span id="binBadgeTab">0</span></button>
+ </div>
  <div class="filters" id="filtersBar">
   <input type="text" id="searchInput" placeholder="Search sentences..." oninput="filterSentences()">
   <select id="categoryFilter" onchange="filterSentences()"><option value="">All Categories</option></select>
@@ -246,6 +283,15 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 </div>
 
 <div class="main-view" id="mainView">
+ <div class="audio-notice">
+  <div class="audio-notice-inner"><strong>Audio status:</strong> Browser audio is temporary. The production path is native or studio-grade audio hosted on Cloudflare R2, with the same sentence IDs used by this course.</div>
+ </div>
+ <div class="dashboard" id="dashboard">
+  <div class="dash-card"><div class="dash-num" id="dashLearned">0</div><div class="dash-label">Learned</div></div>
+  <div class="dash-card"><div class="dash-num" id="dashActive">0</div><div class="dash-label">Active Review</div></div>
+  <div class="dash-card"><div class="dash-num" id="dashDue">0</div><div class="dash-label">Due Today</div></div>
+  <div class="dash-card"><div class="dash-num" id="dashCourse">0</div><div class="dash-label">Course Sentences</div></div>
+ </div>
  <div class="container" id="app"><div class="loading">Loading sentences...</div></div>
 </div>
 
@@ -276,6 +322,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <button class="study-exit-btn" onclick="exitStudy()">&#10005; End Session</button>
  </div>
  <div id="studyContent"></div>
+</div>
+
+<div class="practice-view" id="clozeView">
+ <div class="practice-shell">
+  <div id="clozeContent"></div>
+ </div>
+</div>
+
+<div class="practice-view" id="dictationView">
+ <div class="practice-shell">
+  <div id="dictationContent"></div>
+ </div>
 </div>
 
 <div id="milestoneOverlay"></div>
@@ -309,9 +367,12 @@ let userStats=JSON.parse(localStorage.getItem(storagePrefix+'stats')||'{}');
 let binOrder=[];
 let binViewActive=false;
 let studyViewActive=false;
+let currentMode='browse';
 let currentSpeaking=null;
 let speechRate=0.85;
 let selectedIdx=-1;
+let clozeCurrent=null;
+let dictationCurrent=null;
 
 // SRS Constants (Leitner system)
 const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
@@ -347,11 +408,17 @@ async function loadLanguageData(){
   for(const file of LANG.files){
    await loadScript('languages/'+langKey+'/'+file);
   }
-  if(typeof SENTENCES_DATA!=='undefined') SENTENCES=SENTENCES.concat(SENTENCES_DATA);
+  let sharedData;
+  try{sharedData=eval('typeof SENTENCES_DATA!=="undefined"?SENTENCES_DATA:undefined')}catch(_){}
+  if(sharedData) SENTENCES=SENTENCES.concat(sharedData);
   if(typeof window.SENTENCES_LEGACY!=='undefined') SENTENCES=SENTENCES.concat(window.SENTENCES_LEGACY);
   for(let i=1;i<=10;i++){
    const varName='SENTENCES'+i;
-   if(typeof window[varName]!=='undefined') SENTENCES=SENTENCES.concat(window[varName]);
+   let data=window[varName];
+   if(typeof data==='undefined'){
+    try{data=eval('typeof '+varName+'!=="undefined"?'+varName+':undefined')}catch(_){}
+   }
+   if(typeof data!=='undefined') SENTENCES=SENTENCES.concat(data);
   }
   if(SENTENCES.length===0 && typeof window._SENT!=='undefined') SENTENCES=window._SENT;
 
@@ -395,6 +462,50 @@ function updateProgress(){
  const pct=total?Math.round(done/total*100):0;
  progressFill.style.width=pct+'%';
  progressText.textContent=done+' / '+total+' learned ('+pct+'%)';
+ updateDashboard();
+}
+
+function setActiveMode(mode){
+ currentMode=mode;
+ document.querySelectorAll('.mode-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.mode===mode));
+}
+
+function updateDashboard(){
+ const learnedCount=Object.keys(learned).length;
+ const activeCount=Object.keys(srsData).filter(idx=>!learned[idx]).length;
+ const dueCount=getDueReviews().length;
+ const courseCount=SENTENCES.length;
+ const updates={dashLearned:learnedCount,dashActive:activeCount,dashDue:dueCount,dashCourse:courseCount};
+ Object.entries(updates).forEach(([id,value])=>{
+  const el=document.getElementById(id);
+  if(el)el.textContent=value;
+ });
+}
+
+function hideAllViews(){
+ window.speechSynthesis.cancel();
+ document.getElementById('mainView').classList.add('hidden');
+ document.getElementById('binView').classList.remove('active');
+ document.getElementById('studyView').classList.remove('active');
+ document.getElementById('clozeView').classList.remove('active');
+ document.getElementById('dictationView').classList.remove('active');
+ document.getElementById('filtersBar').style.display='none';
+ binViewActive=false;
+ studyViewActive=false;
+}
+
+function showBrowseView(){
+ hideAllViews();
+ setActiveMode('browse');
+ document.getElementById('mainView').classList.remove('hidden');
+ document.getElementById('filtersBar').style.display='';
+ const btn=document.getElementById('binToggleBtn');
+ if(btn){
+  btn.innerHTML='&#128221; Bin <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
+  btn.onclick=()=>toggleBinView();
+ }
+ render();
+ updateBinBadge();
 }
 
 function render(){
@@ -627,29 +738,27 @@ function toggleBin(idx,btn){
 }
 
 function updateBinBadge(){
- document.getElementById('binBadge').textContent=Object.keys(reviewBin).length;
+ const count=Object.keys(reviewBin).length;
+ const badge=document.getElementById('binBadge');
+ const tabBadge=document.getElementById('binBadgeTab');
+ if(badge)badge.textContent=count;
+ if(tabBadge)tabBadge.textContent=count;
 }
 
 function toggleBinView(){
- if(studyViewActive)return;
- binViewActive=!binViewActive;
+ hideAllViews();
+ setActiveMode('bin');
+ binViewActive=true;
  const mv=document.getElementById('mainView');
  const bv=document.getElementById('binView');
  const btn=document.getElementById('binToggleBtn');
  const fb=document.getElementById('filtersBar');
- if(binViewActive){
-  mv.classList.add('hidden');
-  bv.classList.add('active');
-  fb.style.display='none';
-  btn.innerHTML='&#x2190; Back <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
-  renderBinView();
- } else {
-  mv.classList.remove('hidden');
-  bv.classList.remove('active');
-  fb.style.display='';
-  btn.innerHTML='&#128221; Bin <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
-  render();
- }
+ mv.classList.add('hidden');
+ bv.classList.add('active');
+ fb.style.display='none';
+ btn.innerHTML='&#x2190; Browse <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
+ btn.onclick=()=>showBrowseView();
+ renderBinView();
 }
 
 function shuffleArray(arr){
@@ -945,8 +1054,8 @@ function closeMilestone(){
 
 // === Study View ===
 function startStudyView(){
- if(binViewActive)return;
-
+ hideAllViews();
+ setActiveMode('study');
  studyViewActive=true;
  document.getElementById('mainView').classList.add('hidden');
  document.getElementById('filtersBar').style.display='none';
@@ -1200,13 +1309,164 @@ function showStudySummary(){
 
 function exitStudy(){
  window.speechSynthesis.cancel();
- studyViewActive=false;
- document.getElementById('studyView').classList.remove('active');
- document.getElementById('mainView').classList.remove('hidden');
- document.getElementById('filtersBar').style.display='';
+ showBrowseView();
  document.getElementById('studyHeaderBar').style.display='none';
- render();
  updateDueBadge();
+}
+
+// === Cloze + Dictation Practice ===
+function pickPracticeIndex(){
+ const due=getDueReviews();
+ if(due.length)return due[0];
+ const newOnes=getNewSentences(1);
+ if(newOnes.length)return newOnes[0];
+ const available=SENTENCES.map((_,i)=>i).filter(i=>!learned[i]);
+ if(available.length)return available[Math.floor(Math.random()*available.length)];
+ return SENTENCES.length?Math.floor(Math.random()*SENTENCES.length):0;
+}
+
+function escapeForHandler(text){
+ return String(text).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');
+}
+
+function normalizeAnswer(text){
+ return String(text||'')
+  .toLowerCase()
+  .replace(/[.,!?;:"'«»]/g,'')
+  .replace(/\s+/g,' ')
+  .trim();
+}
+
+function buildCloze(sentence){
+ const words=sentence[0].split(/\s+/);
+ let choice=0;
+ let bestLength=0;
+ words.forEach((word,i)=>{
+  const cleaned=word.replace(/[.,!?;:"'«»]/g,'');
+  if(/[А-Яа-яЁё]/.test(cleaned) && cleaned.length>bestLength){
+   bestLength=cleaned.length;
+   choice=i;
+  }
+ });
+ const answer=words[choice].replace(/[.,!?;:"'«»]/g,'');
+ const promptWords=[...words];
+ promptWords[choice]='<span class="cloze-gap">'+answer+'</span>';
+ return {prompt:promptWords.join(' '),answer};
+}
+
+function showClozeView(){
+ hideAllViews();
+ setActiveMode('cloze');
+ document.getElementById('clozeView').classList.add('active');
+ renderClozeCard();
+}
+
+function renderClozeCard(){
+ const idx=pickPracticeIndex();
+ const s=SENTENCES[idx];
+ if(!s){
+  document.getElementById('clozeContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
+  return;
+ }
+ const cloze=buildCloze(s);
+ clozeCurrent={idx,answer:cloze.answer,revealed:false};
+ document.getElementById('clozeContent').innerHTML=`
+  <div class="practice-card fade-in">
+   <div class="practice-kicker">Cloze Recall</div>
+   <h2>Fill the missing Russian word</h2>
+   <p>Use the English meaning and the sentence pattern. This trains retrieval better than passive reading.</p>
+   <div class="practice-english">${s[2]}</div>
+   <div class="practice-target">${cloze.prompt}</div>
+   <input class="practice-input" id="clozeInput" placeholder="Type the missing word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
+   <div class="practice-actions">
+    <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}')">&#128264; Listen</button>
+    <button class="btn btn-primary" onclick="revealCloze()">Reveal</button>
+    <button class="btn btn-secondary" onclick="renderClozeCard()">Skip</button>
+   </div>
+   <div id="clozeFeedback"></div>
+  </div>`;
+ setTimeout(()=>{const input=document.getElementById('clozeInput');if(input)input.focus()},100);
+}
+
+function revealCloze(){
+ if(!clozeCurrent||clozeCurrent.revealed)return;
+ clozeCurrent.revealed=true;
+ const s=SENTENCES[clozeCurrent.idx];
+ const typed=(document.getElementById('clozeInput')||{}).value||'';
+ const correct=normalizeAnswer(typed)===normalizeAnswer(clozeCurrent.answer);
+ document.getElementById('clozeFeedback').innerHTML=`
+  <div class="practice-feedback">
+   <div><strong>Answer:</strong> ${clozeCurrent.answer}</div>
+   <div><strong>Full sentence:</strong> ${s[0]}</div>
+   ${typed.trim()?`<div><strong>Your answer:</strong> ${typed} ${correct?'&#10003;':'&#8594; keep practicing'}</div>`:''}
+   <div class="practice-actions">
+    <button class="btn btn-secondary" onclick="ratePractice(false,'cloze')">Again</button>
+    <button class="btn btn-primary" onclick="ratePractice(true,'cloze')">Good</button>
+   </div>
+  </div>`;
+ speakText(s[0]);
+}
+
+function showDictationView(){
+ hideAllViews();
+ setActiveMode('dictation');
+ document.getElementById('dictationView').classList.add('active');
+ renderDictationCard();
+}
+
+function renderDictationCard(){
+ const idx=pickPracticeIndex();
+ const s=SENTENCES[idx];
+ if(!s){
+  document.getElementById('dictationContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
+  return;
+ }
+ dictationCurrent={idx,revealed:false};
+ document.getElementById('dictationContent').innerHTML=`
+  <div class="practice-card fade-in">
+   <div class="practice-kicker">Dictation</div>
+   <h2>Write what you hear</h2>
+   <p>Browser audio is temporary, but dictation still builds careful listening and Cyrillic recall.</p>
+   <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}')" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
+   <input class="practice-input" id="dictationInput" placeholder="Type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
+   <div class="practice-actions">
+    <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}')">&#128264; Replay</button>
+    <button class="btn btn-primary" onclick="revealDictation()">Reveal</button>
+    <button class="btn btn-secondary" onclick="renderDictationCard()">Skip</button>
+   </div>
+   <div id="dictationFeedback"></div>
+  </div>`;
+ speakText(s[0]);
+ setTimeout(()=>{const input=document.getElementById('dictationInput');if(input)input.focus()},100);
+}
+
+function revealDictation(){
+ if(!dictationCurrent||dictationCurrent.revealed)return;
+ dictationCurrent.revealed=true;
+ const s=SENTENCES[dictationCurrent.idx];
+ const typed=(document.getElementById('dictationInput')||{}).value||'';
+ const correct=normalizeAnswer(typed)===normalizeAnswer(s[0]);
+ document.getElementById('dictationFeedback').innerHTML=`
+  <div class="practice-feedback">
+   <div><strong>Target:</strong> ${s[0]}</div>
+   <div><strong>Transliteration:</strong> ${s[1]}</div>
+   <div><strong>Meaning:</strong> ${s[2]}</div>
+   ${typed.trim()?`<div><strong>Your answer:</strong> ${typed} ${correct?'&#10003;':'&#8594; compare and retry'}</div>`:''}
+   <div class="practice-actions">
+    <button class="btn btn-secondary" onclick="ratePractice(false,'dictation')">Again</button>
+    <button class="btn btn-primary" onclick="ratePractice(true,'dictation')">Good</button>
+   </div>
+  </div>`;
+}
+
+function ratePractice(correct,mode){
+ const current=mode==='cloze'?clozeCurrent:dictationCurrent;
+ if(!current)return;
+ processRating(current.idx,correct);
+ updateProgress();
+ updateDueBadge();
+ if(mode==='cloze')renderClozeCard();
+ else renderDictationCard();
 }
 
 // === Init ===
@@ -1218,6 +1478,9 @@ function exitStudy(){
  if(userStats.dailyGoal)dailyNewGoal=userStats.dailyGoal;
 
  loadLanguageData();
+ if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+ }
 })();
 </script>
 </body>

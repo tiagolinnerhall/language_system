@@ -9,7 +9,7 @@
 
 ## 1. WHAT THE APP IS
 
-Lang5K is a static HTML/JS language learning app based on **sentence-based spaced repetition**. The premise: learn 5,000 real-life sentences in your target language and you cover ~98% of daily conversation.
+Lang5K is a static HTML/JS language learning app based on **sentence-based spaced repetition**. The premise: a carefully ordered 5,000-sentence path can build broad daily-life comprehension when it is paired with active recall, listening, cloze, dictation, and speaking practice.
 
 ### Architecture
 - **Pure static site** — 2 HTML files, no backend, no framework, no build step

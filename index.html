@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LangMaster - Learn Any Language with 5000 Sentences</title>
+<title>Lang5K - Learn Languages with a 5,000-Sentence Path</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text2:#555;--text3:#888;--primary:#4338ca;--primary-light:#6366f1;--primary-bg:rgba(67,56,202,0.08);--accent:#f59e0b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,0.08);--shadow-lg:0 8px 25px rgba(0,0,0,0.12);--green:#10b981}
+:root{--bg:#f3f5f8;--card:#fff;--text:#111827;--text2:#4b5563;--text3:#6b7280;--primary:#2563eb;--primary-light:#0ea5e9;--primary-bg:rgba(37,99,235,0.08);--accent:#d97706;--border:#dbe3ee;--shadow:0 1px 3px rgba(15,23,42,0.08);--shadow-lg:0 12px 32px rgba(15,23,42,0.14);--green:#059669;--red:#dc2626}
 [data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--primary:#818cf8;--primary-light:#a5b4fc;--primary-bg:rgba(129,140,248,0.12);--border:#334155;--shadow:0 1px 3px rgba(0,0,0,0.3);--shadow-lg:0 8px 25px rgba(0,0,0,0.4)}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
 
@@ -20,10 +21,17 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1200
 .theme-toggle:hover{background:var(--primary-bg)}
 
 /* Hero */
-.hero{text-align:center;padding:60px 24px 40px;max-width:800px;margin:0 auto}
+.hero{text-align:center;padding:56px 24px 34px;max-width:920px;margin:0 auto}
 .hero h1{font-size:2.8rem;font-weight:800;line-height:1.2;margin-bottom:16px}
 .hero h1 .highlight{background:linear-gradient(135deg,var(--primary),var(--primary-light));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero p{font-size:1.15rem;color:var(--text2);max-width:600px;margin:0 auto 12px}
+.hero .proof{font-size:.95rem;color:var(--text3);max-width:760px}
+.hero-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:24px}
+.cta{padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid var(--border);transition:all .2s}
+.cta-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.cta-primary:hover{background:var(--primary-light);border-color:var(--primary-light);transform:translateY(-1px)}
+.cta-secondary{background:var(--card);color:var(--text)}
+.cta-secondary:hover{border-color:var(--primary);color:var(--primary)}
 .hero-stats{display:flex;justify-content:center;gap:32px;margin-top:24px;flex-wrap:wrap}
 .hero-stat{text-align:center}
 .hero-stat .num{font-size:2rem;font-weight:800;color:var(--primary)}
@@ -52,6 +60,17 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1200
 .feature .icon{font-size:2rem;margin-bottom:10px}
 .feature h3{font-size:1rem;font-weight:700;margin-bottom:6px}
 .feature p{font-size:.9rem;color:var(--text2)}
+.method{max-width:1200px;margin:0 auto;padding:8px 24px 40px}
+.method-panel{background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:18px;padding:26px}
+.method-panel h2{font-size:1.35rem;margin-bottom:8px}
+.method-panel p{color:var(--text2);max-width:820px}
+.method-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:18px}
+.method-step{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--bg)}
+.method-step strong{display:block;font-size:.95rem;margin-bottom:4px}
+.method-step span{display:block;font-size:.84rem;color:var(--text3)}
+.trust-strip{max-width:1200px;margin:0 auto;padding:0 24px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.trust-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;color:var(--text2);font-size:.9rem}
+.trust-item strong{display:block;color:var(--text);font-size:1rem}
 
 /* Footer */
 footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;border-top:1px solid var(--border)}
@@ -70,52 +89,77 @@ footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;b
 <body>
 
 <nav>
- <a class="logo" href="/"><span>&#127891;</span> LangMaster</a>
+ <a class="logo" href="/"><span>5K</span> Lang5K</a>
  <div class="nav-right">
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
  </div>
 </nav>
 
 <div class="hero">
- <h1>Master Any Language with <span class="highlight">5000 Sentences</span></h1>
- <p>Click any sentence to hear native pronunciation. Track your progress. Practice weak spots in the Review Bin. Export to PDF.</p>
- <p style="font-size:.95rem;color:var(--text3)">Based on frequency research: 5000 sentences covers 98% of daily conversation.</p>
+ <h1>Build real language ability with a <span class="highlight">5,000-sentence path</span></h1>
+ <p>Learn high-utility sentences, recall them actively, listen, shadow, fill gaps, and review on a spaced schedule.</p>
+ <p class="proof">The current Russian course includes browser audio while native-audio files are prepared for Cloudflare R2. The method is designed for broad daily-life coverage, not fake overnight fluency.</p>
+ <div class="hero-actions">
+  <a class="cta cta-primary" href="app.html?lang=russian">Start Russian</a>
+  <a class="cta cta-secondary" href="#method">See the method</a>
+ </div>
  <div class="hero-stats">
   <div class="hero-stat"><div class="num">20</div><div class="label">Languages</div></div>
-  <div class="hero-stat"><div class="num">5000</div><div class="label">Sentences Each</div></div>
+  <div class="hero-stat"><div class="num">3600</div><div class="label">Russian Now</div></div>
   <div class="hero-stat"><div class="num">125</div><div class="label">Categories</div></div>
-  <div class="hero-stat"><div class="num">&#8734;</div><div class="label">Free Audio</div></div>
+  <div class="hero-stat"><div class="num">5000</div><div class="label">Target Path</div></div>
  </div>
+</div>
+
+<div class="trust-strip">
+ <div class="trust-item"><strong>Honest audio status</strong>Browser audio now; R2-hosted native audio planned.</div>
+ <div class="trust-item"><strong>Static and fast</strong>No heavy app shell, no server bill for the core course.</div>
+ <div class="trust-item"><strong>Built for recall</strong>Study mode, review bin, cloze, and dictation practice.</div>
 </div>
 
 <div class="features">
  <div class="feature">
   <div class="icon">&#128264;</div>
-  <h3>Click-to-Speak Audio</h3>
-  <p>Click any sentence to hear it pronounced. Adjust speed to match your learning pace.</p>
+  <h3>Browser audio today</h3>
+  <p>Click any sentence to hear it while we prepare R2-hosted native audio files.</p>
  </div>
  <div class="feature">
   <div class="icon">&#128221;</div>
   <h3>Review Bin</h3>
-  <p>Dump sentences you don't know into the bin. Audio-first practice with hidden text until you're ready.</p>
+  <p>Send weak sentences into focused audio-first practice with hidden text.</p>
  </div>
  <div class="feature">
   <div class="icon">&#128196;</div>
-  <h3>PDF Export</h3>
-  <p>Download the full course as a beautifully formatted PDF for offline study.</p>
+  <h3>Cloze and dictation</h3>
+  <p>Train word-level recall and listening with tougher active exercises.</p>
  </div>
  <div class="feature">
   <div class="icon">&#127793;</div>
-  <h3>Progress Tracking</h3>
-  <p>Mark sentences as learned. See your progress per category and overall completion.</p>
+  <h3>Spaced repetition</h3>
+  <p>Use a simple Leitner schedule to keep sentences alive over time.</p>
  </div>
 </div>
+
+<section class="method" id="method">
+ <div class="method-panel">
+  <h2>The Fastest Practical Method</h2>
+  <p>Lang5K is built around sentence-first learning: understand useful full sentences, recall them from English, listen and shadow, then use cloze and dictation to expose weak spots. Grammar is learned from patterns first, then explained where it matters.</p>
+  <div class="method-steps">
+   <div class="method-step"><strong>1. Learn</strong><span>Start with useful daily sentences, not isolated word lists.</span></div>
+   <div class="method-step"><strong>2. Recall</strong><span>See English, produce Russian, then reveal.</span></div>
+   <div class="method-step"><strong>3. Listen</strong><span>Play audio, slow it down, and shadow aloud.</span></div>
+   <div class="method-step"><strong>4. Cloze</strong><span>Fill the missing high-value word from context.</span></div>
+   <div class="method-step"><strong>5. Dictation</strong><span>Write what you hear to train real listening.</span></div>
+   <div class="method-step"><strong>6. Review</strong><span>Keep difficult sentences in spaced repetition.</span></div>
+  </div>
+ </div>
+</section>
 
 <h2 class="section-title">Choose a Language</h2>
 <div class="grid" id="langGrid"></div>
 
 <footer>
- LangMaster &mdash; Learn any language with real daily-life sentences.
+ Lang5K &mdash; Learn languages through useful sentences, active recall, and spaced review.
 </footer>
 
 <script src="languages/config.js"></script>
