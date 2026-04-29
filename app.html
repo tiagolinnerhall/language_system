@@ -375,6 +375,7 @@ let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
 let hostedAudioIds=null;
+let audioManifestVersion='';
 
 // SRS Constants (Leitner system)
 const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
@@ -401,7 +402,8 @@ function sentenceAudioId(idx){
 }
 
 function hostedAudioUrl(idx){
- return AUDIO_BASE_URL+'/'+AUDIO_LANG_PREFIX+'/'+sentenceAudioId(idx)+'.mp3';
+ const base=AUDIO_BASE_URL+'/'+AUDIO_LANG_PREFIX+'/'+sentenceAudioId(idx)+'.mp3';
+ return audioManifestVersion?base+'?v='+encodeURIComponent(audioManifestVersion):base;
 }
 
 async function loadHostedAudioManifest(){
@@ -409,6 +411,7 @@ async function loadHostedAudioManifest(){
   const response=await fetch('audio-manifest-'+AUDIO_LANG_PREFIX+'.json',{cache:'no-store'});
   if(!response.ok){hostedAudioIds=new Set();return}
   const data=await response.json();
+  audioManifestVersion=data.generatedAt||'';
   hostedAudioIds=new Set((data.items||[]).map(item=>item.id).filter(Boolean));
  }catch(_){
   hostedAudioIds=new Set();

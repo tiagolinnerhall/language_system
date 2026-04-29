@@ -29,7 +29,7 @@ function requireEnv(env, key) {
 }
 
 function loadRussianSentences() {
-  const files = ['data1.js', 'data2.js', 'data3.js', 'data4.js'];
+  const files = ['data1.js', 'data2.js', 'data3.js', 'data4.js', 'data5.js'];
   const all = [];
   files.forEach((file, i) => {
     const variable = `SENTENCES${i + 1}`;

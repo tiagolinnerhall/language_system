@@ -4,9 +4,9 @@ const LANGUAGES = {
     native: "Русский",
     flag: "\u{1F1F7}\u{1F1FA}",
     code: "ru-RU",
-    files: ["data1.js", "data2.js", "data3.js", "data4.js"],
-    sentences: 3600,
-    categories: 90,
+    files: ["data1.js", "data2.js", "data3.js", "data4.js", "data5.js"],
+    sentences: 5000,
+    categories: 20,
     status: "available"
   },
   spanish: {

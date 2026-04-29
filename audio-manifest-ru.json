@@ -1,86 +1,86 @@
 {
   "language": "ru",
-  "generatedAt": "2026-04-29T03:29:01.269Z",
+  "generatedAt": "2026-04-29T04:27:06.040Z",
   "publicBaseUrl": "https://audio.lang5k.com",
   "items": [
     {
       "id": "ru_000001",
       "index": 0,
-      "target": "Привет!",
-      "translit": "Privet!",
-      "english": "Hello! (informal)",
+      "target": "Ты можешь сказать мне, где я?",
+      "translit": "Ty mozhesh skazat mne, gde ya?",
+      "english": "Can you tell me where I am?",
       "url": "https://audio.lang5k.com/ru/ru_000001.mp3"
     },
     {
       "id": "ru_000002",
       "index": 1,
-      "target": "Здравствуйте!",
-      "translit": "Zdravstvuyte!",
-      "english": "Hello! (formal)",
+      "target": "Где ты был всё это время?",
+      "translit": "Gde ty byl vsyo eto vremya?",
+      "english": "Where have you been all this time?",
       "url": "https://audio.lang5k.com/ru/ru_000002.mp3"
     },
     {
       "id": "ru_000003",
       "index": 2,
-      "target": "Доброе утро!",
-      "translit": "Dobroye utro!",
-      "english": "Good morning!",
+      "target": "Что ещё вы обо мне знаете?",
+      "translit": "Chto eshchyo vy obo mne znaete?",
+      "english": "What else do you know about me?",
       "url": "https://audio.lang5k.com/ru/ru_000003.mp3"
     },
     {
       "id": "ru_000004",
       "index": 3,
-      "target": "Добрый день!",
-      "translit": "Dobryy den!",
-      "english": "Good afternoon!",
+      "target": "Он мой друг. Вы его знаете?",
+      "translit": "On moy drug. Vy ego znaete?",
+      "english": "He's my friend. Do you know him?",
       "url": "https://audio.lang5k.com/ru/ru_000004.mp3"
     },
     {
       "id": "ru_000005",
       "index": 4,
-      "target": "Добрый вечер!",
-      "translit": "Dobryy vecher!",
-      "english": "Good evening!",
+      "target": "Вы знаете, как я был занят?",
+      "translit": "Vy znaete, kak ya byl zanyat?",
+      "english": "Do you know how busy I've been?",
       "url": "https://audio.lang5k.com/ru/ru_000005.mp3"
     },
     {
       "id": "ru_000006",
       "index": 5,
-      "target": "Спокойной ночи!",
-      "translit": "Spokoynoy nochi!",
-      "english": "Good night!",
+      "target": "Как ты узнала, что я здесь?",
+      "translit": "Kak ty uznala, chto ya zdes?",
+      "english": "How did you know I was here?",
       "url": "https://audio.lang5k.com/ru/ru_000006.mp3"
     },
     {
       "id": "ru_000007",
       "index": 6,
-      "target": "До свидания!",
-      "translit": "Do svidaniya!",
-      "english": "Goodbye! (formal)",
+      "target": "То есть мне можно уже идти?",
+      "translit": "To est mne mozhno uzhe idti?",
+      "english": "Does this mean I can go now?",
       "url": "https://audio.lang5k.com/ru/ru_000007.mp3"
     },
     {
       "id": "ru_000008",
       "index": 7,
-      "target": "Пока!",
-      "translit": "Poka!",
-      "english": "Bye! (informal)",
+      "target": "Что я могу дать вам взамен?",
+      "translit": "Chto ya mogu dat vam vzamen?",
+      "english": "What can I give you in return?",
       "url": "https://audio.lang5k.com/ru/ru_000008.mp3"
     },
     {
       "id": "ru_000009",
       "index": 8,
-      "target": "До встречи!",
-      "translit": "Do vstrechi!",
-      "english": "See you!",
+      "target": "Что еще я должен был делать?",
+      "translit": "Chto eshche ya dolzhen byl delat?",
+      "english": "What else was I supposed to do?",
       "url": "https://audio.lang5k.com/ru/ru_000009.mp3"
     },
     {
       "id": "ru_000010",
       "index": 9,
-      "target": "До завтра!",
-      "translit": "Do zavtra!",
-      "english": "See you tomorrow!",
+      "target": "Вы знаете, что он нам купил?",
+      "translit": "Vy znaete, chto on nam kupil?",
+      "english": "Do you know what he bought us?",
       "url": "https://audio.lang5k.com/ru/ru_000010.mp3"
     }
   ]

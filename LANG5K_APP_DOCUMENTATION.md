@@ -29,12 +29,12 @@ Each sentence is a 4-element array:
 ### Current Content Status (Russian)
 | File | Categories | Sentences | Git Status |
 |------|-----------|-----------|------------|
-| data1.js | 1-25 (Greetings → Love & Friendship) | 1,000 | Pushed |
-| data2.js | 26-50 (Apartment → Numbers) | 1,000 | Pushed |
-| data3.js | 51-75 (Business → Idioms) | 1,000 | Untracked |
-| data4.js | 76-90 (Accounting → Furniture) | 600 | Untracked |
-| data5.js | 91-125 | 0 | NOT CREATED |
-| **TOTAL** | **90 of 125** | **3,600 / 5,000** | |
+| data1.js | 1-1,000 | 1,000 | Corpus-selected |
+| data2.js | 1,001-2,000 | 1,000 | Corpus-selected |
+| data3.js | 2,001-3,000 | 1,000 | Corpus-selected |
+| data4.js | 3,001-4,000 | 1,000 | Corpus-selected |
+| data5.js | 4,001-5,000 | 1,000 | Corpus-selected |
+| **TOTAL** | **20 learning categories** | **5,000 / 5,000** | |
 
 ---
 
@@ -129,7 +129,7 @@ Each sentence is a 4-element array:
 | **No CEFR level tagging** | HIGH | Sentences are organized by topic but not by difficulty level. A beginner shouldn't see "The audit is scheduled for next week" next to "Hello!" |
 | **No frequency ranking** | HIGH | Sentences are not ordered by corpus-backed frequency. Category 76 "Accounting & Taxes" has the same weight as Category 1 "Greetings" |
 | **No grammar notes** | HIGH | Pure exposure with zero explanation. Adult learners need to understand WHY "Мне нужно" uses dative case. Glossika gets criticized for this exact gap |
-| **AI-generated sentences** | HIGH | All 3,600 sentences appear to be AI-generated, not sourced from authentic corpora or verified by native linguists. Risk of unnatural phrasing, incorrect collocations, or wrong register |
+| **Native speaker review needed** | HIGH | The 5,000-sentence Russian course is corpus-selected and de-duplicated, but still needs native speaker review before full paid audio generation. |
 | **Informal transliteration** | MEDIUM | Uses ad-hoc romanization, not standardized IPA or any recognized system. Inconsistencies possible |
 | **No speaking practice** | MEDIUM | No speech recognition, no shadowing mode, no pronunciation feedback. Receptive-only |
 | **No dictation mode** | MEDIUM | No "type what you hear" exercise. This is the gold standard for listening comprehension |

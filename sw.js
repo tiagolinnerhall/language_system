@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lang5k-static-v2';
+const CACHE_NAME = 'lang5k-static-v3';
 
 const CORE_ASSETS = [
   'index.html',
@@ -10,7 +10,8 @@ const CORE_ASSETS = [
   'languages/russian/data1.js',
   'languages/russian/data2.js',
   'languages/russian/data3.js',
-  'languages/russian/data4.js'
+  'languages/russian/data4.js',
+  'languages/russian/data5.js'
 ];
 
 self.addEventListener('install', event => {

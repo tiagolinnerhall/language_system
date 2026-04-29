@@ -27,7 +27,7 @@
 - [ ] Replace LangMaster branding with Lang5K.
 - [ ] Replace the absolute 98% claim with a more defensible explanation.
 - [ ] Add a professional method section covering sentence-first learning, active recall, SRS, cloze, dictation, and future native audio.
-- [ ] Make Russian status honest: 3,600 current sentences, path to 5,000.
+- [ ] Make Russian status honest: 5,000 current corpus-selected sentences.
 
 ### Task 3: Upgrade App Workspace
 

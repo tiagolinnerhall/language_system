@@ -62,12 +62,13 @@ Lang5K has a solid foundation (sentence-based SRS, review bin, PDF export, multi
 - Add frequency rank to data format
 - Sort sentences within categories by frequency
 
-### 1.5 Complete the Content (3,600 → 5,000)
-**Why:** The app promises 5,000 sentences and delivers 3,600.
+### 1.5 Complete the Content (Done: 5,000 Russian sentences)
+**Why:** The app promises 5,000 sentences and now ships a full Russian 5K course.
 
-**What you need to give me:**
-- Just time/approval. I can generate the remaining 1,400 sentences (categories 91-125)
-- After generation, native speaker review (see 1.3)
+**Current status:**
+- Rebuilt from Tatoeba Russian-English sentence pairs.
+- Filtered for script, length, exact duplicates, and near-duplicate similarity.
+- Still needs native speaker review before generating paid audio for all 5,000.
 
 ---
 

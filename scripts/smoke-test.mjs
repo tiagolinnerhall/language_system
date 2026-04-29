@@ -34,7 +34,7 @@ assertIncludes('app.html', app, 'showClozeView');
 assertIncludes('app.html', app, 'showDictationView');
 assertIncludes('manifest.webmanifest', manifest, '"name": "Lang5K"');
 assertIncludes('audio-manifest-ru.json', audioManifest, '"language": "ru"');
-assertIncludes('sw.js', sw, 'languages/russian/data4.js');
+assertIncludes('sw.js', sw, 'languages/russian/data5.js');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_PUBLIC_BASE_URL');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_ENDPOINT');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'ELEVENLABS_API_KEY');
