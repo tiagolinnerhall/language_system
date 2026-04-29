@@ -22,6 +22,7 @@ R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET=lang5k-audio
 R2_PUBLIC_BASE_URL=https://audio.lang5k.com
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 ELEVENLABS_API_KEY=
 ```
 
@@ -61,3 +62,13 @@ If Vercel preview deployments are used, add the preview domain pattern in Cloudf
 3. Upload that batch to R2.
 4. Add an app audio loader with browser TTS fallback.
 5. Generate the remaining files only after the first batch sounds correct.
+
+## Batch Generator
+
+Generate a small first batch before spending credits on the full course:
+
+```bash
+node scripts/generate-audio-batch.mjs --count=2 --start=0
+```
+
+The script reuses cached files in `generated-audio/` so reruns do not spend ElevenLabs credits for audio that was already created.

@@ -284,7 +284,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 <div class="main-view" id="mainView">
  <div class="audio-notice">
-  <div class="audio-notice-inner"><strong>Audio status:</strong> Browser audio is temporary. The production path is native or studio-grade audio hosted on Cloudflare R2, with the same sentence IDs used by this course.</div>
+  <div class="audio-notice-inner"><strong>Audio status:</strong> Lang5K now checks Cloudflare R2 first, then falls back to browser voice for any sentence that is not hosted yet.</div>
  </div>
  <div class="dashboard" id="dashboard">
   <div class="dash-card"><div class="dash-num" id="dashLearned">0</div><div class="dash-label">Learned</div></div>
@@ -369,14 +369,18 @@ let binViewActive=false;
 let studyViewActive=false;
 let currentMode='browse';
 let currentSpeaking=null;
+let currentAudio=null;
 let speechRate=0.85;
 let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
+let hostedAudioIds=null;
 
 // SRS Constants (Leitner system)
 const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
 const MILESTONES=[10,25,50,100,250,500,1000,2500,5000];
+const AUDIO_BASE_URL='https://audio.lang5k.com';
+const AUDIO_LANG_PREFIX={russian:'ru'}[langKey]||(langCode||'').split('-')[0]||langKey;
 
 // Study session state
 let studyQueue=[];
@@ -391,6 +395,68 @@ document.title='Lang5K - Learn '+LANG.name;
 searchInput.placeholder='Search in '+LANG.name+', English, or transliteration...';
 
 speedSlider.addEventListener('input',()=>{speechRate=parseFloat(speedSlider.value);speedVal.textContent=speechRate+'x'});
+
+function sentenceAudioId(idx){
+ return AUDIO_LANG_PREFIX+'_'+String(idx+1).padStart(6,'0');
+}
+
+function hostedAudioUrl(idx){
+ return AUDIO_BASE_URL+'/'+AUDIO_LANG_PREFIX+'/'+sentenceAudioId(idx)+'.mp3';
+}
+
+async function loadHostedAudioManifest(){
+ try{
+  const response=await fetch('audio-manifest-'+AUDIO_LANG_PREFIX+'.json',{cache:'no-store'});
+  if(!response.ok){hostedAudioIds=new Set();return}
+  const data=await response.json();
+  hostedAudioIds=new Set((data.items||[]).map(item=>item.id).filter(Boolean));
+ }catch(_){
+  hostedAudioIds=new Set();
+ }
+}
+
+function clearCurrentAudio(){
+ if(currentAudio){
+  currentAudio.pause();
+  currentAudio.currentTime=0;
+  currentAudio=null;
+ }
+}
+
+function stopPlayback(){
+ clearCurrentAudio();
+ window.speechSynthesis.cancel();
+}
+
+function playBrowserVoice(text,{onend,onerror}={}){
+ window.speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(text);
+ u.lang=langCode;u.rate=speechRate;
+ u.onend=()=>{if(onend)onend()};
+ u.onerror=()=>{if(onerror)onerror();else if(onend)onend()};
+ window.speechSynthesis.speak(u);
+}
+
+function playAudio(text,idx,{onend,onerror}={}){
+ stopPlayback();
+ if(typeof idx!=='number'||idx<0||!hostedAudioIds||!hostedAudioIds.has(sentenceAudioId(idx))){
+  playBrowserVoice(text,{onend,onerror});
+  return;
+ }
+ const audio=new Audio(hostedAudioUrl(idx));
+ currentAudio=audio;
+ audio.preload='auto';
+ audio.playbackRate=speechRate;
+ audio.onended=()=>{if(currentAudio===audio)currentAudio=null;if(onend)onend()};
+ audio.onerror=()=>{
+  if(currentAudio===audio)currentAudio=null;
+  playBrowserVoice(text,{onend,onerror});
+ };
+ audio.play().catch(()=>{
+  if(currentAudio===audio)currentAudio=null;
+  playBrowserVoice(text,{onend,onerror});
+ });
+}
 
 // === Load data files dynamically ===
 function loadScript(src){
@@ -483,7 +549,7 @@ function updateDashboard(){
 }
 
 function hideAllViews(){
- window.speechSynthesis.cancel();
+ stopPlayback();
  document.getElementById('mainView').classList.add('hidden');
  document.getElementById('binView').classList.remove('active');
  document.getElementById('studyView').classList.remove('active');
@@ -569,13 +635,11 @@ function render(){
 }
 
 function speak(idx){
- window.speechSynthesis.cancel();
+ stopPlayback();
  document.querySelectorAll('.sentence.playing').forEach(el=>el.classList.remove('playing'));
  document.querySelectorAll('.speak-btn.active').forEach(el=>el.classList.remove('active'));
 
  const s=SENTENCES[idx];
- const u=new SpeechSynthesisUtterance(s[0]);
- u.lang=langCode;u.rate=speechRate;
  const el=document.getElementById('s'+idx);
  if(el){
   el.classList.add('playing');
@@ -583,37 +647,31 @@ function speak(idx){
   if(btn)btn.classList.add('active');
   el.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
- u.onend=()=>{
+ const onend=()=>{
   if(el){el.classList.remove('playing');const btn=el.querySelector('.speak-btn');if(btn)btn.classList.remove('active')}
   currentSpeaking=null;
  };
  currentSpeaking=idx;
- window.speechSynthesis.speak(u);
+ playAudio(s[0],idx,{onend});
  selectedIdx=idx;
 }
 
-function speakText(text){
- window.speechSynthesis.cancel();
- const u=new SpeechSynthesisUtterance(text);
- u.lang=langCode;u.rate=speechRate;
- window.speechSynthesis.speak(u);
+function speakText(text,idx){
+ playAudio(text,idx);
 }
 
 async function playAllInCategory(btn,catName){
  const cat=getCategories().get(catName);
  if(!cat)return;
  btn.textContent='\u23F9 Stop';
- btn.onclick=()=>{window.speechSynthesis.cancel();btn.textContent='\u25B6 Play All in This Category';btn.onclick=()=>playAllInCategory(btn,catName)};
+ btn.onclick=()=>{stopPlayback();btn.textContent='\u25B6 Play All in This Category';btn.onclick=()=>playAllInCategory(btn,catName)};
  for(const s of cat){
   await new Promise(resolve=>{
-   window.speechSynthesis.cancel();
-   const u=new SpeechSynthesisUtterance(s.r);
-   u.lang=langCode;u.rate=speechRate;
+   stopPlayback();
    const el=document.getElementById('s'+s.idx);
    if(el){el.classList.add('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.add('active')}
-   u.onend=()=>{if(el){el.classList.remove('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.remove('active')}resolve()};
-   u.onerror=()=>resolve();
-   window.speechSynthesis.speak(u);
+   const onend=()=>{if(el){el.classList.remove('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.remove('active')}resolve()};
+   playAudio(s.r,s.idx,{onend,onerror:resolve});
   });
  }
  btn.textContent='\u25B6 Play All in This Category';
@@ -670,7 +728,7 @@ document.addEventListener('keydown',e=>{
  }
  if(e.code==='Space'){
   e.preventDefault();
-  if(currentSpeaking!==null){window.speechSynthesis.cancel()}
+  if(currentSpeaking!==null){stopPlayback();currentSpeaking=null}
   else if(selectedIdx>=0){speak(selectedIdx)}
  }
  if(e.code==='ArrowDown'){
@@ -804,12 +862,10 @@ function renderBinView(){
 }
 
 function speakBin(idx){
- window.speechSynthesis.cancel();
+ stopPlayback();
  document.querySelectorAll('.bin-card.playing').forEach(el=>el.classList.remove('playing'));
  document.querySelectorAll('.bin-card .speak-btn.active').forEach(el=>el.classList.remove('active'));
  const s=SENTENCES[idx];
- const u=new SpeechSynthesisUtterance(s[0]);
- u.lang=langCode;u.rate=speechRate;
  const el=document.getElementById('bin'+idx);
  if(el){
   el.classList.add('playing');
@@ -817,10 +873,10 @@ function speakBin(idx){
   if(btn)btn.classList.add('active');
   el.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
- u.onend=()=>{
+ const onend=()=>{
   if(el){el.classList.remove('playing');const btn=el.querySelector('.speak-btn');if(btn)btn.classList.remove('active')}
  };
- window.speechSynthesis.speak(u);
+ playAudio(s[0],idx,{onend});
 }
 
 function toggleReveal(idx,btn){
@@ -865,19 +921,16 @@ async function playAllBin(){
  if(!indices.length)return;
  btn.innerHTML='&#9632; Stop';
  let stopped=false;
- btn.onclick=()=>{stopped=true;window.speechSynthesis.cancel();btn.innerHTML='&#9654; Play All (audio only)';btn.onclick=()=>playAllBin()};
+ btn.onclick=()=>{stopped=true;stopPlayback();btn.innerHTML='&#9654; Play All (audio only)';btn.onclick=()=>playAllBin()};
  for(const idx of indices){
   if(stopped)break;
   await new Promise(resolve=>{
-   window.speechSynthesis.cancel();
+   stopPlayback();
    const s=SENTENCES[idx];
-   const u=new SpeechSynthesisUtterance(s[0]);
-   u.lang=langCode;u.rate=speechRate;
    const el=document.getElementById('bin'+idx);
    if(el){el.classList.add('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.add('active');el.scrollIntoView({behavior:'smooth',block:'center'})}
-   u.onend=()=>{if(el){el.classList.remove('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.remove('active')}resolve()};
-   u.onerror=()=>resolve();
-   window.speechSynthesis.speak(u);
+   const onend=()=>{if(el){el.classList.remove('playing');const b=el.querySelector('.speak-btn');if(b)b.classList.remove('active')}resolve()};
+   playAudio(s[0],idx,{onend,onerror:resolve});
   });
   if(!stopped)await new Promise(r=>setTimeout(r,500));
  }
@@ -1158,14 +1211,14 @@ function showStudyCard(){
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label new">NEW SENTENCE</span>
-    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}')" style="margin-bottom:6px">${s[0]}</div>
+    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="margin-bottom:6px">${s[0]}</div>
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${s[1]}</div>
     <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${s[2]}</div>
-    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}')" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
+    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
     <button class="study-reveal-btn" onclick="nextNewCard()" style="background:var(--green)">Got it! Next &#8594;</button>
    </div>`;
   // Auto-play audio
-  speakText(s[0]);
+  speakText(s[0],item.idx);
  } else {
   // Review card: show English, user recalls, then reveals
   document.getElementById('studyContent').innerHTML=`
@@ -1178,7 +1231,7 @@ function showStudyCard(){
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Press Enter to reveal &middot; Then 1=Again, 2=Good</div>
    </div>`;
   // Auto-play audio
-  speakText(s[0]);
+  speakText(s[0],item.idx);
   // Focus the input (slight delay for animation)
   setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
  }
@@ -1227,9 +1280,9 @@ function revealStudyCard(){
    <span class="study-card-label review">REVIEW &middot; Box ${srsInfo.box}</span>
    <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text3)">${s[2]}</div>
    <div class="study-answer-section">
-    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}')">${s[0]}</div>
+    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})">${s[0]}</div>
     <div class="study-translit">${s[1]}</div>
-    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}')" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
+    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
     ${typedHTML}
     <div class="study-rating">
      <button class="btn-again" onclick="rateStudyCard(false)">&#10060; Again (1)</button>
@@ -1239,7 +1292,7 @@ function revealStudyCard(){
    </div>
   </div>`;
 
- speakText(s[0]);
+ speakText(s[0],item.idx);
 }
 
 function rateStudyCard(correct){
@@ -1308,7 +1361,7 @@ function showStudySummary(){
 }
 
 function exitStudy(){
- window.speechSynthesis.cancel();
+ stopPlayback();
  showBrowseView();
  document.getElementById('studyHeaderBar').style.display='none';
  updateDueBadge();
@@ -1379,7 +1432,7 @@ function renderClozeCard(){
    <div class="practice-target">${cloze.prompt}</div>
    <input class="practice-input" id="clozeInput" placeholder="Type the missing word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
    <div class="practice-actions">
-    <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}')">&#128264; Listen</button>
+    <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}',${idx})">&#128264; Listen</button>
     <button class="btn btn-primary" onclick="revealCloze()">Reveal</button>
     <button class="btn btn-secondary" onclick="renderClozeCard()">Skip</button>
    </div>
@@ -1404,7 +1457,7 @@ function revealCloze(){
     <button class="btn btn-primary" onclick="ratePractice(true,'cloze')">Good</button>
    </div>
   </div>`;
- speakText(s[0]);
+ speakText(s[0],clozeCurrent.idx);
 }
 
 function showDictationView(){
@@ -1426,17 +1479,17 @@ function renderDictationCard(){
   <div class="practice-card fade-in">
    <div class="practice-kicker">Dictation</div>
    <h2>Write what you hear</h2>
-   <p>Browser audio is temporary, but dictation still builds careful listening and Cyrillic recall.</p>
-   <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}')" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
+   <p>Hosted audio plays when available, with browser voice as the fallback for careful listening and Cyrillic recall.</p>
+   <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${idx})" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
    <input class="practice-input" id="dictationInput" placeholder="Type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
    <div class="practice-actions">
-    <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}')">&#128264; Replay</button>
+    <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}',${idx})">&#128264; Replay</button>
     <button class="btn btn-primary" onclick="revealDictation()">Reveal</button>
     <button class="btn btn-secondary" onclick="renderDictationCard()">Skip</button>
    </div>
    <div id="dictationFeedback"></div>
   </div>`;
- speakText(s[0]);
+ speakText(s[0],idx);
  setTimeout(()=>{const input=document.getElementById('dictationInput');if(input)input.focus()},100);
 }
 
@@ -1477,6 +1530,7 @@ function ratePractice(correct,mode){
  // Load saved daily goal
  if(userStats.dailyGoal)dailyNewGoal=userStats.dailyGoal;
 
+ loadHostedAudioManifest();
  loadLanguageData();
  if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
