@@ -1,0 +1,115 @@
+{
+  "generatedAt": "2026-04-29T18:33:10.712Z",
+  "language": "russian",
+  "totalRows": 5000,
+  "flaggedRows": 9,
+  "issueCounts": {
+    "question-mark-mismatch": 9
+  },
+  "notes": [
+    "This is automated linguistic QA, not a native-speaker certification.",
+    "Rows with no issues passed structural, punctuation, script, length, and basic readability checks.",
+    "Flagged rows should be reviewed by a Russian native speaker before premium advertising."
+  ],
+  "flagged": [
+    {
+      "index": 351,
+      "id": "ru_000351",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Может, ты её на столе оставил?",
+      "transliteration": "Mozhet, ty eyo na stole ostavil?",
+      "english": "Maybe you left it on your desk.",
+      "category": "Fluency Builder 1"
+    },
+    {
+      "index": 543,
+      "id": "ru_000543",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Скажи, пожалуйста, что мы здесь делаем?",
+      "transliteration": "Skazhi, pozhaluysta, chto my zdes delaem?",
+      "english": "Please tell me what we're doing here.",
+      "category": "Core Social Language"
+    },
+    {
+      "index": 1166,
+      "id": "ru_001166",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Скажите, кто еще знает об этом?",
+      "transliteration": "Skazhite, kto eshche znaet ob etom?",
+      "english": "Tell me who else knows about this.",
+      "category": "Fluency Builder 3"
+    },
+    {
+      "index": 1308,
+      "id": "ru_001308",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Интересно, кто оставил здесь этот зонт?",
+      "transliteration": "Interesno, kto ostavil zdes etot zont?",
+      "english": "I wonder who left this umbrella here.",
+      "category": "Fluency Builder 3"
+    },
+    {
+      "index": 1339,
+      "id": "ru_001339",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Скажи мне, о чём это ты?",
+      "transliteration": "Skazhi mne, o chyom eto ty?",
+      "english": "Tell me what you're talking about.",
+      "category": "Fluency Builder 3"
+    },
+    {
+      "index": 2377,
+      "id": "ru_002377",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Назови что-нибудь, что ты обожаешь делать.",
+      "transliteration": "Nazovi chto-nibud, chto ty obozhaesh delat.",
+      "english": "What's one thing you love to do?",
+      "category": "Fluency Builder 5"
+    },
+    {
+      "index": 2770,
+      "id": "ru_002770",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Давай завтра сходим на блошиный рынок?",
+      "transliteration": "Davay zavtra skhodim na bloshinyy rynok?",
+      "english": "Let's go to the flea market tomorrow.",
+      "category": "Time & Plans"
+    },
+    {
+      "index": 2960,
+      "id": "ru_002960",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Может быть, ты слишком мало спишь?",
+      "transliteration": "Mozhet byt, ty slishkom malo spish?",
+      "english": "Maybe you're not getting enough sleep.",
+      "category": "Fluency Builder 6"
+    },
+    {
+      "index": 2965,
+      "id": "ru_002965",
+      "issues": [
+        "question-mark-mismatch"
+      ],
+      "russian": "Давай я отвезу тебя обратно домой?",
+      "transliteration": "Davay ya otvezu tebya obratno domoy?",
+      "english": "Let me take you back home.",
+      "category": "Home & Family Life"
+    }
+  ]
+}

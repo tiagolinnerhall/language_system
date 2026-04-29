@@ -9,6 +9,34 @@ const LANGUAGE_CODE = 'ru';
 const DEFAULT_BATCH_SIZE = 10;
 const DEFAULT_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
 const DEFAULT_MODEL_ID = 'eleven_multilingual_v2';
+const MAX_RETRIES = 10;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function retryDelay(attempt) {
+  const base = Math.min(120_000, 10_000 * 2 ** Math.max(0, attempt - 1));
+  return base + Math.floor(Math.random() * 2_500);
+}
+
+async function withRetry(label, task) {
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      const message = error?.message || '';
+      const retryable = /(?:429|5\d\d|ECONNRESET|ETIMEDOUT|system_busy|rate_limit)/i.test(message);
+      if (!retryable || attempt === MAX_RETRIES) break;
+      const delay = retryDelay(attempt);
+      console.warn(`${label} failed temporarily. Retrying in ${Math.round(delay / 1000)}s (${attempt}/${MAX_RETRIES}).`);
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
 
 function readEnv() {
   const path = join(ROOT, '.env.audio.local');
@@ -143,15 +171,46 @@ async function generateAudio({ env, text, voiceId }) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+function loadExistingManifest(appManifestPath) {
+  if (!existsSync(appManifestPath)) return { language: LANGUAGE_CODE, items: [] };
+  return JSON.parse(readFileSync(appManifestPath, 'utf8'));
+}
+
+function buildManifest({ appManifestPath, publicBaseUrl, voiceId, items }) {
+  const existingManifest = loadExistingManifest(appManifestPath);
+  const mergedItems = new Map((existingManifest.items || []).map(item => [item.id, item]));
+  items.forEach(item => mergedItems.set(item.id, item));
+  return {
+    language: LANGUAGE_CODE,
+    generatedAt: new Date().toISOString(),
+    voiceId,
+    publicBaseUrl,
+    items: [...mergedItems.values()].sort((a, b) => a.index - b.index)
+  };
+}
+
+async function saveAppManifest({ env, appManifestPath, appManifest }) {
+  const body = Buffer.from(JSON.stringify(appManifest, null, 2) + '\n');
+  writeFileSync(appManifestPath, body);
+  await withRetry('R2 manifest upload', () => uploadToR2({
+    env,
+    key: `${LANGUAGE_CODE}/manifest.json`,
+    body,
+    contentType: 'application/json'
+  }));
+}
+
 async function main() {
   const env = readEnv();
   const count = Number(process.argv.find(arg => arg.startsWith('--count='))?.split('=')[1] || DEFAULT_BATCH_SIZE);
   const start = Number(process.argv.find(arg => arg.startsWith('--start='))?.split('=')[1] || 0);
+  const syncExistingOnly = process.argv.includes('--sync-existing');
   const voiceId = env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID;
   const publicBaseUrl = requireEnv(env, 'R2_PUBLIC_BASE_URL').replace(/\/$/, '');
   const sentences = loadRussianSentences();
   const outputDir = join(ROOT, 'generated-audio', LANGUAGE_CODE);
   mkdirSync(outputDir, { recursive: true });
+  const appManifestPath = join(ROOT, `audio-manifest-${LANGUAGE_CODE}.json`);
   const manifest = [];
 
   for (let index = start; index < Math.min(start + count, sentences.length); index++) {
@@ -160,36 +219,26 @@ async function main() {
     const key = `${LANGUAGE_CODE}/${id}.mp3`;
     const localPath = join(outputDir, `${id}.mp3`);
     const hasCachedAudio = existsSync(localPath);
+    if (syncExistingOnly && !hasCachedAudio) continue;
     console.log(`${hasCachedAudio ? 'Uploading cached' : 'Generating'} ${id}: ${english}`);
     const audio = hasCachedAudio
       ? readFileSync(localPath)
-      : await generateAudio({ env, text: target, voiceId });
+      : await withRetry(`ElevenLabs ${id}`, () => generateAudio({ env, text: target, voiceId }));
     if (!hasCachedAudio) writeFileSync(localPath, audio);
-    await uploadToR2({ env, key, body: audio, contentType: 'audio/mpeg' });
-    manifest.push({ id, index, target, translit, english, url: `${publicBaseUrl}/${key}` });
+    await withRetry(`R2 upload ${id}`, () => uploadToR2({ env, key, body: audio, contentType: 'audio/mpeg' }));
+    const item = { id, index, target, translit, english, url: `${publicBaseUrl}/${key}` };
+    manifest.push(item);
+    if (manifest.length % 25 === 0 || index === Math.min(start + count, sentences.length) - 1) {
+      const appManifest = buildManifest({ appManifestPath, publicBaseUrl, voiceId, items: manifest });
+      await saveAppManifest({ env, appManifestPath, appManifest });
+      console.log(`Saved manifest progress: ${appManifest.items.length}/${sentences.length}`);
+    }
   }
 
   const manifestPath = join(outputDir, `manifest-${LANGUAGE_CODE}-${start + 1}-${start + manifest.length}.json`);
   writeFileSync(manifestPath, JSON.stringify({ language: LANGUAGE_CODE, generatedAt: new Date().toISOString(), voiceId, items: manifest }, null, 2));
-  const appManifestPath = join(ROOT, `audio-manifest-${LANGUAGE_CODE}.json`);
-  const existingManifest = existsSync(appManifestPath)
-    ? JSON.parse(readFileSync(appManifestPath, 'utf8'))
-    : { language: LANGUAGE_CODE, items: [] };
-  const mergedItems = new Map((existingManifest.items || []).map(item => [item.id, item]));
-  manifest.forEach(item => mergedItems.set(item.id, item));
-  const appManifest = {
-    language: LANGUAGE_CODE,
-    generatedAt: new Date().toISOString(),
-    publicBaseUrl,
-    items: [...mergedItems.values()].sort((a, b) => a.index - b.index)
-  };
-  writeFileSync(appManifestPath, JSON.stringify(appManifest, null, 2) + '\n');
-  await uploadToR2({
-    env,
-    key: `${LANGUAGE_CODE}/manifest.json`,
-    body: Buffer.from(JSON.stringify(appManifest, null, 2)),
-    contentType: 'application/json'
-  });
+  const appManifest = buildManifest({ appManifestPath, publicBaseUrl, voiceId, items: manifest });
+  await saveAppManifest({ env, appManifestPath, appManifest });
   console.log(`Generated and uploaded ${manifest.length} file(s).`);
   console.log(`Manifest: ${manifestPath}`);
 }

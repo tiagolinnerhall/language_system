@@ -65,6 +65,14 @@ function hasBadContent(text) {
   return /https?:|www\.|@|#|<|>|\{|\}|\[|\]|\(|\)|\d{3,}|[=+*_\\]/i.test(text);
 }
 
+function hasLatinToken(text) {
+  return /[A-Za-z]{2,}/.test(text);
+}
+
+function hasInformalOrVulgarEnglish(text) {
+  return /\b(gonna|wanna|gotta|ain't|shit|crap|damn|hell|dude|man)\b/i.test(text);
+}
+
 function looksLikeRussian(text) {
   return /[А-Яа-яЁё]/.test(text) && !/[ぁ-んァ-ン一-龯]/.test(text);
 }
@@ -72,6 +80,7 @@ function looksLikeRussian(text) {
 function validPair(ru, en) {
   if (!ru || !en) return false;
   if (hasBadContent(ru) || hasBadContent(en)) return false;
+  if (hasLatinToken(ru) || hasInformalOrVulgarEnglish(en)) return false;
   if (blockedNames.test(ru) || blockedNames.test(en)) return false;
   if (!looksLikeRussian(ru)) return false;
   if (/[А-Яа-яЁё]/.test(en)) return false;

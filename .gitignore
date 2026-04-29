@@ -3,3 +3,4 @@
 generated-audio/
 data-sources/
 .vercel/
+audio-generation*.log
