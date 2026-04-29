@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://www.lang5k.com/sitemap.xml

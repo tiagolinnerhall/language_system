@@ -8,3 +8,5 @@ The current Russian 5,000 sentence course is built from Tatoeba Russian-English 
 - Build script: `scripts/build-russian-5k-from-tatoeba.mjs`
 
 Lang5K adds ordering, filtering, transliteration, category assignment, app integration, hosted audio, and learning workflows.
+
+Public machine-readable attribution is available in `attribution-ru.json`.

@@ -47,8 +47,12 @@ function loadAll() {
 }
 
 const sentences = loadAll();
+const attribution = JSON.parse(readFileSync(join(ROOT, 'attribution-ru.json'), 'utf8'));
 if (sentences.length !== EXPECTED_COUNT) {
   throw new Error(`Expected ${EXPECTED_COUNT} Russian sentences, got ${sentences.length}`);
+}
+if (!Array.isArray(attribution.items) || attribution.items.length !== EXPECTED_COUNT) {
+  throw new Error(`Expected ${EXPECTED_COUNT} attribution rows, got ${attribution.items?.length || 0}`);
 }
 
 const ru = new Map();
@@ -58,7 +62,11 @@ const enPrefixes = new Map();
 const similar = [];
 for (let i = 0; i < sentences.length; i++) {
   const row = sentences[i];
+  const attributionRow = attribution.items[i];
   if (!Array.isArray(row) || row.length !== 4) throw new Error(`Bad row at ${i + 1}`);
+  const expectedId = `ru_${String(i + 1).padStart(6, '0')}`;
+  if (attributionRow.lang5kId !== expectedId) throw new Error(`Bad attribution id at ${i + 1}`);
+  if (!attributionRow.russianUsername || !attributionRow.englishUsername) throw new Error(`Missing attribution username at ${i + 1}`);
   if (!/[А-Яа-яЁё]/.test(row[0])) throw new Error(`Missing Cyrillic at ${i + 1}: ${row[0]}`);
   const nr = normalize(row[0]);
   const ne = normalize(row[2]);

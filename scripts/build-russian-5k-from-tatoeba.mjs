@@ -5,13 +5,14 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const SOURCE_DIR = join(ROOT, 'data-sources', 'extract');
 const SENTENCES_CSV = join(SOURCE_DIR, 'sentences.csv');
+const SENTENCES_DETAILED_CSV = join(SOURCE_DIR, 'sentences_detailed.csv');
 const LINKS_CSV = join(SOURCE_DIR, 'links.csv');
 const OUT_DIR = join(ROOT, 'languages', 'russian');
 const TARGET_COUNT = 5000;
 const FILE_COUNT = 5;
 const PER_FILE = TARGET_COUNT / FILE_COUNT;
 
-if (!existsSync(SENTENCES_CSV) || !existsSync(LINKS_CSV)) {
+if (!existsSync(SENTENCES_CSV) || !existsSync(SENTENCES_DETAILED_CSV) || !existsSync(LINKS_CSV)) {
   throw new Error('Missing Tatoeba extracts. Expected data-sources/extract/sentences.csv and links.csv.');
 }
 
@@ -147,17 +148,19 @@ async function loadPairs(ru, en) {
     const b = Number(bRaw);
     let russian = ru.get(a);
     let english = en.get(b);
-    let sourceId = a;
+    let ruId = a;
+    let enId = b;
     if (!russian || !english) {
       russian = ru.get(b);
       english = en.get(a);
-      sourceId = b;
+      ruId = b;
+      enId = a;
     }
     if (!validPair(russian, english)) continue;
     const key = `${normalize(russian)}|${normalize(english)}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    candidates.push({ russian, english, sourceId, score: score(russian, english) });
+    candidates.push({ russian, english, ruId, enId, score: score(russian, english) });
   }
   return candidates;
 }
@@ -202,7 +205,31 @@ function selectUnique(candidates) {
   return selected;
 }
 
-function writeCourse(selected) {
+async function loadAttributionDetails(selected) {
+  const needed = new Set();
+  selected.forEach(item => {
+    needed.add(item.ruId);
+    needed.add(item.enId);
+  });
+  const details = new Map();
+  const rl = createInterface({ input: createReadStream(SENTENCES_DETAILED_CSV, { encoding: 'utf8' }), crlfDelay: Infinity });
+  for await (const line of rl) {
+    const parts = line.split('\t');
+    const id = Number(parts[0]);
+    if (!needed.has(id)) continue;
+    details.set(id, {
+      id,
+      lang: parts[1] || '',
+      username: parts[3] || 'unknown',
+      dateAdded: parts[4] || '',
+      dateModified: parts[5] || ''
+    });
+    if (details.size === needed.size) break;
+  }
+  return details;
+}
+
+function writeCourse(selected, details) {
   mkdirSync(OUT_DIR, { recursive: true });
   for (let file = 1; file <= FILE_COUNT; file++) {
     const start = (file - 1) * PER_FILE;
@@ -236,9 +263,36 @@ function writeCourse(selected) {
     '- Build script: `scripts/build-russian-5k-from-tatoeba.mjs`',
     '',
     'Lang5K adds ordering, filtering, transliteration, category assignment, app integration, hosted audio, and learning workflows.',
+    '',
+    'Public machine-readable attribution is available in `attribution-ru.json`.',
     ''
   ];
   writeFileSync(join(ROOT, 'docs', 'russian-course-attribution.md'), attribution.join('\n'));
+
+  const attributionData = {
+    language: 'ru',
+    generatedAt: new Date().toISOString(),
+    source: 'Tatoeba',
+    sourceUrl: 'https://tatoeba.org',
+    downloadUrl: 'https://tatoeba.org/en/downloads',
+    license: 'CC-BY 2.0 FR',
+    licenseUrl: 'https://creativecommons.org/licenses/by/2.0/fr/',
+    note: 'Each Lang5K row includes the Tatoeba Russian and English sentence IDs and usernames used for attribution.',
+    items: selected.map((item, index) => {
+      const ru = details.get(item.ruId) || {};
+      const en = details.get(item.enId) || {};
+      return {
+        lang5kId: `ru_${String(index + 1).padStart(6, '0')}`,
+        russianSentenceId: item.ruId,
+        russianUsername: ru.username || 'unknown',
+        englishSentenceId: item.enId,
+        englishUsername: en.username || 'unknown',
+        tatoebaRussianUrl: `https://tatoeba.org/en/sentences/show/${item.ruId}`,
+        tatoebaEnglishUrl: `https://tatoeba.org/en/sentences/show/${item.enId}`
+      };
+    })
+  };
+  writeFileSync(join(ROOT, 'attribution-ru.json'), JSON.stringify(attributionData, null, 2) + '\n');
 }
 
 const { ru, en } = await loadSentences();
@@ -250,5 +304,7 @@ console.log(`Selected unique pairs: ${selected.length}.`);
 if (selected.length !== TARGET_COUNT) {
   throw new Error(`Could only select ${selected.length} unique pairs.`);
 }
-writeCourse(selected);
+const details = await loadAttributionDetails(selected);
+console.log(`Loaded attribution details for ${details.size} source sentences.`);
+writeCourse(selected, details);
 console.log('Russian 5K course written.');

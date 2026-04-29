@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lang5K - Learn Languages with a 5,000-Sentence Path</title>
+<meta name="description" content="Lang5K is a corpus-backed Russian 5K sentence trainer with active recall, cloze, dictation, spaced review, and hosted audio rollout.">
+<meta property="og:title" content="Lang5K - Russian 5K Sentence Trainer">
+<meta property="og:description" content="Build practical Russian with 5,000 curated sentence pairs, active recall, dictation, and spaced review.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.lang5k.com/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -16,7 +21,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 nav{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto;padding:20px 24px}
 .logo{font-size:1.5rem;font-weight:800;color:var(--primary);text-decoration:none;display:flex;align-items:center;gap:8px}
 .logo span{font-size:1.8rem}
-.nav-right{display:flex;align-items:center;gap:16px}
+.nav-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.nav-link{color:var(--text2);text-decoration:none;font-size:.9rem;font-weight:700}
+.nav-link:hover{color:var(--primary)}
 .theme-toggle{font-size:1.3rem;cursor:pointer;background:none;border:none;padding:6px;border-radius:50%;transition:all .2s}
 .theme-toggle:hover{background:var(--primary-bg)}
 
@@ -74,6 +81,9 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1200
 
 /* Footer */
 footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;border-top:1px solid var(--border)}
+.footer-links{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:8px}
+.footer-links a{color:var(--text3);text-decoration:none}
+.footer-links a:hover{color:var(--primary)}
 
 @media(max-width:768px){
 .hero h1{font-size:1.8rem}
@@ -91,6 +101,9 @@ footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;b
 <nav>
  <a class="logo" href="/"><span>5K</span> Lang5K</a>
  <div class="nav-right">
+  <a class="nav-link" href="pricing.html">Paid beta</a>
+  <a class="nav-link" href="attribution.html">Attribution</a>
+  <a class="nav-link" href="contact.html">Contact</a>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
  </div>
 </nav>
@@ -98,30 +111,30 @@ footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;b
 <div class="hero">
  <h1>Build real language ability with a <span class="highlight">5,000-sentence path</span></h1>
  <p>Learn high-utility sentences, recall them actively, listen, shadow, fill gaps, and review on a spaced schedule.</p>
- <p class="proof">The current Russian course includes browser audio while native-audio files are prepared for Cloudflare R2. The method is designed for broad daily-life coverage, not fake overnight fluency.</p>
+ <p class="proof">The Russian course is rebuilt from open corpus sentence pairs, de-duplicated for practice, and paired with hosted audio where available plus browser voice fallback. Lang5K is designed for broad daily-life coverage, not fake overnight fluency.</p>
  <div class="hero-actions">
   <a class="cta cta-primary" href="app.html?lang=russian">Start Russian</a>
-  <a class="cta cta-secondary" href="#method">See the method</a>
+  <a class="cta cta-secondary" href="pricing.html">Request paid beta</a>
  </div>
  <div class="hero-stats">
-  <div class="hero-stat"><div class="num">20</div><div class="label">Languages</div></div>
+  <div class="hero-stat"><div class="num">20</div><div class="label">Languages Planned</div></div>
   <div class="hero-stat"><div class="num">5000</div><div class="label">Russian Now</div></div>
-  <div class="hero-stat"><div class="num">125</div><div class="label">Categories</div></div>
-  <div class="hero-stat"><div class="num">5000</div><div class="label">Target Path</div></div>
+  <div class="hero-stat"><div class="num">20</div><div class="label">Practice Categories</div></div>
+  <div class="hero-stat"><div class="num">10</div><div class="label">Hosted Audio Samples</div></div>
  </div>
 </div>
 
 <div class="trust-strip">
- <div class="trust-item"><strong>Hosted audio path</strong>R2-hosted native audio with browser fallback.</div>
- <div class="trust-item"><strong>Static and fast</strong>No heavy app shell, no server bill for the core course.</div>
- <div class="trust-item"><strong>Built for recall</strong>Study mode, review bin, cloze, and dictation practice.</div>
+ <div class="trust-item"><strong>Corpus-backed text</strong>Public Tatoeba attribution and a reproducible build pipeline.</div>
+ <div class="trust-item"><strong>Honest audio rollout</strong>Hosted samples now; browser voice fallback until full audio is approved.</div>
+ <div class="trust-item"><strong>Built for recall</strong>Study mode, review bin, cloze, dictation, and spaced review.</div>
 </div>
 
 <div class="features">
  <div class="feature">
   <div class="icon">&#128264;</div>
   <h3>Audio-first practice</h3>
-  <p>Click any sentence to hear hosted audio when available, with instant fallback while batches are generated.</p>
+  <p>Click any sentence to hear hosted audio when available, with browser fallback while the full audio catalog is generated.</p>
  </div>
  <div class="feature">
   <div class="icon">&#128221;</div>
@@ -160,6 +173,14 @@ footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;b
 
 <footer>
  Lang5K &mdash; Learn languages through useful sentences, active recall, and spaced review.
+ <div class="footer-links">
+  <a href="pricing.html">Paid beta</a>
+  <a href="attribution.html">Attribution</a>
+  <a href="terms.html">Terms</a>
+  <a href="privacy.html">Privacy</a>
+  <a href="refund.html">Refunds</a>
+  <a href="contact.html">Contact</a>
+ </div>
 </footer>
 
 <script src="languages/config.js"></script>
