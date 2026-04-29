@@ -71,13 +71,18 @@ assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_PUBLIC_BASE_URL');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_ENDPOINT');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'ELEVENLABS_API_KEY');
 
-for (const [file, content] of [['index.html', index], ['pricing.html', pricing]]) {
-  assertNotIncludes(file, content, 'browser voice fallback');
-  assertNotIncludes(file, content, 'Hosted Audio Samples');
-  assertNotIncludes(file, content, 'hosted-audio samples');
-  assertNotIncludes(file, content, 'full audio catalog is generated');
-  assertNotIncludes(file, content, 'Full hosted audio should be generated');
-  assertNotIncludes(file, content, 'Checkout must be fully configured');
+for (const page of publicPages) {
+  const content = read(page);
+  assertNotIncludes(page, content, 'browser voice fallback');
+  assertNotIncludes(page, content, 'Hosted Audio Samples');
+  assertNotIncludes(page, content, 'hosted-audio samples');
+  assertNotIncludes(page, content, 'full audio catalog is generated');
+  assertNotIncludes(page, content, 'Full hosted audio should be generated');
+  assertNotIncludes(page, content, 'Checkout must be fully configured');
+  assertNotIncludes(page, content, 'Stripe live configuration');
+  assertNotIncludes(page, content, 'Paid beta');
+  assertNotIncludes(page, content, 'Launch plan');
+  assertNotIncludes(page, content, 'not ready yet');
 }
 
 const missingLinks = [];
