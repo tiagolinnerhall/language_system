@@ -38,9 +38,16 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .dash-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
 .dash-card .dash-num{font-size:1.45rem;font-weight:800;color:var(--primary)}
 .dash-card .dash-label{font-size:.78rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-.audio-notice{max-width:1200px;margin:14px auto 0;padding:0 24px}
-.audio-notice-inner{background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.25);color:var(--text2);border-radius:12px;padding:12px 14px;font-size:.88rem}
-.audio-notice-inner strong{color:var(--text)}
+.learning-coach{max-width:1200px;margin:16px auto 0;padding:0 24px}
+.coach-panel{display:grid;grid-template-columns:1.2fr 2fr auto;gap:18px;align-items:center;background:linear-gradient(135deg,#111827,#1f2937);border:1px solid rgba(255,255,255,.08);color:#fff;border-radius:14px;padding:18px 20px;box-shadow:var(--shadow-lg)}
+.coach-title{font-size:1.05rem;font-weight:800;margin-bottom:4px}
+.coach-subtitle{font-size:.88rem;color:#cbd5e1;line-height:1.45}
+.coach-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.coach-step{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;font-size:.82rem;color:#e5e7eb}
+.coach-step strong{display:block;color:#fff;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.coach-action{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.coach-action .btn{white-space:nowrap;justify-content:center}
+.coach-secondary{font-size:.78rem;color:#cbd5e1;text-align:center}
 .btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-light)}
 .btn-secondary{background:var(--primary-bg);color:var(--primary)}.btn-secondary:hover{background:var(--primary);color:#fff}
@@ -87,6 +94,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .header{padding:12px 16px}
 .header h1{font-size:1.2rem}
 .header h1 span{font-size:.85rem}
+.coach-panel{grid-template-columns:1fr;padding:16px}
+.coach-steps{grid-template-columns:1fr 1fr}
 .container{padding:16px}
 .sentence{padding:12px 14px;gap:8px}
 .target-lang{font-size:1.05rem}
@@ -287,8 +296,23 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 </div>
 
 <div class="main-view" id="mainView">
- <div class="audio-notice">
-  <div class="audio-notice-inner"><strong>Audio status:</strong> Lang5K now checks Cloudflare R2 first, then falls back to browser voice for any sentence that is not hosted yet.</div>
+ <div class="learning-coach">
+  <div class="coach-panel">
+   <div>
+    <div class="coach-title">Today's guided lesson</div>
+    <div class="coach-subtitle">Lang5K chooses what to study next so you do not have to plan. Follow the loop and rate honestly.</div>
+   </div>
+   <div class="coach-steps">
+    <div class="coach-step"><strong>1. Listen</strong>Hear the sentence first.</div>
+    <div class="coach-step"><strong>2. Recall</strong>Say or type it from memory.</div>
+    <div class="coach-step"><strong>3. Reveal</strong>Compare with the answer.</div>
+    <div class="coach-step"><strong>4. Review</strong>Again or Good schedules the next repetition.</div>
+   </div>
+   <div class="coach-action">
+    <button class="btn btn-primary" onclick="startStudyView()">Start guided lesson</button>
+    <div class="coach-secondary">Fastest path: daily recall before browsing</div>
+   </div>
+  </div>
  </div>
  <div class="dashboard" id="dashboard">
   <div class="dash-card"><div class="dash-num" id="dashLearned">0</div><div class="dash-label">Learned</div></div>
@@ -495,6 +519,7 @@ async function loadLanguageData(){
   updateBinBadge();
   updateStreakDisplay();
   updateDueBadge();
+  maybeStartGuidedLesson();
  }catch(e){
   app.innerHTML='<div class="empty-state">Error loading language data: '+e.message+'</div>';
  }
@@ -503,10 +528,10 @@ async function loadLanguageData(){
 function renderAccessNotice(data){
  if(!accessNotice)return;
  if(data.mode==='full'){
-  accessNotice.innerHTML=`<div class="access-notice"><span><strong>Paid access active.</strong> Full ${data.total} sentence course unlocked on this browser.</span><a href="pricing.html">Account help</a></div>`;
+  accessNotice.innerHTML=`<div class="access-notice"><span><strong>Full course active.</strong> Your guided training path has ${data.total} sentences.</span><a href="pricing.html">Account help</a></div>`;
   return;
  }
- accessNotice.innerHTML=`<div class="access-notice"><span><strong>Demo mode.</strong> Showing ${data.limit} of ${data.total} Russian sentences. Full access requires verified checkout.</span><a href="pricing.html">View launch plan</a></div>`;
+ accessNotice.innerHTML=`<div class="access-notice"><span><strong>Demo mode.</strong> Try the guided lesson with ${data.limit} sample sentences. Full access unlocks all ${data.total}.</span><a href="pricing.html">Unlock full course</a></div>`;
 }
 
 function renderAccessRequired(message){
@@ -517,6 +542,13 @@ function renderAccessRequired(message){
   <a class="btn btn-primary" href="checkout.html">Start secure checkout</a>
   <a class="btn btn-secondary" href="app.html?lang=${langKey}&demo=1">Use demo mode</a>
  </div>`;
+}
+
+function maybeStartGuidedLesson(){
+ const view=urlParams.get('view')||'';
+ if(view==='browse'||view==='cloze'||view==='dictation')return;
+ if(searchInput.value||categoryFilter.value||unlearnedOnly.checked)return;
+ setTimeout(()=>startStudyView(),120);
 }
 
 // === Core functions ===
@@ -1148,8 +1180,8 @@ function showStudyStart(){
  document.getElementById('studyHeaderBar').style.display='none';
  document.getElementById('studyContent').innerHTML=`
   <div class="study-start fade-in">
-   <h2>&#128218; Today's Study Session</h2>
-   <div class="study-subtitle">${LANG.flag} ${LANG.name}</div>
+   <h2>&#128218; Today's Guided Lesson</h2>
+   <div class="study-subtitle">${LANG.flag} ${LANG.name} &middot; Listen, recall, reveal, rate. Lang5K schedules the next review automatically.</div>
    <div class="study-stats-row">
     <div class="study-stat"><div class="stat-num orange">${due.length}</div><div class="stat-label">Reviews Due</div></div>
     <div class="study-stat"><div class="stat-num green">${newAvail.length}</div><div class="stat-label">New Sentences</div></div>
@@ -1162,7 +1194,7 @@ function showStudyStart(){
     </div>
    </div>
    ${totalSession>0?`
-    <button class="study-start-btn" onclick="beginStudySession()">Start Studying</button>
+    <button class="study-start-btn" onclick="beginStudySession()">Start guided lesson</button>
     <div class="study-time-est">~${estMinutes} min estimated</div>
    `:`
     <div style="color:var(--green);font-weight:600;font-size:1.1rem;margin:20px 0">&#10003; All done for today! Come back tomorrow.</div>
@@ -1224,31 +1256,31 @@ function showStudyCard(){
  const boxLabel=srsInfo?'Box '+srsInfo.box:'New';
 
  if(isNew){
-  // New card: show everything, user clicks Next
+  // New card: introduce the sentence with audio and a short shadowing action.
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label new">NEW SENTENCE</span>
+    <div class="study-prompt">Step 1: listen, then say the Russian sentence out loud once.</div>
     <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="margin-bottom:6px">${s[0]}</div>
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${s[1]}</div>
     <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${s[2]}</div>
     <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
-    <button class="study-reveal-btn" onclick="nextNewCard()" style="background:var(--green)">Got it! Next &#8594;</button>
+    <button class="study-reveal-btn" onclick="nextNewCard()" style="background:var(--green)">I said it out loud &mdash; continue</button>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">New sentences enter tomorrow's review automatically.</div>
    </div>`;
   // Auto-play audio
   speakText(s[0],item.idx);
  } else {
-  // Review card: show English, user recalls, then reveals
+  // Review card: active recall comes before hearing or seeing the answer.
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label review">REVIEW &middot; ${boxLabel}</span>
     <div class="study-english">${s[2]}</div>
-    <div class="study-prompt">Try to recall the ${LANG.name} sentence...</div>
+    <div class="study-prompt">Step 1: say the ${LANG.name} sentence from memory before you reveal it.</div>
     <input type="text" class="study-type-input" id="studyInput" placeholder="Type your answer (optional)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
-    <button class="study-reveal-btn" onclick="revealStudyCard()">Show Answer</button>
-    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Press Enter to reveal &middot; Then 1=Again, 2=Good</div>
+    <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal and listen</button>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again means review sooner, Good moves it forward.</div>
    </div>`;
-  // Auto-play audio
-  speakText(s[0],item.idx);
   // Focus the input (slight delay for animation)
   setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
  }
@@ -1297,6 +1329,7 @@ function revealStudyCard(){
    <span class="study-card-label review">REVIEW &middot; Box ${srsInfo.box}</span>
    <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text3)">${s[2]}</div>
    <div class="study-answer-section">
+    <div class="study-prompt">Step 2: listen, compare, then rate your memory.</div>
     <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})">${s[0]}</div>
     <div class="study-translit">${s[1]}</div>
     <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
@@ -1369,7 +1402,8 @@ function showStudySummary(){
     <div style="font-size:1.4rem;font-weight:800;color:var(--primary)">${totalLearned} / ${SENTENCES.length} learned</div>
     <div style="font-size:.85rem;color:var(--text3)">${totalInSRS} sentences in active review</div>
    </div>
-   <button class="study-start-btn" onclick="exitStudy()" style="background:var(--primary)">Back to Browse</button>
+   <button class="study-start-btn" onclick="startStudyView()" style="background:var(--primary);margin-bottom:10px">Continue training</button>
+   <button class="btn btn-secondary" onclick="exitStudy()">Browse sentences</button>
   </div>`;
 
  updateProgress();
@@ -1496,7 +1530,7 @@ function renderDictationCard(){
   <div class="practice-card fade-in">
    <div class="practice-kicker">Dictation</div>
    <h2>Write what you hear</h2>
-   <p>Hosted audio plays when available, with browser voice as the fallback for careful listening and Cyrillic recall.</p>
+   <p>Listen first, write the Russian sentence from memory, then reveal and rate it.</p>
    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${idx})" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
    <input class="practice-input" id="dictationInput" placeholder="Type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
    <div class="practice-actions">
