@@ -1,5 +1,5 @@
 async function stripeRequest(path, body) {
-  const secret = process.env.STRIPE_SECRET_KEY;
+  const secret = (process.env.STRIPE_SECRET_KEY || '').trim();
   if (!secret) {
     const error = new Error('Stripe is not configured.');
     error.statusCode = 503;

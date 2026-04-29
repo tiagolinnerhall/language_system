@@ -1,7 +1,7 @@
 const { bearerToken, verifyAccessToken } = require('./_lib/access');
 
 module.exports = async function handler(req, res) {
-  const secret = process.env.LANG5K_ACCESS_SECRET;
+  const secret = (process.env.LANG5K_ACCESS_SECRET || '').trim();
   const payload = verifyAccessToken(bearerToken(req), secret);
   if (!secret) {
     res.status(503).json({ active: false, error: 'Access verification is not configured.' });

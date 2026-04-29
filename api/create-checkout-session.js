@@ -6,8 +6,8 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const priceId = process.env.STRIPE_PRICE_ID;
-  const siteUrl = (process.env.LANG5K_SITE_URL || 'https://www.lang5k.com').replace(/\/$/, '');
+  const priceId = (process.env.STRIPE_PRICE_ID || '').trim();
+  const siteUrl = (process.env.LANG5K_SITE_URL || 'https://www.lang5k.com').trim().replace(/\/$/, '');
   if (!priceId) {
     res.status(503).json({ error: 'Stripe price is not configured.' });
     return;

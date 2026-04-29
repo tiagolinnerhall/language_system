@@ -3,7 +3,7 @@ const { stripeRequest } = require('./_lib/stripe');
 
 module.exports = async function handler(req, res) {
   const sessionId = req.query.session_id;
-  const secret = process.env.LANG5K_ACCESS_SECRET;
+  const secret = (process.env.LANG5K_ACCESS_SECRET || '').trim();
   if (!sessionId) {
     res.status(400).json({ error: 'Missing checkout session.' });
     return;

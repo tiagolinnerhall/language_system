@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const secret = process.env.LANG5K_ACCESS_SECRET;
+  const secret = (process.env.LANG5K_ACCESS_SECRET || '').trim();
   const payload = verifyAccessToken(bearerToken(req), secret);
   if (!payload || !Array.isArray(payload.scopes) || !payload.scopes.includes('russian')) {
     res.status(secret ? 401 : 503).json({
