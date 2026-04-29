@@ -1,4 +1,87 @@
 {
   "language": "ru",
-  "items": []
+  "generatedAt": "2026-04-29T03:29:01.269Z",
+  "publicBaseUrl": "https://audio.lang5k.com",
+  "items": [
+    {
+      "id": "ru_000001",
+      "index": 0,
+      "target": "Привет!",
+      "translit": "Privet!",
+      "english": "Hello! (informal)",
+      "url": "https://audio.lang5k.com/ru/ru_000001.mp3"
+    },
+    {
+      "id": "ru_000002",
+      "index": 1,
+      "target": "Здравствуйте!",
+      "translit": "Zdravstvuyte!",
+      "english": "Hello! (formal)",
+      "url": "https://audio.lang5k.com/ru/ru_000002.mp3"
+    },
+    {
+      "id": "ru_000003",
+      "index": 2,
+      "target": "Доброе утро!",
+      "translit": "Dobroye utro!",
+      "english": "Good morning!",
+      "url": "https://audio.lang5k.com/ru/ru_000003.mp3"
+    },
+    {
+      "id": "ru_000004",
+      "index": 3,
+      "target": "Добрый день!",
+      "translit": "Dobryy den!",
+      "english": "Good afternoon!",
+      "url": "https://audio.lang5k.com/ru/ru_000004.mp3"
+    },
+    {
+      "id": "ru_000005",
+      "index": 4,
+      "target": "Добрый вечер!",
+      "translit": "Dobryy vecher!",
+      "english": "Good evening!",
+      "url": "https://audio.lang5k.com/ru/ru_000005.mp3"
+    },
+    {
+      "id": "ru_000006",
+      "index": 5,
+      "target": "Спокойной ночи!",
+      "translit": "Spokoynoy nochi!",
+      "english": "Good night!",
+      "url": "https://audio.lang5k.com/ru/ru_000006.mp3"
+    },
+    {
+      "id": "ru_000007",
+      "index": 6,
+      "target": "До свидания!",
+      "translit": "Do svidaniya!",
+      "english": "Goodbye! (formal)",
+      "url": "https://audio.lang5k.com/ru/ru_000007.mp3"
+    },
+    {
+      "id": "ru_000008",
+      "index": 7,
+      "target": "Пока!",
+      "translit": "Poka!",
+      "english": "Bye! (informal)",
+      "url": "https://audio.lang5k.com/ru/ru_000008.mp3"
+    },
+    {
+      "id": "ru_000009",
+      "index": 8,
+      "target": "До встречи!",
+      "translit": "Do vstrechi!",
+      "english": "See you!",
+      "url": "https://audio.lang5k.com/ru/ru_000009.mp3"
+    },
+    {
+      "id": "ru_000010",
+      "index": 9,
+      "target": "До завтра!",
+      "translit": "Do zavtra!",
+      "english": "See you tomorrow!",
+      "url": "https://audio.lang5k.com/ru/ru_000010.mp3"
+    }
+  ]
 }
