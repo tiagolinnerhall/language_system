@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lang5K - Loading...</title>
 <meta name="description" content="Practice Russian with 5,000 sentence pairs, active recall, cloze, dictation, spaced review, and audio-first study tools.">
+<link rel="canonical" href="https://www.lang5k.com/app.html?lang=russian">
+<meta name="theme-color" content="#2563eb">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -270,7 +272,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
    </div>
    <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
    <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Bin <span class="bin-badge" id="binBadge">0</span></button>
-   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme">&#127769;</button>
   </div>
  </div>
  <div class="progress-wrap">
@@ -408,6 +410,7 @@ let clozeCurrent=null;
 let dictationCurrent=null;
 let hostedAudioIds=null;
 let audioManifestVersion='';
+let hostedAudioManifestPromise=null;
 
 // SRS Constants (Leitner system)
 const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
@@ -544,10 +547,15 @@ function renderAccessRequired(message){
  </div>`;
 }
 
-function maybeStartGuidedLesson(){
+async function maybeStartGuidedLesson(){
  const view=urlParams.get('view')||'';
  if(view==='browse'||view==='cloze'||view==='dictation')return;
  if(searchInput.value||categoryFilter.value||unlearnedOnly.checked)return;
+ if(hostedAudioManifestPromise){
+  try{
+   await Promise.race([hostedAudioManifestPromise,new Promise(resolve=>setTimeout(resolve,1500))]);
+  }catch(_){}
+ }
  setTimeout(()=>startStudyView(),120);
 }
 
@@ -1583,7 +1591,7 @@ function ratePractice(correct,mode){
  // Load saved daily goal
  if(userStats.dailyGoal)dailyNewGoal=userStats.dailyGoal;
 
- loadHostedAudioManifest();
+ hostedAudioManifestPromise=loadHostedAudioManifest();
  loadLanguageData();
  if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));

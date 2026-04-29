@@ -9,7 +9,10 @@
 <meta property="og:description" content="Build practical Russian with 5,000 curated sentence pairs, active recall, dictation, and spaced review.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.lang5k.com/">
+<link rel="canonical" href="https://www.lang5k.com/">
+<meta name="theme-color" content="#2563eb">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -104,7 +107,7 @@ footer{text-align:center;padding:30px 24px;color:var(--text3);font-size:.85rem;b
   <a class="nav-link" href="pricing.html">Pricing</a>
   <a class="nav-link" href="attribution.html">Attribution</a>
   <a class="nav-link" href="contact.html">Contact</a>
-  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme">&#127769;</button>
  </div>
 </nav>
 
@@ -231,6 +234,9 @@ function renderGrid(){
  const savedTheme=localStorage.getItem('lang_theme');
  if(savedTheme==='dark'){document.documentElement.setAttribute('data-theme','dark');document.getElementById('themeToggle').textContent='\u2600\uFE0F'}
  renderGrid();
+ if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+ }
 })();
 </script>
 </body>

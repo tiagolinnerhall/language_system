@@ -1,14 +1,14 @@
 # Russian Course QA Summary
 
-Generated: 2026-04-29T18:33:10.712Z
+Generated: 2026-04-29T22:38:12.215Z
 
 - Total rows: 5000
-- Flagged rows: 9
-- Automated pass rate: 99.82%
+- Flagged rows: 0
+- Automated pass rate: 100.00%
 
 ## Issue Counts
 
-- question-mark-mismatch: 9
+- No issues flagged
 
 ## Important Note
 

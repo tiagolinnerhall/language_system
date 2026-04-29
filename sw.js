@@ -1,6 +1,7 @@
-const CACHE_NAME = 'lang5k-static-v5';
+const CACHE_NAME = 'lang5k-static-v6';
 
 const CORE_ASSETS = [
+  '/',
   'index.html',
   'app.html',
   'pricing.html',
