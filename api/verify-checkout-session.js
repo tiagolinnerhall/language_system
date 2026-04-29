@@ -14,8 +14,9 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const session = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}`);
-    if (session.payment_status !== 'paid' || session.status !== 'complete') {
+    const session = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=payment_intent.latest_charge`);
+    const charge = session.payment_intent?.latest_charge;
+    if (session.payment_status !== 'paid' || session.status !== 'complete' || charge?.refunded || charge?.disputed) {
       res.status(402).json({ error: 'Checkout is not paid yet.' });
       return;
     }
@@ -26,12 +27,12 @@ module.exports = async function handler(req, res) {
       session: session.id,
       scopes: ['russian'],
       iat: now,
-      exp: now + 60 * 60 * 24 * 365
+      exp: now + 60 * 60 * 24 * 30
     }, secret);
     res.status(200).json({
       token,
       email: session.customer_details?.email || session.customer_email || '',
-      expiresAt: now + 60 * 60 * 24 * 365
+      expiresAt: now + 60 * 60 * 24 * 30
     });
   } catch (error) {
     res.status(error.statusCode || 500).json({ error: error.message || 'Unable to verify checkout.' });

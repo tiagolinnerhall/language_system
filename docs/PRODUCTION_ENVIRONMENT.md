@@ -38,4 +38,4 @@ Keep audio-generation credentials local unless running generation in a trusted e
 4. `access.html` calls `/api/verify-checkout-session`.
 5. If Stripe says the session is complete and paid, Lang5K stores `lang5k_access_token` in browser local storage.
 6. `app.html` uses that token to request the full 5,000-sentence course from `/api/course`.
-
+7. `/api/course` re-checks Stripe before serving the full course, so refunded, disputed, or unpaid sessions cannot keep using a stale browser token.

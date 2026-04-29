@@ -50,7 +50,7 @@ Lang5K should not be sold as a finished paid product until these gates are compl
 - Public site: live.
 - Support email routing: active.
 - Stripe checkout API: implemented, requires live environment variables.
-- Full buyer access control: implemented as browser access token after verified Stripe checkout.
+- Full buyer access control: implemented as browser access token after verified Stripe checkout, with Stripe re-check before full course delivery.
 - Full audio coverage: not complete.
 - Native-speaker review: not complete.
 

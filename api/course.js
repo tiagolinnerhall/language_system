@@ -1,5 +1,6 @@
 const { bearerToken, verifyAccessToken } = require('./_lib/access');
 const { loadRussianCourse } = require('./_lib/course-data');
+const { isCheckoutSessionPaid, retrieveCheckoutSession } = require('./_lib/stripe');
 
 const DEMO_LIMIT = 80;
 
@@ -29,6 +30,16 @@ module.exports = async function handler(req, res) {
     res.status(secret ? 401 : 503).json({
       error: secret ? 'Paid access is required.' : 'Paid access is not configured yet.'
     });
+    return;
+  }
+  try {
+    const session = await retrieveCheckoutSession(payload.session);
+    if (!isCheckoutSessionPaid(session)) {
+      res.status(402).json({ error: 'Paid access is no longer active.' });
+      return;
+    }
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ error: error.message || 'Unable to verify paid access.' });
     return;
   }
 

@@ -30,6 +30,9 @@ mustExist('access.html');
 
 mustInclude('app.html', '/api/course');
 mustInclude('app.html', 'lang5k_access_token');
+mustInclude('api/course.js', 'retrieveCheckoutSession');
+mustInclude('api/course.js', 'isCheckoutSessionPaid');
+mustInclude('api/verify-access-token.js', 'retrieveCheckoutSession');
 mustInclude('checkout.html', '/api/create-checkout-session');
 mustInclude('access.html', '/api/verify-checkout-session');
 mustInclude('sw.js', 'lang5k-static-v4');
