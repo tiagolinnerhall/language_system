@@ -1,0 +1,5 @@
+.env*
+.git
+.vercel
+data-sources
+generated-audio
