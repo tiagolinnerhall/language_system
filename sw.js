@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lang5k-static-v3';
+const CACHE_NAME = 'lang5k-static-v4';
 
 const CORE_ASSETS = [
   'index.html',
@@ -16,11 +16,8 @@ const CORE_ASSETS = [
   'audio-manifest-ru.json',
   'attribution-ru.json',
   'languages/config.js',
-  'languages/russian/data1.js',
-  'languages/russian/data2.js',
-  'languages/russian/data3.js',
-  'languages/russian/data4.js',
-  'languages/russian/data5.js'
+  'checkout.html',
+  'access.html'
 ];
 
 self.addEventListener('install', event => {
@@ -42,6 +39,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) return;
   if (url.pathname.endsWith('audio-manifest-ru.json')) {
     event.respondWith(
       fetch(event.request)

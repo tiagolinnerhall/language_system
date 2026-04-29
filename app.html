@@ -80,6 +80,9 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .theme-toggle:hover{background:var(--primary-bg)}
 .empty-state{text-align:center;padding:60px 20px;color:var(--text3);font-size:1.1rem}
 .loading{text-align:center;padding:80px 20px;color:var(--text3);font-size:1.2rem}
+.access-notice{margin:16px auto 0;max-width:1200px;padding:14px 18px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:12px;font-size:.95rem;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.access-notice strong{color:#111827}.access-notice a{font-weight:800;color:#2563eb;text-decoration:none}
+.access-required{max-width:720px;margin:48px auto;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--shadow-lg);text-align:center}.access-required h2{margin-bottom:8px}.access-required p{color:var(--text2);margin-bottom:16px}.access-required .btn{display:inline-flex;margin:6px}
 @media(max-width:768px){
 .header{padding:12px 16px}
 .header h1{font-size:1.2rem}
@@ -293,6 +296,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="dash-card"><div class="dash-num" id="dashDue">0</div><div class="dash-label">Due Today</div></div>
   <div class="dash-card"><div class="dash-num" id="dashCourse">0</div><div class="dash-label">Course Sentences</div></div>
  </div>
+ <div id="accessNotice"></div>
  <div class="container" id="app"><div class="loading">Loading sentences...</div></div>
 </div>
 
@@ -344,15 +348,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 // === Get language from URL ===
 const urlParams=new URLSearchParams(window.location.search);
 const langKey=urlParams.get('lang')||'russian';
+const demoRequested=urlParams.get('demo')==='1';
 const LANG=LANGUAGES[langKey];
 if(!LANG){document.body.innerHTML='<div style="text-align:center;padding:80px;font-size:1.2rem">Language not found. <a href="index.html">Go back</a></div>';throw new Error('Language not found')}
 
 let SENTENCES=[];
 let langCode=LANG.code;
 let storagePrefix=langKey+'_';
+let courseAccessMode='demo';
 
 // DOM refs
 const app=document.getElementById('app');
+const accessNotice=document.getElementById('accessNotice');
 const searchInput=document.getElementById('searchInput');
 const categoryFilter=document.getElementById('categoryFilter');
 const unlearnedOnly=document.getElementById('unlearnedOnly');
@@ -462,48 +469,54 @@ function playAudio(text,idx,{onend,onerror}={}){
  });
 }
 
-// === Load data files dynamically ===
-function loadScript(src){
- return new Promise((resolve,reject)=>{
-  const s=document.createElement('script');
-  s.src=src;
-  s.onload=resolve;
-  s.onerror=reject;
-  document.head.appendChild(s);
- });
-}
-
 async function loadLanguageData(){
  try{
-  for(const file of LANG.files){
-   await loadScript('languages/'+langKey+'/'+file);
+  const token=localStorage.getItem('lang5k_access_token')||'';
+  const wantsFull=Boolean(token)&&!demoRequested;
+  const query=new URLSearchParams({lang:langKey,mode:wantsFull?'full':'demo'});
+  const response=await fetch('/api/course?'+query.toString(),{
+   cache:'no-store',
+   headers:wantsFull?{Authorization:'Bearer '+token}:{}
+  });
+  const data=await response.json().catch(()=>({error:'Unable to read course response.'}));
+  if(!response.ok){
+   renderAccessRequired(data.error||'Paid access is required.');
+   return;
   }
-  let sharedData;
-  try{sharedData=eval('typeof SENTENCES_DATA!=="undefined"?SENTENCES_DATA:undefined')}catch(_){}
-  if(sharedData) SENTENCES=SENTENCES.concat(sharedData);
-  if(typeof window.SENTENCES_LEGACY!=='undefined') SENTENCES=SENTENCES.concat(window.SENTENCES_LEGACY);
-  for(let i=1;i<=10;i++){
-   const varName='SENTENCES'+i;
-   let data=window[varName];
-   if(typeof data==='undefined'){
-    try{data=eval('typeof '+varName+'!=="undefined"?'+varName+':undefined')}catch(_){}
-   }
-   if(typeof data!=='undefined') SENTENCES=SENTENCES.concat(data);
-  }
-  if(SENTENCES.length===0 && typeof window._SENT!=='undefined') SENTENCES=window._SENT;
-
+  SENTENCES=data.sentences||[];
+  courseAccessMode=data.mode||'demo';
   if(!SENTENCES.length){
    app.innerHTML='<div class="empty-state">No data loaded for this language yet.</div>';
    return;
   }
   populateCategoryFilter();
   render();
+  renderAccessNotice(data);
   updateBinBadge();
   updateStreakDisplay();
   updateDueBadge();
  }catch(e){
   app.innerHTML='<div class="empty-state">Error loading language data: '+e.message+'</div>';
  }
+}
+
+function renderAccessNotice(data){
+ if(!accessNotice)return;
+ if(data.mode==='full'){
+  accessNotice.innerHTML=`<div class="access-notice"><span><strong>Paid access active.</strong> Full ${data.total} sentence course unlocked on this browser.</span><a href="pricing.html">Account help</a></div>`;
+  return;
+ }
+ accessNotice.innerHTML=`<div class="access-notice"><span><strong>Demo mode.</strong> Showing ${data.limit} of ${data.total} Russian sentences. Full access requires verified checkout.</span><a href="pricing.html">View launch plan</a></div>`;
+}
+
+function renderAccessRequired(message){
+ if(accessNotice)accessNotice.innerHTML='';
+ app.innerHTML=`<div class="access-required">
+  <h2>Paid access required</h2>
+  <p>${message}</p>
+  <a class="btn btn-primary" href="checkout.html">Start secure checkout</a>
+  <a class="btn btn-secondary" href="app.html?lang=${langKey}&demo=1">Use demo mode</a>
+ </div>`;
 }
 
 // === Core functions ===

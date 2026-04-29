@@ -6,12 +6,12 @@ Lang5K should not be sold as a finished paid product until these gates are compl
 
 1. Private buyer access
    - Users must not get the full paid product only through a public URL.
-   - Stripe checkout must create or unlock a customer record.
-   - The app must show a useful blocked state for unpaid users.
+   - Stripe checkout must create a verified access token.
+   - The app must show a limited demo state for unpaid users.
 
 2. Stripe automation
-   - Use live Stripe checkout, webhook verification, and recorded payment status.
-   - Store customer email, payment ID, product, access status, and timestamps.
+   - Use live Stripe checkout and verified checkout-session status.
+   - Store or verify customer email, payment ID, product, access status, and timestamps.
    - Support refunds and revoke access when needed.
 
 3. Database
@@ -49,18 +49,17 @@ Lang5K should not be sold as a finished paid product until these gates are compl
 - Russian 5,000 sentence course: built and validated.
 - Public site: live.
 - Support email routing: active.
-- Stripe payment link: created, but public sale is paused.
-- Full buyer access control: not implemented.
+- Stripe checkout API: implemented, requires live environment variables.
+- Full buyer access control: implemented as browser access token after verified Stripe checkout.
 - Full audio coverage: not complete.
 - Native-speaker review: not complete.
 
 ## Next Build Slice
 
-Build the paid access system:
+Finish production hardening:
 
-1. Add a database.
-2. Add Stripe webhook handling.
-3. Add email login.
-4. Gate the full trainer behind active access.
-5. Leave a limited public demo available.
-
+1. Add live Vercel environment variables.
+2. Test a real Stripe checkout.
+3. Add a database-backed customer ledger and email recovery.
+4. Add Stripe webhook handling for refunds and disputes.
+5. Complete native review and hosted audio generation.

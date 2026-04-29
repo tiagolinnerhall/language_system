@@ -36,7 +36,7 @@ function loadAll() {
   const all = [];
   for (let i = 1; i <= 5; i++) {
     const variable = `SENTENCES${i}`;
-    const filePath = join(ROOT, 'languages', 'russian', `data${i}.js`);
+    const filePath = join(ROOT, 'api', '_data', 'russian', `data${i}.js`);
     const code = readFileSync(filePath, 'utf8') + `\n;globalThis.__DATA__=${variable};`;
     const context = {};
     vm.createContext(context);

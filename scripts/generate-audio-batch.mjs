@@ -33,7 +33,7 @@ function loadRussianSentences() {
   const all = [];
   files.forEach((file, i) => {
     const variable = `SENTENCES${i + 1}`;
-    const filePath = join(ROOT, 'languages', LANGUAGE, file);
+    const filePath = join(ROOT, 'api', '_data', LANGUAGE, file);
     const code = readFileSync(filePath, 'utf8') + `\n;globalThis.__DATA__=${variable};`;
     const context = {};
     vm.createContext(context);

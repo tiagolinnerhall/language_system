@@ -20,12 +20,12 @@
  <section class="hero">
  <div class="kicker">Professional launch</div>
   <h1>Lang5K is moving from beta to a real paid product.</h1>
-  <p>Lang5K starts with Russian: a 5,000-sentence course with active recall, cloze, dictation, spaced review, hosted-audio samples, and browser voice fallback. Public paid checkout is paused until private access, Stripe automation, full audio coverage, and native-speaker review are complete.</p>
-  <div class="price">Full launch in preparation</div>
-  <p class="note">The public trainer remains available for product validation. Paid access will reopen only when buyers receive a professional account/access flow and clear support terms.</p>
+  <p>Lang5K starts with Russian: a 5,000-sentence course with active recall, cloze, dictation, spaced review, hosted-audio samples, and browser voice fallback. Paid access uses Stripe checkout and a verified access token; public users only see a limited demo.</p>
+  <div class="price">R$99 one-time full-course access</div>
+  <p class="note">Checkout must be fully configured in Vercel before live sales: Stripe secret key, Stripe price ID, access signing secret, and site URL.</p>
   <div class="hero-actions">
-   <a class="cta" href="mailto:contact@lang5k.com?subject=Lang5K%20professional%20launch%20access">Join launch list</a>
-   <a class="cta secondary" href="app.html?lang=russian">Try Russian first</a>
+   <a class="cta" href="checkout.html">Start secure checkout</a>
+   <a class="cta secondary" href="app.html?lang=russian&demo=1">Try demo first</a>
   </div>
  </section>
  <div class="grid">
@@ -41,9 +41,9 @@
   <div class="card">
    <h2>Before paid launch</h2>
    <ul>
-    <li>Private buyer access must be connected to Stripe</li>
-    <li>Customer records, receipts, refunds, and support workflow must be auditable</li>
-    <li>Native-speaker curriculum review must be completed for the paid course</li>
+    <li>Stripe checkout must be configured with live environment variables</li>
+    <li>Customer records, receipts, refunds, and support workflow must be monitored</li>
+    <li>Native-speaker curriculum review is still recommended before paid advertising</li>
     <li>Full hosted audio should be generated after content review</li>
    </ul>
   </div>
@@ -58,7 +58,7 @@
   </div>
  </div>
  <div class="band">
-  <strong>Launch rule:</strong> do not sell this as a finished paid product until access control, Stripe webhook automation, buyer support, native review, and audio coverage are complete.
+  <strong>Launch rule:</strong> sell only after the checkout configuration is verified in production. The course is gated; full subscription polish still requires customer account recovery and full audio coverage.
  </div>
  <footer>
   Lang5K professional launch information.
