@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lang5k-static-v4';
+const CACHE_NAME = 'lang5k-static-v5';
 
 const CORE_ASSETS = [
   'index.html',
@@ -40,6 +40,22 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.pathname.startsWith('/api/')) return;
+  if (url.pathname.endsWith('/sw.js') || url.pathname.endsWith('sw.js')) return;
+
+  const isPageRequest = event.request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html');
+  if (isPageRequest) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' })
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   if (url.pathname.endsWith('audio-manifest-ru.json')) {
     event.respondWith(
       fetch(event.request)
