@@ -35,7 +35,7 @@ mustInclude('api/course.js', 'isCheckoutSessionPaid');
 mustInclude('api/verify-access-token.js', 'retrieveCheckoutSession');
 mustInclude('checkout.html', '/api/create-checkout-session');
 mustInclude('access.html', '/api/verify-checkout-session');
-mustInclude('sw.js', 'lang5k-static-v4');
+mustInclude('sw.js', 'lang5k-static-v5');
 mustInclude('privacy.html', 'paid-access tokens');
 
 console.log('Lang5K paid access flow validation passed.');

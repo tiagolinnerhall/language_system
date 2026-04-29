@@ -50,6 +50,8 @@ assertIncludes('app.html', app, 'Cloze');
 assertIncludes('app.html', app, 'Dictation');
 assertIncludes('app.html', app, "Today's guided lesson");
 assertIncludes('app.html', app, 'Start guided lesson');
+assertIncludes('app.html', app, 'Next: test my memory');
+assertIncludes('app.html', app, 'NEW RECALL');
 assertIncludes('app.html', app, 'showClozeView');
 assertIncludes('app.html', app, 'showDictationView');
 assertIncludes('manifest.webmanifest', manifest, '"name": "Lang5K"');

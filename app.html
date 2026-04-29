@@ -1265,8 +1265,8 @@ function showStudyCard(){
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${s[1]}</div>
     <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${s[2]}</div>
     <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
-    <button class="study-reveal-btn" onclick="nextNewCard()" style="background:var(--green)">I said it out loud &mdash; continue</button>
-    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">New sentences enter tomorrow's review automatically.</div>
+    <button class="study-reveal-btn" onclick="showNewRecallCard()" style="background:var(--green)">Next: test my memory</button>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Do not move on yet. The next screen checks whether you can recall it.</div>
    </div>`;
   // Auto-play audio
   speakText(s[0],item.idx);
@@ -1286,26 +1286,20 @@ function showStudyCard(){
  }
 }
 
-function nextNewCard(){
+function showNewRecallCard(){
  const item=studyQueue[studyIndex];
- // Enter into SRS as Box 1, review tomorrow
- const tomorrow=new Date();
- tomorrow.setDate(tomorrow.getDate()+1);
- srsData[item.idx]={
-  box:1,
-  nextReview:tomorrow.toISOString().slice(0,10),
-  lastReview:getToday(),
-  correctStreak:0
- };
- saveSRS();
-
- // Update stats
- studySessionStats.newCount++;
- userStats.todayNew=(userStats.todayNew||0)+1;
- saveStats();
-
- studyIndex++;
- showStudyCard();
+ const s=SENTENCES[item.idx];
+ studyRevealed=false;
+ document.getElementById('studyContent').innerHTML=`
+  <div class="study-card fade-in">
+   <span class="study-card-label new">NEW RECALL</span>
+   <div class="study-english">${s[2]}</div>
+   <div class="study-prompt">Step 2: now cover the Russian in your mind and say it from memory. Type it if you want a stricter check.</div>
+   <input type="text" class="study-type-input" id="studyInput" placeholder="Type the Russian from memory (optional)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+   <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal, listen, and rate</button>
+   <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Again = I could not recall it. Good = I recalled most of it.</div>
+  </div>`;
+ setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
 }
 
 function revealStudyCard(){
@@ -1314,7 +1308,8 @@ function revealStudyCard(){
 
  const item=studyQueue[studyIndex];
  const s=SENTENCES[item.idx];
- const srsInfo=srsData[item.idx]||{box:1};
+ const isNew=item.type==='new';
+ const srsInfo=srsData[item.idx]||{box:isNew?0:1};
  const typedAnswer=(document.getElementById('studyInput')||{}).value||'';
 
  // Compare typed answer
@@ -1326,10 +1321,10 @@ function revealStudyCard(){
 
  document.getElementById('studyContent').innerHTML=`
   <div class="study-card fade-in">
-   <span class="study-card-label review">REVIEW &middot; Box ${srsInfo.box}</span>
+   <span class="study-card-label ${isNew?'new':'review'}">${isNew?'NEW RECALL':'REVIEW &middot; Box '+srsInfo.box}</span>
    <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text3)">${s[2]}</div>
    <div class="study-answer-section">
-    <div class="study-prompt">Step 2: listen, compare, then rate your memory.</div>
+    <div class="study-prompt">${isNew?'Step 3: compare your recall, listen again, then rate it.':'Step 2: listen, compare, then rate your memory.'}</div>
     <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})">${s[0]}</div>
     <div class="study-translit">${s[1]}</div>
     <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
@@ -1338,7 +1333,7 @@ function revealStudyCard(){
      <button class="btn-again" onclick="rateStudyCard(false)">&#10060; Again (1)</button>
      <button class="btn-good" onclick="rateStudyCard(true)">&#10003; Good (2)</button>
     </div>
-    <div class="study-box-info" id="studyBoxInfo">Box ${srsInfo.box}</div>
+    <div class="study-box-info" id="studyBoxInfo">${isNew?'First review will be scheduled after rating.':'Box '+srsInfo.box}</div>
    </div>
   </div>`;
 
@@ -1347,6 +1342,7 @@ function revealStudyCard(){
 
 function rateStudyCard(correct){
  const item=studyQueue[studyIndex];
+ const isNew=item.type==='new';
  const oldBox=(srsData[item.idx]||{box:1}).box||1;
 
  processRating(item.idx,correct);
@@ -1355,17 +1351,22 @@ function rateStudyCard(correct){
  const nextDays=LEITNER_DAYS[newBox]||1;
 
  // Update stats
- studySessionStats.reviewCount++;
+ if(isNew){
+  studySessionStats.newCount++;
+  userStats.todayNew=(userStats.todayNew||0)+1;
+ } else {
+  studySessionStats.reviewCount++;
+  userStats.todayReviews=(userStats.todayReviews||0)+1;
+ }
  if(correct)studySessionStats.goodCount++;
  else studySessionStats.againCount++;
- userStats.todayReviews=(userStats.todayReviews||0)+1;
  saveStats();
 
  // Brief feedback
  const info=document.getElementById('studyBoxInfo');
  if(info){
   if(correct){
-   info.textContent=`Box ${oldBox} \u2192 Box ${newBox} (review in ${nextDays} day${nextDays>1?'s':''})`;
+   info.textContent=isNew?`Scheduled for review in ${nextDays} day${nextDays>1?'s':''}`:`Box ${oldBox} \u2192 Box ${newBox} (review in ${nextDays} day${nextDays>1?'s':''})`;
    info.style.color='var(--green)';
   } else {
    info.textContent=`Back to Box 1 (review tomorrow)`;
@@ -1383,7 +1384,8 @@ function rateStudyCard(correct){
 function showStudySummary(){
  document.getElementById('studyHeaderBar').style.display='none';
  const totalDone=studySessionStats.newCount+studySessionStats.reviewCount;
- const accuracy=studySessionStats.reviewCount>0?Math.round(studySessionStats.goodCount/studySessionStats.reviewCount*100):100;
+ const ratedTotal=studySessionStats.goodCount+studySessionStats.againCount;
+ const accuracy=ratedTotal>0?Math.round(studySessionStats.goodCount/ratedTotal*100):100;
  const totalLearned=Object.keys(learned).length;
  const totalInSRS=Object.keys(srsData).length;
 
