@@ -17,6 +17,12 @@ function assertIncludes(file, content, marker) {
   }
 }
 
+function assertNotIncludes(file, content, marker) {
+  if (content.toLowerCase().includes(marker.toLowerCase())) {
+    throw new Error(`${file} still contains stale customer copy: ${marker}`);
+  }
+}
+
 const index = read('index.html');
 const app = read('app.html');
 const manifest = read('manifest.webmanifest');
@@ -39,6 +45,7 @@ const publicPages = ['index.html', 'pricing.html', 'attribution.html', 'terms.ht
 assertIncludes('index.html', index, 'Lang5K');
 assertIncludes('index.html', index, 'hosted audio');
 assertIncludes('index.html', index, '5,000-sentence path');
+assertIncludes('index.html', index, '5000</div><div class="label">Hosted Audio Files');
 assertIncludes('app.html', app, 'Cloze');
 assertIncludes('app.html', app, 'Dictation');
 assertIncludes('app.html', app, "Today's guided lesson");
@@ -49,7 +56,7 @@ assertIncludes('manifest.webmanifest', manifest, '"name": "Lang5K"');
 assertIncludes('audio-manifest-ru.json', audioManifest, '"language": "ru"');
 assertIncludes('attribution-ru.json', attribution, '"license": "CC-BY 2.0 FR"');
 assertIncludes('sw.js', sw, 'checkout.html');
-assertIncludes('pricing.html', pricing, 'Professional launch');
+assertIncludes('pricing.html', pricing, 'Full Russian access');
 assertIncludes('pricing.html', pricing, 'Start secure checkout');
 assertIncludes('checkout.html', checkout, '/api/create-checkout-session');
 assertIncludes('access.html', access, '/api/verify-checkout-session');
@@ -63,6 +70,15 @@ assertIncludes('sitemap.xml', sitemap, 'https://www.lang5k.com/attribution.html'
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_PUBLIC_BASE_URL');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_ENDPOINT');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'ELEVENLABS_API_KEY');
+
+for (const [file, content] of [['index.html', index], ['pricing.html', pricing]]) {
+  assertNotIncludes(file, content, 'browser voice fallback');
+  assertNotIncludes(file, content, 'Hosted Audio Samples');
+  assertNotIncludes(file, content, 'hosted-audio samples');
+  assertNotIncludes(file, content, 'full audio catalog is generated');
+  assertNotIncludes(file, content, 'Full hosted audio should be generated');
+  assertNotIncludes(file, content, 'Checkout must be fully configured');
+}
 
 const missingLinks = [];
 for (const page of publicPages) {
