@@ -184,3 +184,33 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the change is copy-only and covered by static validators. A future visual pass should inspect milestone and study-summary spacing on small mobile screens.
+
+### Restored Stats Backup Guard
+
+Changed:
+- Added `sanitizeProgressBackupStats()` so imported progress backups sanitize study stats before saving them to local storage.
+- Extended `scripts/validate-progress-backup-guardrails.mjs` to require safe restore handling for daily goals, daily counters, streak counters, guided-session completion, and study dates.
+
+Why:
+- A premium self-running study product should not let a malformed or stale backup distort the guided plan with impossible daily goals, invalid streaks, or bad calendar dates. Restore already sanitized learned rows, weak-bin rows, and SRS data; user stats needed the same guardrail.
+
+Verification:
+- Confirmed `node scripts/validate-progress-backup-guardrails.mjs` failed before the app change with `Progress restore must sanitize user stats before saving.`
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran app.html inline script parse-check with `node --check` on the extracted script.
+
+Pushed Commit:
+- `89ee706 fix: sanitize restored study stats`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is import/restore validation covered by the new static guard and the existing flow checks. A future browser pass should manually import a deliberately malformed backup and inspect the alert plus restored daily-goal state.
