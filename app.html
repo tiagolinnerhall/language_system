@@ -691,12 +691,12 @@ function getTodayPlanSummary(){
  const weakCount=Object.keys(reviewBin).length;
  let nextLabel='Start guided lesson';
  let nextAction='startStudyView()';
- if(weakCount>0){
-  nextLabel='Repair weak sentences';
-  nextAction='toggleBinView()';
- } else if(dueCount>0){
+ if(dueCount>0){
   nextLabel='Continue due reviews';
   nextAction='startStudyView()';
+ } else if(weakCount>0){
+  nextLabel='Repair weak sentences';
+  nextAction='toggleBinView()';
  } else if(newPlanned===0){
   nextLabel='Browse all sentences';
   nextAction='showBrowseView()';
@@ -1476,6 +1476,7 @@ function showStudyStart(){
  const stats=getTodayStats();
  const remainingNew=Math.max(0,dailyNewGoal-(stats.todayNew||0));
  const newAvail=getNewSentences(remainingNew);
+ const weakCount=Object.keys(reviewBin).length;
  const totalSession=due.length+newAvail.length;
  const estMinutes=Math.max(1,Math.round(totalSession*0.8));
 
@@ -1487,6 +1488,7 @@ function showStudyStart(){
    <div class="study-stats-row">
     <div class="study-stat"><div class="stat-num orange">${due.length}</div><div class="stat-label">Reviews Due</div></div>
     <div class="study-stat"><div class="stat-num green">${newAvail.length}</div><div class="stat-label">New Sentences</div></div>
+    <div class="study-stat"><div class="stat-num">${weakCount}</div><div class="stat-label">Weak Sentences</div></div>
     <div class="study-stat"><div class="stat-num">${Object.keys(learned).length}</div><div class="stat-label">Total Learned</div></div>
    </div>
    <div class="study-protocol">
@@ -1508,6 +1510,10 @@ function showStudyStart(){
    ${totalSession>0?`
     <button class="study-start-btn" onclick="beginStudySession()">Start guided lesson</button>
     <div class="study-time-est">~${estMinutes} min estimated</div>
+   `:weakCount>0?`
+    <div style="color:var(--orange);font-weight:600;font-size:1.05rem;margin:20px 0">You still have weak sentences waiting.</div>
+    <button class="study-start-btn" onclick="toggleBinView()" style="background:var(--orange)">Review weak sentences</button>
+    <div class="study-time-est">Keep the text hidden until you recall the sentence.</div>
    `:`
     <div style="color:var(--green);font-weight:600;font-size:1.1rem;margin:20px 0">&#10003; All done for today! Come back tomorrow.</div>
     <button class="btn btn-secondary" onclick="exitStudy()">Back to Browse</button>
