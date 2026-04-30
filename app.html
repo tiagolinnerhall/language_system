@@ -1273,6 +1273,27 @@ function sanitizeProgressBackupSrs(source){
  return {value:clean,skipped};
 }
 
+function sanitizeProgressBackupStats(source){
+ const clean={};
+ let skipped=0;
+ if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
+ const dailyGoal=Number(source.dailyGoal);
+ if([5,10,15,20].includes(dailyGoal))clean.dailyGoal=dailyGoal;
+ else if(source.dailyGoal!==undefined)skipped++;
+ ['todayNew','todayReviews','currentStreak','longestStreak'].forEach(key=>{
+  if(source[key]===undefined)return;
+  const value=Number(source[key]);
+  if(Number.isFinite(value))clean[key]=Math.max(0,Math.round(value));
+  else skipped++;
+ });
+ if(isBackupDate(source.date))clean.date=source.date;
+ else if(source.date!==undefined)skipped++;
+ if(isBackupDate(source.lastStudyDate))clean.lastStudyDate=source.lastStudyDate;
+ else if(source.lastStudyDate!==undefined)skipped++;
+ if(source.completedFirstGuidedSession!==undefined)clean.completedFirstGuidedSession=Boolean(source.completedFirstGuidedSession);
+ return {value:clean,skipped};
+}
+
 function exportProgressBackup(){
  const payload={
   language:langKey,
@@ -1305,10 +1326,11 @@ function importProgressBackup(event){
    const learnedResult=sanitizeProgressBackupMap(data.learned);
    const reviewBinResult=sanitizeProgressBackupMap(data.reviewBin);
    const srsResult=sanitizeProgressBackupSrs(data.srsData);
+   const statsResult=sanitizeProgressBackupStats(data.userStats);
    learned=learnedResult.value;
    reviewBin=reviewBinResult.value;
    srsData=srsResult.value;
-   userStats=data.userStats&&typeof data.userStats==='object'?data.userStats:{};
+   userStats=statsResult.value;
    localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
    localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
    localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
@@ -1318,7 +1340,7 @@ function importProgressBackup(event){
    updateBinBadge();
    updateStreakDisplay();
    render();
-   const skipped=learnedResult.skipped+reviewBinResult.skipped+srsResult.skipped;
+   const skipped=learnedResult.skipped+reviewBinResult.skipped+srsResult.skipped+statsResult.skipped;
    alert(skipped?'Progress restored from backup. Invalid backup rows were skipped.':'Progress restored from backup.');
   }catch(error){
    alert(error.message||'Backup file could not be restored.');
