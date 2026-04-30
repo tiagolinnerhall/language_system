@@ -1277,15 +1277,21 @@ function sanitizeProgressBackupStats(source){
  const clean={};
  let skipped=0;
  if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
+ const maxDailyCount=SENTENCES.length;
+ const maxStreakDays=3650;
+ function assignBoundedStat(key,maxValue){
+  if(source[key]===undefined)return;
+  const value=Number(source[key]);
+  if(Number.isFinite(value))clean[key]=Math.min(maxValue,Math.max(0,Math.round(value)));
+  else skipped++;
+ }
  const dailyGoal=Number(source.dailyGoal);
  if([5,10,15,20].includes(dailyGoal))clean.dailyGoal=dailyGoal;
  else if(source.dailyGoal!==undefined)skipped++;
- ['todayNew','todayReviews','currentStreak','longestStreak'].forEach(key=>{
-  if(source[key]===undefined)return;
-  const value=Number(source[key]);
-  if(Number.isFinite(value))clean[key]=Math.max(0,Math.round(value));
-  else skipped++;
- });
+ assignBoundedStat('todayNew',maxDailyCount);
+ assignBoundedStat('todayReviews',maxDailyCount);
+ assignBoundedStat('currentStreak',maxStreakDays);
+ assignBoundedStat('longestStreak',maxStreakDays);
  if(isBackupDate(source.date))clean.date=source.date;
  else if(source.date!==undefined)skipped++;
  if(isBackupDate(source.lastStudyDate))clean.lastStudyDate=source.lastStudyDate;
