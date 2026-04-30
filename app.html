@@ -38,6 +38,12 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .dash-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
 .dash-card .dash-num{font-size:1.45rem;font-weight:800;color:var(--primary)}
 .dash-card .dash-label{font-size:.78rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.audio-status{max-width:1200px;margin:12px auto 0;padding:0 24px}
+.audio-status-card{display:flex;align-items:flex-start;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);color:var(--text2);font-size:.88rem}
+.audio-status-card strong{display:block;color:var(--text);font-size:.9rem;margin-bottom:2px}
+.audio-status-dot{width:10px;height:10px;border-radius:50%;background:var(--orange);margin-top:6px;flex:0 0 auto}
+.audio-status-dot.ready{background:var(--green)}
+.audio-status-dot.loading{background:var(--primary)}
 .learning-coach{max-width:1200px;margin:16px auto 0;padding:0 24px}
 .coach-panel{display:grid;grid-template-columns:1.2fr 2fr auto;gap:18px;align-items:center;background:linear-gradient(135deg,#111827,#1f2937);border:1px solid rgba(255,255,255,.08);color:#fff;border-radius:14px;padding:18px 20px;box-shadow:var(--shadow-lg)}
 .coach-title{font-size:1.05rem;font-weight:800;margin-bottom:4px}
@@ -359,6 +365,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="dash-card"><div class="dash-num" id="dashDue">0</div><div class="dash-label">Due Today</div></div>
   <div class="dash-card"><div class="dash-num" id="dashCourse">0</div><div class="dash-label">Course Sentences</div></div>
  </div>
+ <div class="audio-status" id="audioStatusNotice"></div>
  <div id="todayPlanHome"></div>
  <div id="accessNotice"></div>
  <div class="container" id="app"><div class="loading">Loading sentences...</div></div>
@@ -487,12 +494,14 @@ function hostedAudioUrl(idx){
 async function loadHostedAudioManifest(){
  try{
   const response=await fetch('audio-manifest-'+AUDIO_LANG_PREFIX+'.json',{cache:'no-store'});
-  if(!response.ok){hostedAudioIds=new Set();return}
+  if(!response.ok){hostedAudioIds=new Set();renderAudioStatusNotice();return}
   const data=await response.json();
   audioManifestVersion=data.generatedAt||'';
   hostedAudioIds=new Set((data.items||[]).map(item=>item.id).filter(Boolean));
+  renderAudioStatusNotice();
  }catch(_){
   hostedAudioIds=new Set();
+  renderAudioStatusNotice();
  }
 }
 
@@ -559,6 +568,7 @@ async function loadLanguageData(){
    app.innerHTML='<div class="empty-state">No data loaded for this language yet.</div>';
    return;
   }
+  renderAudioStatusNotice();
   populateCategoryFilter();
   render();
   renderAccessNotice(data);
@@ -761,6 +771,26 @@ function updateDashboard(){
  });
  renderTodayPlanHome();
  updateCoachModeUI();
+}
+
+function renderAudioStatusNotice(){
+ const host=document.getElementById('audioStatusNotice');
+ if(!host)return;
+ const courseCount=SENTENCES.length;
+ if(!courseCount){
+  host.innerHTML='';
+  return;
+ }
+ if(hostedAudioIds===null){
+  host.innerHTML=`<div class="audio-status-card"><span class="audio-status-dot loading"></span><div><strong>Audio status loading</strong>Lang5K is checking hosted audio before the lesson starts.</div></div>`;
+  return;
+ }
+ const covered=[...hostedAudioIds].filter(id=>id.startsWith(AUDIO_LANG_PREFIX+'_')).length;
+ if(covered>=courseCount){
+  host.innerHTML=`<div class="audio-status-card"><span class="audio-status-dot ready"></span><div><strong>Hosted audio ready</strong>All ${courseCount} visible ${escapeHtml(LANG.name)} sentences have hosted audio available for listening and shadowing.</div></div>`;
+  return;
+ }
+ host.innerHTML=`<div class="audio-status-card"><span class="audio-status-dot"></span><div><strong>Audio continuity check</strong>Hosted audio is available for ${covered} of ${courseCount} visible sentences. If a file is unavailable, Lang5K uses browser speech so practice can continue.</div></div>`;
 }
 
 function hideAllViews(){
