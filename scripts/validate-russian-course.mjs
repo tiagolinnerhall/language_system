@@ -60,6 +60,7 @@ const en = new Map();
 const ruPrefixes = new Map();
 const enPrefixes = new Map();
 const similar = [];
+const questionMismatches = [];
 for (let i = 0; i < sentences.length; i++) {
   const row = sentences[i];
   const attributionRow = attribution.items[i];
@@ -70,6 +71,9 @@ for (let i = 0; i < sentences.length; i++) {
   if (!/[А-Яа-яЁё]/.test(row[0])) throw new Error(`Missing Cyrillic at ${i + 1}: ${row[0]}`);
   const nr = normalize(row[0]);
   const ne = normalize(row[2]);
+  if (row[0].includes('?') !== row[2].includes('?')) {
+    questionMismatches.push([i + 1, row[0], row[2]]);
+  }
   if (ru.has(nr)) throw new Error(`Duplicate Russian at ${i + 1} and ${ru.get(nr)}: ${row[0]}`);
   if (en.has(ne)) throw new Error(`Duplicate English at ${i + 1} and ${en.get(ne)}: ${row[2]}`);
   const rp = prefixKey(row[0]);
@@ -95,6 +99,10 @@ for (let i = 0; i < sentences.length; i++) {
 
 if (similar.length) {
   throw new Error(`Near-duplicate sentences found:\n${similar.map(row => row.join(' | ')).join('\n')}`);
+}
+
+if (questionMismatches.length) {
+  throw new Error(`Question punctuation mismatches found:\n${questionMismatches.map(row => row.join(' | ')).join('\n')}`);
 }
 
 const categories = new Set(sentences.map(row => row[3]));
