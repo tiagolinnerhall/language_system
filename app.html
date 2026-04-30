@@ -1325,7 +1325,8 @@ function sanitizeProgressBackupStats(source){
  else if(source.date!==undefined)skipped++;
  if(isBackupDate(source.lastStudyDate))clean.lastStudyDate=source.lastStudyDate;
  else if(source.lastStudyDate!==undefined)skipped++;
- if(source.completedFirstGuidedSession!==undefined)clean.completedFirstGuidedSession=Boolean(source.completedFirstGuidedSession);
+ if(typeof source.completedFirstGuidedSession==='boolean')clean.completedFirstGuidedSession=source.completedFirstGuidedSession;
+ else if(source.completedFirstGuidedSession!==undefined)skipped++;
  return {value:clean,skipped};
 }
 
