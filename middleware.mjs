@@ -19,7 +19,21 @@ function isAllowedWithoutSession(pathname) {
 }
 
 export const config = {
-  matcher: '/:path*'
+  matcher: [
+    '/',
+    '/index.html',
+    '/app.html',
+    '/access.html',
+    '/admin.html',
+    '/attribution.html',
+    '/checkout.html',
+    '/contact.html',
+    '/pricing.html',
+    '/privacy.html',
+    '/refund.html',
+    '/terms.html',
+    '/api/admin-report'
+  ]
 };
 
 export default function middleware(request) {
