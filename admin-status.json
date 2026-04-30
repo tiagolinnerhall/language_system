@@ -1,0 +1,54 @@
+{
+  "updatedAt": "2026-04-30T22:20:00Z",
+  "status": "Private preview with continuous premium-improvement loop",
+  "summary": "Lang5K is now hidden behind a preview login and has a simple owner panel. The product is stronger than before, but still not at the finished premium bar. The main remaining gaps are synced accounts, a real member system, deeper course curation, and stronger automation around retention and operations.",
+  "doneNow": [
+    "Protected the site behind a private preview login.",
+    "Added a simple admin page with a readable owner report.",
+    "Started a hidden PC loop that keeps pushing Lang5K toward premium and waits 15 minutes after each finished run before starting again.",
+    "Built a coached first-session path with a real Today's plan card.",
+    "Added same-session repair so Again and Hard cards return later in the same study session.",
+    "Unified guided study, cloze, and dictation around Again / Hard / Good / Easy."
+  ],
+  "canDoNext": [
+    "Add passwordless accounts and synced progress so learners are no longer tied to one browser.",
+    "Create a proper member model before pricing is finalized.",
+    "Build stronger course-quality QA for the first 1,000 Russian sentences.",
+    "Add event tracking for lesson starts, completions, weak-item repair, and return behavior.",
+    "Add reminder automation and a more detailed owner status page."
+  ],
+  "needsYou": [
+    "Approve cloud accounts and stored learner progress as part of the product.",
+    "Approve the default premium tone: practical and neutral early, heavier/dramatic content later.",
+    "Later, approve the real yearly subscription rollout and final pricing."
+  ],
+  "biggestBlockers": [
+    "No real accounts or synced progress yet.",
+    "Still using access-token style gating instead of a real member lifecycle.",
+    "Russian course is improved but not fully premium-curated yet.",
+    "No reminders, analytics dashboard, or operational monitoring yet."
+  ],
+  "suggestedNow": [
+    "Finish private preview mode cleanly, then keep the site hidden until the premium bar is genuinely met.",
+    "Build accounts plus synced progress before returning to pricing.",
+    "Tighten the first 1,000-sentence path so it feels premium from day one."
+  ],
+  "links": [
+    {
+      "label": "Open main site",
+      "href": "/"
+    },
+    {
+      "label": "Open study app",
+      "href": "/app.html?lang=russian"
+    },
+    {
+      "label": "Open pricing page",
+      "href": "/pricing.html"
+    },
+    {
+      "label": "Open attribution page",
+      "href": "/attribution.html"
+    }
+  ]
+}

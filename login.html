@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lang5K Preview Login</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f3f5f8;color:#111827;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{width:min(460px,100%);background:#fff;border:1px solid #dbe3ee;border-radius:18px;box-shadow:0 12px 32px rgba(15,23,42,.14);padding:28px}.kicker{font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;margin-bottom:10px}.title{font-size:2rem;line-height:1.15;font-weight:800;margin:0 0 10px}.text{color:#4b5563;margin:0 0 18px}.field{margin-bottom:14px}.field label{display:block;font-weight:700;font-size:.9rem;margin-bottom:6px}.field input{width:100%;padding:13px 14px;border:1px solid #cbd5e1;border-radius:12px;font:inherit}.field input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.btn{width:100%;padding:13px 16px;border:none;border-radius:12px;background:#2563eb;color:#fff;font:inherit;font-weight:800;cursor:pointer}.btn:disabled{opacity:.7;cursor:progress}.status{margin-top:14px;font-size:.92rem;color:#4b5563}.hint{margin-top:18px;font-size:.84rem;color:#6b7280}
+</style>
+</head>
+<body>
+ <div class="card">
+  <div class="kicker">Private preview</div>
+  <h1 class="title">Lang5K is still under construction.</h1>
+  <p class="text">Use the preview login to open the site and admin panel while the product is being finished to premium standard.</p>
+  <form id="loginForm">
+   <div class="field">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" autocomplete="username" required>
+   </div>
+   <div class="field">
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+   </div>
+   <button class="btn" id="loginBtn" type="submit">Open preview</button>
+  </form>
+  <div class="status" id="status">Sign in to continue.</div>
+  <div class="hint">After login, you can also open <a href="/admin.html">the admin panel</a>.</div>
+ </div>
+ <script>
+ const params=new URLSearchParams(location.search);
+ const next=params.get('next')||'/';
+ document.getElementById('loginForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const button=document.getElementById('loginBtn');
+  const status=document.getElementById('status');
+  button.disabled=true;
+  status.textContent='Checking preview access...';
+  try{
+   const email=document.getElementById('email').value.trim();
+   const password=document.getElementById('password').value;
+   const response=await fetch('/api/admin-preview-login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok||!data.ok)throw new Error(data.error||'Login failed.');
+   status.textContent='Access granted. Opening the preview...';
+   location.href=next;
+  }catch(error){
+   status.textContent=error.message||'Login failed.';
+   button.disabled=false;
+  }
+ });
+ </script>
+</body>
+</html>
