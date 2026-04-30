@@ -439,10 +439,20 @@ const speedVal=document.getElementById('speedVal');
 const progressFill=document.getElementById('progressFill');
 const progressText=document.getElementById('progressText');
 
-let learned=JSON.parse(localStorage.getItem(storagePrefix+'learned')||'{}');
-let reviewBin=JSON.parse(localStorage.getItem(storagePrefix+'review_bin')||'{}');
-let srsData=JSON.parse(localStorage.getItem(storagePrefix+'srs')||'{}');
-let userStats=JSON.parse(localStorage.getItem(storagePrefix+'stats')||'{}');
+function readLocalJsonObject(key){
+ try{
+  const parsed=JSON.parse(localStorage.getItem(key)||'{}');
+  return parsed && typeof parsed==='object' && !Array.isArray(parsed)?parsed:{};
+ }catch(error){
+  localStorage.removeItem(key);
+  return {};
+ }
+}
+
+let learned=readLocalJsonObject(storagePrefix+'learned');
+let reviewBin=readLocalJsonObject(storagePrefix+'review_bin');
+let srsData=readLocalJsonObject(storagePrefix+'srs');
+let userStats=readLocalJsonObject(storagePrefix+'stats');
 let binOrder=[];
 let binViewActive=false;
 let studyViewActive=false;
@@ -563,6 +573,7 @@ async function loadLanguageData(){
    return;
   }
   SENTENCES=data.sentences||[];
+  normalizeStoredProgress();
   courseAccessMode=data.mode||'demo';
   if(!SENTENCES.length){
    app.innerHTML='<div class="empty-state">No data loaded for this language yet.</div>';
@@ -1298,6 +1309,21 @@ function sanitizeProgressBackupStats(source){
  else if(source.lastStudyDate!==undefined)skipped++;
  if(source.completedFirstGuidedSession!==undefined)clean.completedFirstGuidedSession=Boolean(source.completedFirstGuidedSession);
  return {value:clean,skipped};
+}
+
+function normalizeStoredProgress(){
+ const learnedResult=sanitizeProgressBackupMap(learned);
+ const reviewBinResult=sanitizeProgressBackupMap(reviewBin);
+ const srsResult=sanitizeProgressBackupSrs(srsData);
+ const statsResult=sanitizeProgressBackupStats(userStats);
+ learned=learnedResult.value;
+ reviewBin=reviewBinResult.value;
+ srsData=srsResult.value;
+ userStats=statsResult.value;
+ localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
+ localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+ localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
+ localStorage.setItem(storagePrefix+'stats',JSON.stringify(userStats));
 }
 
 function exportProgressBackup(){
