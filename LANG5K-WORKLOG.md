@@ -375,3 +375,39 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic restore/startup sanitization covered by the new static guard and existing flow validators. A future browser pass should import a backup with a far-future `nextReview` and confirm the guided lesson shows the restored review within the normal schedule.
+
+### Safe Error Message Rendering Guard
+
+Changed:
+- Escaped learner-facing course-load exception messages and paid-access API messages before rendering them into `app.html`.
+- Added `scripts/validate-safe-error-rendering.mjs` to prevent raw error text from being injected into `innerHTML` on access and load failure paths.
+
+Why:
+- Premium access and startup failures should be calm, safe, and recoverable. API or exception text can contain unexpected markup, and the learner-facing app should not render that markup as HTML when explaining the next access step.
+
+Verification:
+- Confirmed `node scripts/validate-safe-error-rendering.mjs` failed before the app change with `Language loading errors must not inject raw exception messages into innerHTML.`
+- Ran `node scripts/validate-safe-error-rendering.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/validate-safe-local-storage-startup.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/validate-truthy-progress-maps.mjs`.
+- Ran `node scripts/validate-srs-restore-date-window.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `2517449 fix: escape learner error messages`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic escaping on error/access paths covered by the new static guard. A future browser pass should force a course API error containing markup and confirm the page displays the literal text without layout regressions.
