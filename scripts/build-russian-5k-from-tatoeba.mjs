@@ -37,6 +37,25 @@ const commonRu = new Set(`
 `.trim().split(/\s+/));
 
 const blockedNames = /\b(tom|mary|john|boston|hokkaido|australia|canada|france|germany|japan)\b|(?:^|[\s,.!?])(?:том|тома|тому|томом|мэри|джон|бостон|хоккайдо)(?:$|[\s,.!?])/i;
+const blockedRiskEn = /\b(kill|dead|death|die|dying|hate|idiot|stupid|liar|war|bomb|murder|drunk)\b/i;
+const blockedRiskRu = /\b(убить|убью|убьет|мертв|смерт|ненави|идиот|туп|лжец|войн|бомб|пьян)\b/i;
+const awkwardEnglishPatterns = [
+  /\bI was to Europe\b/i,
+  /\bbackward in expressing\b/i,
+  /\byou have drunk\b/i
+];
+const fallbackModules = [
+  'Daily Foundations',
+  'Understanding & Clarifying',
+  'Needs, Requests & Permission',
+  'Daily Actions & Routines',
+  'People, Home & Relationships',
+  'Time, Plans & Arrangements',
+  'Shopping, Food & Services',
+  'Travel, Places & Movement',
+  'Work, Study & Responsibilities',
+  'Opinions, Feelings & Decisions'
+];
 
 function translit(text) {
   return text.split('').map(ch => MAP[ch] ?? ch).join('');
@@ -73,6 +92,14 @@ function hasInformalOrVulgarEnglish(text) {
   return /\b(gonna|wanna|gotta|ain't|shit|crap|damn|hell|dude|man)\b/i.test(text);
 }
 
+function hasRiskContent(ru, en) {
+  return blockedRiskRu.test(ru) || blockedRiskEn.test(en);
+}
+
+function hasAwkwardEnglish(text) {
+  return awkwardEnglishPatterns.some(pattern => pattern.test(text));
+}
+
 function looksLikeRussian(text) {
   return /[А-Яа-яЁё]/.test(text) && !/[ぁ-んァ-ン一-龯]/.test(text);
 }
@@ -82,6 +109,7 @@ function validPair(ru, en) {
   if (hasBadContent(ru) || hasBadContent(en)) return false;
   if (hasLatinToken(ru) || hasInformalOrVulgarEnglish(en)) return false;
   if (blockedNames.test(ru) || blockedNames.test(en)) return false;
+  if (hasRiskContent(ru, en) || hasAwkwardEnglish(en)) return false;
   if (!looksLikeRussian(ru)) return false;
   if (/[А-Яа-яЁё]/.test(en)) return false;
   if (!/[A-Za-z]/.test(en)) return false;
@@ -107,17 +135,21 @@ function jaccard(a, b) {
 function categoryFor(ru, en, index) {
   const text = `${ru} ${en}`.toLowerCase();
   if (/здравствуйте|привет|спасибо|please|hello|thank|sorry|извин/.test(text)) return 'Core Social Language';
+  if (/name|from|live|years old|зовут|из |живу|лет/.test(text)) return 'Identity & Personal Information';
   if (/where|when|why|how|когда|где|почему|как|сколько/.test(text)) return 'Questions & Answers';
-  if (/work|job|meeting|office|работ|встреч|началь|коллег/.test(text)) return 'Work & Daily Tasks';
+  if (/understand|mean|say|tell|answer|понима|знач|сказ|говор|ответ/.test(text)) return 'Understanding & Communication';
+  if (/work|job|meeting|office|работ|встреч|началь|коллег|учёб|урок|класс/.test(text)) return 'Work & Study';
   if (/home|house|room|квартир|дом|комнат|кухн/.test(text)) return 'Home & Family Life';
   if (/buy|shop|store|money|pay|куп|магазин|деньг|плат/.test(text)) return 'Shopping & Money';
   if (/doctor|pain|sick|health|врач|бол|здоров|лекар/.test(text)) return 'Health & Body';
   if (/train|bus|car|airport|station|поезд|автобус|машин|аэропорт|станци/.test(text)) return 'Travel & Transport';
   if (/\b(eat|drink|food|coffee|tea|restaurant)\b|чай|кофе|пить|еда|ресторан|завтрак|обед|ужин/.test(text)) return 'Food & Restaurants';
   if (/think|believe|feel|want|need|дума|чувств|хочу|нужно|надо/.test(text)) return 'Thoughts, Needs & Feelings';
+  if (/help|problem|wrong|late|wait|stop|помо|проблем|неправ|опозд|подож|стой/.test(text)) return 'Help, Problems & Fixes';
+  if (/go|come|leave|arrive|walk|идти|ехать|прийт|уйт|приед|пойдем/.test(text)) return 'Movement & Directions';
   if (/yesterday|tomorrow|today|сегодня|завтра|вчера|недел|год|месяц/.test(text)) return 'Time & Plans';
-  const level = Math.floor(index / 500) + 1;
-  return `Fluency Builder ${level}`;
+  const level = Math.min(fallbackModules.length - 1, Math.floor(index / 500));
+  return fallbackModules[level];
 }
 
 function score(ru, en) {
@@ -125,8 +157,12 @@ function score(ru, en) {
   const ew = words(en);
   const common = rw.filter(w => commonRu.has(w)).length;
   const lengthScore = Math.abs(rw.length - 6) + Math.abs(ew.length - 7) * 0.4;
-  const punctuationBonus = /[?]$/.test(ru) ? -0.6 : 0;
-  return lengthScore - common * 0.35 + punctuationBonus;
+  const punctuationBonus = /[?]$/.test(ru) ? -0.4 : 0;
+  const dailyBonus = /\b(i|you|we|this|here|there|today|tomorrow|now|want|need|can|have|go|come|buy|eat|drink|help|understand)\b/i.test(en) ? -1.8 : 0;
+  const politeBonus = /\b(please|thank|sorry|excuse me|hello)\b/i.test(en) ? -1.3 : 0;
+  const abstractPenalty = /\b(all this time|in return|supposed to|guess|else|force|exactly|anyone else)\b/i.test(en) ? 1.8 : 0;
+  const punctuationPenalty = /["“”]/.test(en) ? 1.2 : 0;
+  return lengthScore - common * 0.35 + punctuationBonus + dailyBonus + politeBonus + abstractPenalty + punctuationPenalty;
 }
 
 async function loadSentences() {

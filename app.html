@@ -208,7 +208,13 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-english-answer{font-size:.95rem;color:var(--text2);margin-bottom:12px}
 .study-typed-answer{padding:10px 14px;border-radius:8px;font-size:.95rem;margin-bottom:14px}
 .study-typed-answer.correct{background:rgba(16,185,129,.1);border:1px solid var(--green);color:var(--green)}
+.study-typed-answer.partial{background:rgba(249,115,22,.12);border:1px solid var(--orange);color:var(--orange)}
 .study-typed-answer.wrong{background:rgba(239,68,68,.1);border:1px solid var(--red);color:var(--red)}
+.study-feedback-detail{margin-top:6px;font-size:.83rem;line-height:1.45;color:var(--text2)}
+.study-feedback-detail strong{color:var(--text)}
+.pattern-note{margin-top:14px;padding:12px 14px;border-radius:12px;border:1px solid rgba(37,99,235,.18);background:var(--primary-bg);text-align:left}
+.pattern-note strong{display:block;color:var(--text);margin-bottom:4px}
+.pattern-note span{display:block;font-size:.9rem;color:var(--text2)}
 .study-rating{display:flex;gap:12px;justify-content:center}
 .study-rating button{flex:1;padding:14px;font-size:1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;transition:all .2s}
 .btn-again{background:rgba(239,68,68,.12);color:var(--red)}.btn-again:hover{background:var(--red);color:#fff}
@@ -269,6 +275,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .practice-feedback strong{color:var(--text)}
 .practice-hint{background:var(--primary-bg);border:1px solid rgba(37,99,235,.18);border-radius:12px;padding:10px 12px;margin:12px 0;color:var(--text2);font-size:.9rem;text-align:left}
 .practice-hint strong{display:block;color:var(--text);margin-bottom:3px}
+.summary-stop-note{font-size:.84rem;color:var(--text3);margin:-8px 0 12px}
 </style>
 </head>
 <body>
@@ -280,9 +287,12 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
    <button class="btn btn-study" id="studyBtn" onclick="startStudyView()">&#9654; Study <span class="due-badge" id="dueBadge">0</span></button>
    <div class="speed-control">
     <label>Speed:</label>
-    <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.1" value="0.85">
-    <span id="speedVal">0.85x</span>
-   </div>
+   <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.1" value="0.85">
+   <span id="speedVal">0.85x</span>
+  </div>
+   <button class="btn btn-secondary" onclick="exportProgressBackup()">Backup progress</button>
+   <button class="btn btn-secondary" onclick="document.getElementById('progressRestoreInput').click()">Restore progress</button>
+   <input type="file" id="progressRestoreInput" accept="application/json" style="display:none" onchange="importProgressBackup(event)">
    <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
    <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Bin <span class="bin-badge" id="binBadge">0</span></button>
    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
@@ -430,6 +440,8 @@ const RATING_DAYS={again:1,hard:2,good:5,easy:14};
 const MILESTONES=[10,25,50,100,250,500,1000,2500,5000];
 const AUDIO_BASE_URL='https://audio.lang5k.com';
 const AUDIO_LANG_PREFIX={russian:'ru'}[langKey]||(langCode||'').split('-')[0]||langKey;
+const PREMIUM_RISK_RE=/\b(kill|dead|death|die|hate|idiot|stupid|liar|war|bomb|drunk)\b/i;
+const CURATED_FALLBACK_CATEGORY='Everyday Conversation';
 
 // Study session state
 let studyQueue=[];
@@ -438,6 +450,7 @@ let studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCou
 let studyRevealed=false;
 let dailyNewGoal=10;
 let practiceCarryMessage='';
+let practiceSelectionMeta={kind:'available',reason:''};
 
 // Set page title
 document.getElementById('pageTitle').innerHTML=LANG.flag+' '+LANG.name+' Sentences<span><a href="index.html">&#8592; All Languages</a> &mdash; '+LANG.sentences+' sentences for daily life</span>';
@@ -569,10 +582,50 @@ function maybeStartGuidedLesson(){
 }
 
 // === Core functions ===
+function displayCategoryName(idx){
+ const s=SENTENCES[idx]||[];
+ const text=`${s[0]||''} ${s[2]||''}`.toLowerCase();
+ if(/здравствуйте|привет|спасибо|please|hello|thank|sorry|извин/.test(text))return 'Core Social Language';
+ if (/name|from|live|years old|зовут|живу|лет\b/.test(text)) return 'Identity & Personal Information';
+ if (/understand|mean|say|tell|answer|понима|знач|сказ|говор|ответ/.test(text)) return 'Understanding & Communication';
+ if (/where|when|why|how|когда|где|почему|как|сколько/.test(text)) return 'Questions & Clarifying';
+ if (/work|job|meeting|office|работ|встреч|началь|коллег|уч[её]б|урок|класс/.test(text)) return 'Work & Study';
+ if (/home|house|room|квартир|дом|комнат|кухн|семь|мама|папа|брат|сест/.test(text)) return 'Home & Family Life';
+ if (/buy|shop|store|money|pay|куп|магазин|деньг|плат/.test(text)) return 'Shopping & Money';
+ if (/doctor|pain|sick|health|врач|бол|здоров|лекар/.test(text)) return 'Health & Body';
+ if (/train|bus|car|airport|station|поезд|автобус|машин|аэропорт|станци/.test(text)) return 'Travel & Transport';
+ if (/\b(eat|drink|food|coffee|tea|restaurant)\b|чай|кофе|пить|еда|ресторан|завтрак|обед|ужин/.test(text)) return 'Food & Restaurants';
+ if (/think|believe|feel|want|need|дума|чувств|хочу|нужно|надо/.test(text)) return 'Thoughts, Needs & Feelings';
+ if (/help|problem|wrong|late|wait|stop|помо|проблем|неправ|опозд|подож|стой/.test(text)) return 'Help, Problems & Fixes';
+ if (/go|come|leave|arrive|walk|идти|ехать|прийт|уйт|приед|пойдем/.test(text)) return 'Movement & Directions';
+ if (/yesterday|tomorrow|today|сегодня|завтра|вчера|недел|год|месяц/.test(text)) return 'Time & Plans';
+ return CURATED_FALLBACK_CATEGORY;
+}
+
+function curatedSentenceScore(idx){
+ const s=SENTENCES[idx]||[];
+ const ru=String(s[0]||'');
+ const en=String(s[2]||'');
+ const text=`${ru} ${en}`.toLowerCase();
+ const ruWords=answerTokens(ru);
+ const enWords=String(en).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,'').split(/\s+/).filter(Boolean);
+ const lengthScore=Math.abs(ruWords.length-5)+Math.abs(enWords.length-6)*0.45;
+ const dailyBonus=/\b(i|you|we|this|here|there|today|tomorrow|now|want|need|can|have|go|come|buy|eat|drink|help|understand)\b/i.test(en)?-1.8:0;
+ const politeBonus=/\b(please|thank|sorry|excuse me|hello)\b/i.test(en)?-1.4:0;
+ const questionBonus=/[?]$/.test(ru)?-0.35:0;
+ const socialBonus=/friend|family|house|home|food|work|buy|help|go|come|think|need|want|where|how|what|кто|что|где|как|дом|друг|работ|куп|хочу|нужно/.test(text)?-1.1:0;
+ const abstractPenalty=/\b(all this time|in return|supposed to|guess|force|anyone else|exactly|liar)\b/i.test(en)?2.2:0;
+ const quotePenalty=/["“”]/.test(en)?1.3:0;
+ const riskPenalty=PREMIUM_RISK_RE.test(en)?25:0;
+ return lengthScore+dailyBonus+politeBonus+questionBonus+socialBonus+abstractPenalty+quotePenalty+riskPenalty+(idx*0.0001);
+}
+
+const PREMIUM_STUDY_ORDER=SENTENCES.map((_,idx)=>idx).sort((a,b)=>curatedSentenceScore(a)-curatedSentenceScore(b));
+
 function getCategories(){
  const cats=new Map();
  SENTENCES.forEach((s,i)=>{
-  const c=s[3];
+  const c=displayCategoryName(i);
   if(!cats.has(c))cats.set(c,[]);
   cats.get(c).push({r:s[0],t:s[1],e:s[2],cat:c,idx:i});
  });
@@ -751,7 +804,7 @@ function toggleLearned(idx,btn){
  updateProgress();
  const catEl=btn.closest('.category');
  if(catEl){
-  const catName=SENTENCES[idx][3];
+  const catName=displayCategoryName(idx);
   const cats=getCategories();
   const catSentences=cats.get(catName)||[];
   const learnedCount=catSentences.filter(s=>learned[s.idx]).length;
@@ -1043,6 +1096,58 @@ function saveSRS(){
  localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
 }
 
+function exportProgressBackup(){
+ const payload={
+  language:langKey,
+  exportedAt:new Date().toISOString(),
+  learned,
+  reviewBin,
+  srsData,
+  userStats
+ };
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');
+ a.href=url;
+ a.download=`lang5k-${langKey}-progress-backup.json`;
+ document.body.appendChild(a);
+ a.click();
+ a.remove();
+ URL.revokeObjectURL(url);
+ alert('Progress backup downloaded.');
+}
+
+function importProgressBackup(event){
+ const file=event.target.files&&event.target.files[0];
+ if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const data=JSON.parse(String(reader.result||'{}'));
+   if(data.language!==langKey)throw new Error('This backup is for a different language.');
+   learned=data.learned&&typeof data.learned==='object'?data.learned:{};
+   reviewBin=data.reviewBin&&typeof data.reviewBin==='object'?data.reviewBin:{};
+   srsData=data.srsData&&typeof data.srsData==='object'?data.srsData:{};
+   userStats=data.userStats&&typeof data.userStats==='object'?data.userStats:{};
+   localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
+   localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+   localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
+   localStorage.setItem(storagePrefix+'stats',JSON.stringify(userStats));
+   updateProgress();
+   updateDueBadge();
+   updateBinBadge();
+   updateStreakDisplay();
+   render();
+   alert('Progress restored from backup.');
+  }catch(error){
+   alert(error.message||'Backup file could not be restored.');
+  }finally{
+   event.target.value='';
+  }
+ };
+ reader.readAsText(file);
+}
+
 function getDueReviews(){
  const today=getToday();
  return Object.entries(srsData)
@@ -1052,7 +1157,7 @@ function getDueReviews(){
 }
 
 function getNewSentences(limit){
- return SENTENCES.map((_,i)=>i)
+ return PREMIUM_STUDY_ORDER
   .filter(i=>!srsData[i]&&!learned[i])
   .slice(0,limit);
 }
@@ -1232,9 +1337,10 @@ function showStudyStart(){
    </div>
    <div class="study-protocol">
     <div class="study-protocol-title">Autopilot study order</div>
-    <ol>
+   <ol>
      <li>Reviews due come first, because spaced retrieval protects memory.</li>
-     <li>New sentences use listen, immediate recall, reveal, then rating.</li>
+     <li>New sentences come from a curated daily-life path that pushes rougher or harsher sentences later.</li>
+     <li>Each new sentence uses listen, immediate recall, reveal, then rating.</li>
      <li>Missed sentences are saved into weak practice automatically.</li>
      <li>After the session, Lang5K chooses the next drill: cloze, dictation, or review bin.</li>
     </ol>
@@ -1309,14 +1415,16 @@ function showStudyCard(){
 
  if(isNew){
   // New card: introduce the sentence with audio and a short shadowing action.
+  const patternNote=buildPatternNote(s[0],s[2]);
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label new">NEW SENTENCE</span>
-    <div class="study-prompt">Step 1: listen first, check the meaning, then say the Russian sentence to yourself once. Lang5K is not recording your voice.</div>
+    <div class="study-prompt">Step 1: read the meaning. Step 2: play the audio. Step 3: say the Russian sentence once. Then continue to the memory test.</div>
+    <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:12px">${escapeHtml(s[2])}</div>
     <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="margin-bottom:6px">${escapeHtml(s[0])}</div>
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${escapeHtml(s[1])}</div>
-    <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${escapeHtml(s[2])}</div>
     <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
+    ${patternNote?`<div class="pattern-note"><strong>${escapeHtml(patternNote.title)}</strong><span>${escapeHtml(patternNote.text)}</span></div>`:''}
     <button class="study-reveal-btn" onclick="showNewRecallCard()" style="background:var(--green)">Next: test my memory</button>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Do not move on yet. The next screen checks whether you can recall it.</div>
    </div>`;
@@ -1378,13 +1486,12 @@ function revealStudyCard(){
  const isNew=item.type==='new';
  const srsInfo=srsData[item.idx]||{box:isNew?0:1};
  const typedAnswer=(document.getElementById('studyInput')||{}).value||'';
+ const analysis=analyzeAttempt(typedAnswer,s[0]);
+ const patternNote=buildPatternNote(s[0],s[2]);
 
  // Compare typed answer
  let typedHTML='';
- if(typedAnswer.trim()){
-  const isCorrect=typedAnswer.trim().toLowerCase()===s[0].toLowerCase();
-  typedHTML=`<div class="study-typed-answer ${isCorrect?'correct':'wrong'}">Your answer: ${escapeHtml(typedAnswer)}</div>`;
- }
+ if(typedAnswer.trim())typedHTML=attemptFeedbackHTML(typedAnswer,analysis);
 
  document.getElementById('studyContent').innerHTML=`
   <div class="study-card fade-in">
@@ -1398,10 +1505,11 @@ function revealStudyCard(){
     ${typedHTML}
     <div class="study-rating">
      <button class="btn-again" onclick="rateStudyCard('again')">Again<br><small>I missed it</small></button>
-     <button class="btn-hard" onclick="rateStudyCard('hard')">Hard<br><small>I barely got it</small></button>
-     <button class="btn-good" onclick="rateStudyCard('good')">Good<br><small>I got most</small></button>
-     <button class="btn-easy" onclick="rateStudyCard('easy')">Easy<br><small>I knew it</small></button>
-    </div>
+    <button class="btn-hard" onclick="rateStudyCard('hard')">Hard<br><small>I barely got it</small></button>
+    <button class="btn-good" onclick="rateStudyCard('good')">Good<br><small>I got most</small></button>
+    <button class="btn-easy" onclick="rateStudyCard('easy')">Easy<br><small>I knew it</small></button>
+   </div>
+    ${patternNote?`<div class="pattern-note"><strong>${escapeHtml(patternNote.title)}</strong><span>${escapeHtml(patternNote.text)}</span></div>`:''}
     <div class="study-box-info" id="studyBoxInfo">${isNew?'First review will be scheduled after rating.':'Box '+srsInfo.box}</div>
     <div class="study-box-info">Use Hard if you only remembered part of it. Use Easy only if it came back quickly and cleanly.</div>
    </div>
@@ -1518,11 +1626,12 @@ function showStudySummary(){
     <div style="font-size:.85rem;color:var(--text3)">${totalInSRS} sentences in active review</div>
    </div>
    <div class="study-next-action">
-    <strong>${nextStep.title}</strong>
-    <p>${nextStep.text}</p>
-    <button class="study-start-btn" onclick="${nextStep.action}" style="background:var(--primary);margin-bottom:0">${nextStep.button}</button>
+   <strong>${nextStep.title}</strong>
+   <p>${nextStep.text}</p>
+   <button class="study-start-btn" onclick="${nextStep.action}" style="background:var(--primary);margin-bottom:0">${nextStep.button}</button>
    </div>
-   <button class="btn btn-secondary" onclick="startStudyView()" style="margin-bottom:10px">Back to daily plan</button>
+   <div class="summary-stop-note">If you are done for today, stop here. If you still have 5 more minutes, do the recommended next drill now.</div>
+   <button class="btn btn-secondary" onclick="startStudyView()" style="margin-bottom:10px">Stop here and return to my plan</button>
    <button class="btn btn-secondary" onclick="exitStudy()">Browse sentences</button>
   </div>`;
 
@@ -1540,12 +1649,42 @@ function exitStudy(){
 
 // === Cloze + Dictation Practice ===
 function pickPracticeIndex(){
+ const weak=Object.keys(reviewBin).map(Number).filter(i=>Number.isInteger(i)&&SENTENCES[i]);
+ if(weak.length){
+  practiceSelectionMeta={
+   kind:'weak',
+   reason:'This sentence was marked weak earlier, so the app is giving it extra repair work before it fades.'
+  };
+  return weak[0];
+ }
  const due=getDueReviews();
- if(due.length)return due[0];
+ if(due.length){
+  practiceSelectionMeta={
+   kind:'due',
+   reason:'This sentence is due today, so the app is using a focused drill to keep it active.'
+  };
+  return due[0];
+ }
  const newOnes=getNewSentences(1);
- if(newOnes.length)return newOnes[0];
+ if(newOnes.length){
+  practiceSelectionMeta={
+   kind:'new',
+   reason:'You do not have urgent reviews right now, so the app is reinforcing a fresh sentence.'
+  };
+  return newOnes[0];
+ }
  const available=SENTENCES.map((_,i)=>i).filter(i=>!learned[i]);
- if(available.length)return available[Math.floor(Math.random()*available.length)];
+ if(available.length){
+  practiceSelectionMeta={
+   kind:'available',
+   reason:'The app is using another unfinished sentence to keep overall coverage moving.'
+  };
+  return available[Math.floor(Math.random()*available.length)];
+ }
+ practiceSelectionMeta={
+  kind:'random',
+  reason:'The course is fully covered, so the app is falling back to a random refresh.'
+ };
  return SENTENCES.length?Math.floor(Math.random()*SENTENCES.length):0;
 }
 
@@ -1568,6 +1707,78 @@ function normalizeAnswer(text){
   .replace(/[.,!?;:"'«»]/g,'')
   .replace(/\s+/g,' ')
   .trim();
+}
+
+function answerTokens(text){
+ return normalizeAnswer(text).split(/\s+/).filter(Boolean);
+}
+
+function analyzeAttempt(typed,target){
+ const typedRaw=String(typed||'').trim();
+ if(!typedRaw)return null;
+ const targetTokens=answerTokens(target);
+ const typedTokens=answerTokens(typedRaw);
+ const targetSet=new Set(targetTokens);
+ const shared=typedTokens.filter(token=>targetSet.has(token));
+ const sharedUnique=[...new Set(shared)];
+ const missing=[...new Set(targetTokens.filter(token=>!typedTokens.includes(token)))];
+ const extra=[...new Set(typedTokens.filter(token=>!targetSet.has(token)))];
+ const overlap=targetTokens.length?sharedUnique.length/targetTokens.length:0;
+ const exact=normalizeAnswer(typedRaw)===normalizeAnswer(target);
+ let rating='again';
+ let state='wrong';
+ let summary='Different enough that it should come back soon.';
+ if(exact){
+  rating=typedTokens.length<=4?'easy':'good';
+  state='correct';
+  summary='Exact match. This is strong recall.';
+ }else if(overlap>=0.85&&extra.length<=1){
+  rating='good';
+  state='correct';
+  summary='Mostly correct. Small gaps only.';
+ }else if(overlap>=0.45){
+  rating='hard';
+  state='partial';
+  summary='Partial recall. Close enough to keep nearby.';
+ }
+ return { exact, overlap, missing, extra, rating, state, summary };
+}
+
+function attemptFeedbackHTML(typedText,analysis){
+ if(!analysis)return '';
+ const detail=[];
+ detail.push(`<strong>Auto-check</strong> ${escapeHtml(analysis.summary)}`);
+ if(analysis.missing.length)detail.push(`Missing: ${escapeHtml(analysis.missing.slice(0,4).join(', '))}`);
+ if(analysis.extra.length)detail.push(`Extra or off-target: ${escapeHtml(analysis.extra.slice(0,4).join(', '))}`);
+ detail.push(`Suggested rating: ${escapeHtml(analysis.rating.charAt(0).toUpperCase()+analysis.rating.slice(1))}`);
+ return `<div class="study-typed-answer ${analysis.state}">Your answer: ${escapeHtml(typedText)}<div class="study-feedback-detail">${detail.join('<br>')}</div></div>`;
+}
+
+function buildPatternNote(ru,en){
+ const lowerRu=String(ru||'').toLowerCase();
+ const lowerEn=String(en||'').toLowerCase();
+ if(/[?]$/.test(ru)&&( /где|куда|когда|почему|как|кто|что|сколько/.test(lowerRu) || /\bwhere|when|why|how|who|what|how much\b/.test(lowerEn))){
+  return { title:'Pattern note: question frame', text:'This sentence uses a question word. Keep the question word early, then rebuild the rest of the sentence around it.' };
+ }
+ if(/можно|могу|можешь|можем|можете|может/.test(lowerRu)){
+  return { title:'Pattern note: ability or permission', text:'Russian uses forms of "мочь" to express can / be allowed to. Notice who the verb agrees with.' };
+ }
+ if(/нужно|надо|должен|должна|должны/.test(lowerRu)){
+  return { title:'Pattern note: necessity', text:'This sentence expresses need or obligation. Keep the necessity word, then the action that follows it.' };
+ }
+ if(/хочу|хочешь|хочет|хотим|хотите/.test(lowerRu)){
+  return { title:'Pattern note: wanting', text:'This is a want/need pattern. Learn the chunk around "хочу / хочешь" instead of isolated words.' };
+ }
+ if(/что/.test(lowerRu) && /(\bthat\b|saying|know|think|understand)/.test(lowerEn)){
+  return { title:'Pattern note: embedded clause', text:'The word "что" often introduces a second idea like "that...". Treat the sentence as two linked chunks.' };
+ }
+ if(/мне|тебе|ему|ей|нам|вам|им/.test(lowerRu)){
+  return { title:'Pattern note: recipient form', text:'This sentence includes a "to someone" form such as "мне / тебе / вам". Learn the whole chunk, not just the base pronoun.' };
+ }
+ if(/был|была|были|было/.test(lowerRu)){
+  return { title:'Pattern note: past-state marker', text:'The form "был / была / были" signals a past state or identity. Watch it for gender or number.' };
+ }
+ return null;
 }
 
 function buildCloze(sentence){
@@ -1602,7 +1813,8 @@ function renderClozeCard(){
   return;
  }
  const cloze=buildCloze(s);
- clozeCurrent={idx,answer:cloze.answer,revealed:false};
+  clozeCurrent={idx,answer:cloze.answer,revealed:false};
+ const reasonText=practiceSelectionMeta.reason||'The app picked this drill to keep recall active.';
  const carryHTML=practiceCarryMessage?`<div class="practice-feedback"><strong>Saved</strong> ${escapeHtml(practiceCarryMessage)}</div>`:'';
  practiceCarryMessage='';
  document.getElementById('clozeContent').innerHTML=`
@@ -1611,7 +1823,7 @@ function renderClozeCard(){
    <h2>Fill the missing Russian word</h2>
    <p>Use the English meaning and the sentence pattern. This trains retrieval better than passive reading.</p>
    ${carryHTML}
-   <div class="practice-hint"><strong>Why this now</strong>The app uses cloze when it wants stronger word-level recall after guided study.</div>
+   <div class="practice-hint"><strong>Why this now</strong>${escapeHtml(reasonText)} Cloze narrows the task to one missing word before the full sentence.</div>
    <div class="practice-hint"><strong>Your task</strong>Think of the missing Russian word. Type it if you can, or say it to yourself and use Show answer to self-check.</div>
    <div class="practice-english">${escapeHtml(s[2])}</div>
    <div class="practice-target">${cloze.prompt}</div>
@@ -1660,6 +1872,7 @@ function renderDictationCard(){
   return;
  }
  dictationCurrent={idx,revealed:false};
+ const reasonText=practiceSelectionMeta.reason||'The app picked this drill to keep recall active.';
  const carryHTML=practiceCarryMessage?`<div class="practice-feedback"><strong>Saved</strong> ${escapeHtml(practiceCarryMessage)}</div>`:'';
  practiceCarryMessage='';
  document.getElementById('dictationContent').innerHTML=`
@@ -1668,7 +1881,7 @@ function renderDictationCard(){
    <h2>Write what you hear</h2>
    <p>Listen first, try to catch the Russian sentence, then reveal and rate it.</p>
    ${carryHTML}
-   <div class="practice-hint"><strong>Why this now</strong>The app uses dictation when it wants a harder listening and recall check after guided study.</div>
+   <div class="practice-hint"><strong>Why this now</strong>${escapeHtml(reasonText)} Dictation turns that sentence into a stricter listening-and-recall check.</div>
    <div class="practice-hint"><strong>Your task</strong>Type the Russian if you can. If you do not have a Cyrillic keyboard yet, repeat what you hear quietly, then use Show answer to self-check.</div>
    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${idx})" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
    <input class="practice-input" id="dictationInput" placeholder="Optional: type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">

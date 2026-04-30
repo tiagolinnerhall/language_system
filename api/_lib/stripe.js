@@ -49,4 +49,4 @@ function isCheckoutSessionPaid(session) {
   return true;
 }
 
-module.exports = { isCheckoutSessionPaid, retrieveCheckoutSession, stripeRequest };
+module.exports = { isCheckoutSessionPaid, retrieveCheckoutSession, stripeGet, stripeRequest };

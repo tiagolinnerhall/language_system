@@ -7,7 +7,7 @@
 <meta name="description" content="Verify Lang5K checkout and unlock access.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
-body{margin:0;font-family:Inter,Arial,sans-serif;background:#f3f5f8;color:#111827;line-height:1.65}.wrap{max-width:760px;margin:0 auto;padding:40px 24px}.panel{background:#fff;border:1px solid #dbe3ee;border-radius:16px;padding:28px;box-shadow:0 12px 32px rgba(15,23,42,.12)}a{color:#2563eb}.top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:28px}.top a{font-weight:800;text-decoration:none}.status{padding:14px 16px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.error{background:#fef2f2;border-color:#fecaca;color:#991b1b}.btn{display:inline-flex;margin-top:16px;background:#2563eb;color:#fff;border-radius:10px;padding:12px 16px;text-decoration:none;font-weight:800}.muted{color:#4b5563}
+body{margin:0;font-family:Inter,Arial,sans-serif;background:#f3f5f8;color:#111827;line-height:1.65}.wrap{max-width:760px;margin:0 auto;padding:40px 24px}.panel{background:#fff;border:1px solid #dbe3ee;border-radius:16px;padding:28px;box-shadow:0 12px 32px rgba(15,23,42,.12)}a{color:#2563eb}.top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:28px}.top a{font-weight:800;text-decoration:none}.status{padding:14px 16px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.error{background:#fef2f2;border-color:#fecaca;color:#991b1b}.btn{display:inline-flex;margin-top:16px;background:#2563eb;color:#fff;border-radius:10px;padding:12px 16px;text-decoration:none;font-weight:800;border:none;cursor:pointer}.muted{color:#4b5563}.recovery{margin-top:22px;padding-top:20px;border-top:1px solid #dbe3ee}.field{display:flex;flex-direction:column;gap:6px;margin-top:12px}.field input{padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}.small{font-size:.9rem;color:#6b7280}
 </style>
 </head>
 <body><div class="wrap"><div class="top"><a href="/">5K Lang5K</a><a href="contact.html">Support</a></div><main class="panel">
@@ -15,6 +15,16 @@ body{margin:0;font-family:Inter,Arial,sans-serif;background:#f3f5f8;color:#11182
 <p class="muted">Verifying your Stripe checkout and preparing your full Russian course access.</p>
 <div id="status" class="status">Checking payment...</div>
 <a class="btn" id="appBtn" href="app.html?lang=russian" style="display:none">Open Lang5K</a>
+<div class="recovery">
+ <h2>Restore access on this browser</h2>
+ <p class="small">If you already paid on another browser or earlier session, enter the same email you used at checkout.</p>
+ <div class="field">
+  <label for="restoreEmail">Paid email address</label>
+  <input id="restoreEmail" type="email" autocomplete="email" placeholder="you@example.com">
+ </div>
+ <button class="btn" type="button" onclick="restoreAccess()">Restore paid access</button>
+ <div class="small" id="restoreStatus"></div>
+</div>
 </main></div>
 <script>
 async function unlock(){
@@ -39,6 +49,32 @@ async function unlock(){
  }catch(error){
   status.className='status error';
   status.innerHTML='<strong>Access could not be verified.</strong><br>'+error.message+'<br><br>Email billing@lang5k.com with your Stripe receipt if you paid.';
+ }
+}
+
+async function restoreAccess(){
+ const email=(document.getElementById('restoreEmail').value||'').trim();
+ const restoreStatus=document.getElementById('restoreStatus');
+ const status=document.getElementById('status');
+ const appBtn=document.getElementById('appBtn');
+ restoreStatus.textContent='Checking your paid email...';
+ try{
+  const response=await fetch('/api/restore-access',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({email})
+  });
+  const data=await response.json().catch(()=>({error:'Unable to read access response.'}));
+  if(!response.ok||!data.token)throw new Error(data.error||'Unable to restore access.');
+  localStorage.setItem('lang5k_access_token',data.token);
+  if(data.email)localStorage.setItem('lang5k_access_email',data.email);
+  status.className='status';
+  status.textContent='Paid access restored on this browser.';
+  restoreStatus.textContent='Access restored. Opening the full course...';
+  appBtn.style.display='inline-flex';
+  window.setTimeout(()=>{window.location.href='app.html?lang=russian'},900);
+ }catch(error){
+  restoreStatus.textContent=error.message;
  }
 }
 unlock();
