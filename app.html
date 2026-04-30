@@ -177,6 +177,13 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-start-btn{padding:14px 40px;font-size:1.1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;box-shadow:0 4px 15px rgba(67,56,202,0.3);transition:all .2s}
 .study-start-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(67,56,202,0.4)}
 .study-time-est{font-size:.8rem;color:var(--text3);margin-top:10px}
+.study-protocol{margin:0 auto 22px;text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px}
+.study-protocol-title{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px}
+.study-protocol ol{margin-left:18px;color:var(--text2);font-size:.88rem}
+.study-protocol li{margin:4px 0}
+.study-next-action{margin:18px 0 20px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--bg);text-align:left}
+.study-next-action strong{display:block;color:var(--text);margin-bottom:5px}
+.study-next-action p{font-size:.9rem;color:var(--text2);margin-bottom:12px}
 
 .study-card{max-width:600px;margin:20px auto;padding:32px 28px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);animation:fadeIn .3s ease}
 .study-card-label{display:inline-block;padding:3px 12px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;margin-bottom:16px;letter-spacing:.5px}
@@ -902,9 +909,9 @@ function renderBinView(){
     </div>
    </div>
    <div class="s-content">
-    <div class="target-lang hidden-text" data-reveal="${idx}" onclick="speakBin(${idx})">${s[0]}</div>
-    <div class="translit hidden-text" data-reveal="${idx}">${s[1]}</div>
-    <div class="english hidden-text" data-reveal="${idx}">${s[2]}</div>
+    <div class="target-lang hidden-text" data-reveal="${idx}" onclick="speakBin(${idx})">${escapeHtml(s[0])}</div>
+    <div class="translit hidden-text" data-reveal="${idx}">${escapeHtml(s[1])}</div>
+    <div class="english hidden-text" data-reveal="${idx}">${escapeHtml(s[2])}</div>
    </div>
   </div>`;
  }).join('');
@@ -1046,6 +1053,9 @@ function processRating(idx,correct){
  } else {
   data.box=1;
   data.correctStreak=0;
+  reviewBin[idx]=true;
+  localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+  updateBinBadge();
  }
  const today=new Date();
  data.lastReview=getToday();
@@ -1181,11 +1191,20 @@ function showStudyStart(){
  document.getElementById('studyContent').innerHTML=`
   <div class="study-start fade-in">
    <h2>&#128218; Today's Guided Lesson</h2>
-   <div class="study-subtitle">${LANG.flag} ${LANG.name} &middot; Listen, recall, reveal, rate. Lang5K schedules the next review automatically.</div>
+   <div class="study-subtitle">${escapeHtml(LANG.flag)} ${escapeHtml(LANG.name)} &middot; Listen, recall, reveal, rate. Lang5K schedules the next review automatically.</div>
    <div class="study-stats-row">
     <div class="study-stat"><div class="stat-num orange">${due.length}</div><div class="stat-label">Reviews Due</div></div>
     <div class="study-stat"><div class="stat-num green">${newAvail.length}</div><div class="stat-label">New Sentences</div></div>
     <div class="study-stat"><div class="stat-num">${Object.keys(learned).length}</div><div class="stat-label">Total Learned</div></div>
+   </div>
+   <div class="study-protocol">
+    <div class="study-protocol-title">Autopilot study order</div>
+    <ol>
+     <li>Reviews due come first, because spaced retrieval protects memory.</li>
+     <li>New sentences use listen, immediate recall, reveal, then rating.</li>
+     <li>Missed sentences are saved into weak practice automatically.</li>
+     <li>After the session, Lang5K chooses the next drill: cloze, dictation, or review bin.</li>
+    </ol>
    </div>
    <div class="study-goal-picker">
     <label>New sentences per day:</label>
@@ -1261,10 +1280,10 @@ function showStudyCard(){
    <div class="study-card fade-in">
     <span class="study-card-label new">NEW SENTENCE</span>
     <div class="study-prompt">Step 1: listen, then say the Russian sentence out loud once.</div>
-    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="margin-bottom:6px">${s[0]}</div>
-    <div class="translit" style="font-size:1rem;margin-bottom:4px">${s[1]}</div>
-    <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${s[2]}</div>
-    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
+    <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="margin-bottom:6px">${escapeHtml(s[0])}</div>
+    <div class="translit" style="font-size:1rem;margin-bottom:4px">${escapeHtml(s[1])}</div>
+    <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${escapeHtml(s[2])}</div>
+    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
     <button class="study-reveal-btn" onclick="showNewRecallCard()" style="background:var(--green)">Next: test my memory</button>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Do not move on yet. The next screen checks whether you can recall it.</div>
    </div>`;
@@ -1275,8 +1294,8 @@ function showStudyCard(){
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label review">REVIEW &middot; ${boxLabel}</span>
-    <div class="study-english">${s[2]}</div>
-    <div class="study-prompt">Step 1: say the ${LANG.name} sentence from memory before you reveal it.</div>
+    <div class="study-english">${escapeHtml(s[2])}</div>
+    <div class="study-prompt">Step 1: say the ${escapeHtml(LANG.name)} sentence from memory before you reveal it.</div>
     <input type="text" class="study-type-input" id="studyInput" placeholder="Type your answer (optional)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
     <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal and listen</button>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again means review sooner, Good moves it forward.</div>
@@ -1293,7 +1312,7 @@ function showNewRecallCard(){
  document.getElementById('studyContent').innerHTML=`
   <div class="study-card fade-in">
    <span class="study-card-label new">NEW RECALL</span>
-   <div class="study-english">${s[2]}</div>
+   <div class="study-english">${escapeHtml(s[2])}</div>
    <div class="study-prompt">Step 2: now cover the Russian in your mind and say it from memory. Type it if you want a stricter check.</div>
    <input type="text" class="study-type-input" id="studyInput" placeholder="Type the Russian from memory (optional)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
    <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal, listen, and rate</button>
@@ -1316,18 +1335,18 @@ function revealStudyCard(){
  let typedHTML='';
  if(typedAnswer.trim()){
   const isCorrect=typedAnswer.trim().toLowerCase()===s[0].toLowerCase();
-  typedHTML=`<div class="study-typed-answer ${isCorrect?'correct':'wrong'}">Your answer: ${typedAnswer}</div>`;
+  typedHTML=`<div class="study-typed-answer ${isCorrect?'correct':'wrong'}">Your answer: ${escapeHtml(typedAnswer)}</div>`;
  }
 
  document.getElementById('studyContent').innerHTML=`
   <div class="study-card fade-in">
    <span class="study-card-label ${isNew?'new':'review'}">${isNew?'NEW RECALL':'REVIEW &middot; Box '+srsInfo.box}</span>
-   <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text3)">${s[2]}</div>
+   <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text3)">${escapeHtml(s[2])}</div>
    <div class="study-answer-section">
     <div class="study-prompt">${isNew?'Step 3: compare your recall, listen again, then rate it.':'Step 2: listen, compare, then rate your memory.'}</div>
-    <div class="study-target" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})">${s[0]}</div>
-    <div class="study-translit">${s[1]}</div>
-    <button class="speak-btn" onclick="speakText('${s[0].replace(/'/g,"\\'")}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
+    <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})">${escapeHtml(s[0])}</div>
+    <div class="study-translit">${escapeHtml(s[1])}</div>
+    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
     ${typedHTML}
     <div class="study-rating">
      <button class="btn-again" onclick="rateStudyCard(false)">&#10060; Again (1)</button>
@@ -1381,6 +1400,41 @@ function rateStudyCard(correct){
  },800);
 }
 
+function getAutopilotNextStep(){
+ const weakCount=Object.keys(reviewBin).length;
+ const dueCount=getDueReviews().length;
+ if(studySessionStats.againCount>0||weakCount>0){
+  return {
+   title:'Next: repair weak sentences',
+   text:`${weakCount} sentence${weakCount===1?' is':'s are'} in your weak practice bin. Listen first, keep the text hidden, then reveal only after recall.`,
+   button:'Open review bin',
+   action:'toggleBinView()'
+  };
+ }
+ if(studySessionStats.goodCount>=5){
+  return {
+   title:'Next: dictation check',
+   text:'Your recall was strong. Now write what you hear to catch listening and spelling gaps.',
+   button:'Start dictation',
+   action:'showDictationView()'
+  };
+ }
+ if(dueCount>0){
+  return {
+   title:'Next: finish due reviews',
+   text:'Some reviews are still due today. Clear them before adding more new sentences.',
+   button:'Continue reviews',
+   action:'startStudyView()'
+  };
+ }
+ return {
+  title:'Next: cloze recall',
+  text:'Train the sentence pattern by filling one missing Russian word from context.',
+  button:'Start cloze drill',
+  action:'showClozeView()'
+ };
+}
+
 function showStudySummary(){
  document.getElementById('studyHeaderBar').style.display='none';
  const totalDone=studySessionStats.newCount+studySessionStats.reviewCount;
@@ -1388,11 +1442,12 @@ function showStudySummary(){
  const accuracy=ratedTotal>0?Math.round(studySessionStats.goodCount/ratedTotal*100):100;
  const totalLearned=Object.keys(learned).length;
  const totalInSRS=Object.keys(srsData).length;
+ const nextStep=getAutopilotNextStep();
 
  document.getElementById('studyContent').innerHTML=`
   <div class="study-summary fade-in">
    <h2>&#127881; Session Complete!</h2>
-   <div class="summary-sub">Great work! Keep coming back daily for best results.</div>
+   <div class="summary-sub">Lang5K saved your ratings and picked the next best drill.</div>
    <div class="summary-stats">
     <div class="summary-stat"><div class="s-num" style="color:var(--green)">${studySessionStats.newCount}</div><div class="s-label">New Learned</div></div>
     <div class="summary-stat"><div class="s-num" style="color:var(--primary)">${studySessionStats.reviewCount}</div><div class="s-label">Reviewed</div></div>
@@ -1404,7 +1459,12 @@ function showStudySummary(){
     <div style="font-size:1.4rem;font-weight:800;color:var(--primary)">${totalLearned} / ${SENTENCES.length} learned</div>
     <div style="font-size:.85rem;color:var(--text3)">${totalInSRS} sentences in active review</div>
    </div>
-   <button class="study-start-btn" onclick="startStudyView()" style="background:var(--primary);margin-bottom:10px">Continue training</button>
+   <div class="study-next-action">
+    <strong>${nextStep.title}</strong>
+    <p>${nextStep.text}</p>
+    <button class="study-start-btn" onclick="${nextStep.action}" style="background:var(--primary);margin-bottom:0">${nextStep.button}</button>
+   </div>
+   <button class="btn btn-secondary" onclick="startStudyView()" style="margin-bottom:10px">Back to daily plan</button>
    <button class="btn btn-secondary" onclick="exitStudy()">Browse sentences</button>
   </div>`;
 
@@ -1435,6 +1495,15 @@ function escapeForHandler(text){
  return String(text).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');
 }
 
+function escapeHtml(text){
+ return String(text==null?'':text)
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;')
+  .replace(/'/g,'&#39;');
+}
+
 function normalizeAnswer(text){
  return String(text||'')
   .toLowerCase()
@@ -1455,8 +1524,8 @@ function buildCloze(sentence){
   }
  });
  const answer=words[choice].replace(/[.,!?;:"'«»]/g,'');
- const promptWords=[...words];
- promptWords[choice]='<span class="cloze-gap">'+answer+'</span>';
+ const promptWords=words.map(word=>escapeHtml(word));
+ promptWords[choice]='<span class="cloze-gap">'+escapeHtml(answer)+'</span>';
  return {prompt:promptWords.join(' '),answer};
 }
 
@@ -1481,7 +1550,7 @@ function renderClozeCard(){
    <div class="practice-kicker">Cloze Recall</div>
    <h2>Fill the missing Russian word</h2>
    <p>Use the English meaning and the sentence pattern. This trains retrieval better than passive reading.</p>
-   <div class="practice-english">${s[2]}</div>
+   <div class="practice-english">${escapeHtml(s[2])}</div>
    <div class="practice-target">${cloze.prompt}</div>
    <input class="practice-input" id="clozeInput" placeholder="Type the missing word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
    <div class="practice-actions">
@@ -1502,9 +1571,9 @@ function revealCloze(){
  const correct=normalizeAnswer(typed)===normalizeAnswer(clozeCurrent.answer);
  document.getElementById('clozeFeedback').innerHTML=`
   <div class="practice-feedback">
-   <div><strong>Answer:</strong> ${clozeCurrent.answer}</div>
-   <div><strong>Full sentence:</strong> ${s[0]}</div>
-   ${typed.trim()?`<div><strong>Your answer:</strong> ${typed} ${correct?'&#10003;':'&#8594; keep practicing'}</div>`:''}
+   <div><strong>Answer:</strong> ${escapeHtml(clozeCurrent.answer)}</div>
+   <div><strong>Full sentence:</strong> ${escapeHtml(s[0])}</div>
+   ${typed.trim()?`<div><strong>Your answer:</strong> ${escapeHtml(typed)} ${correct?'&#10003;':'&#8594; keep practicing'}</div>`:''}
    <div class="practice-actions">
     <button class="btn btn-secondary" onclick="ratePractice(false,'cloze')">Again</button>
     <button class="btn btn-primary" onclick="ratePractice(true,'cloze')">Good</button>
@@ -1554,10 +1623,10 @@ function revealDictation(){
  const correct=normalizeAnswer(typed)===normalizeAnswer(s[0]);
  document.getElementById('dictationFeedback').innerHTML=`
   <div class="practice-feedback">
-   <div><strong>Target:</strong> ${s[0]}</div>
-   <div><strong>Transliteration:</strong> ${s[1]}</div>
-   <div><strong>Meaning:</strong> ${s[2]}</div>
-   ${typed.trim()?`<div><strong>Your answer:</strong> ${typed} ${correct?'&#10003;':'&#8594; compare and retry'}</div>`:''}
+   <div><strong>Target:</strong> ${escapeHtml(s[0])}</div>
+   <div><strong>Transliteration:</strong> ${escapeHtml(s[1])}</div>
+   <div><strong>Meaning:</strong> ${escapeHtml(s[2])}</div>
+   ${typed.trim()?`<div><strong>Your answer:</strong> ${escapeHtml(typed)} ${correct?'&#10003;':'&#8594; compare and retry'}</div>`:''}
    <div class="practice-actions">
     <button class="btn btn-secondary" onclick="ratePractice(false,'dictation')">Again</button>
     <button class="btn btn-primary" onclick="ratePractice(true,'dictation')">Good</button>
