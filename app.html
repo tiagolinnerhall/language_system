@@ -1049,7 +1049,7 @@ function renderBinView(){
  document.getElementById('binProgressText').textContent=total+' sentence'+(total!==1?'s':'')+' remaining';
 
  if(!indices.length){
-  container.innerHTML='<div class="bin-empty"><div class="big-icon">&#127881;</div><p>Review bin is empty! Great job!</p><button class="btn btn-primary" onclick="toggleBinView()">&#x2190; Back to sentences</button></div>';
+  container.innerHTML='<div class="bin-empty"><div class="big-icon">&#10003;</div><p>Review bin is empty. Return to the guided plan when you are ready.</p><button class="btn btn-primary" onclick="goToTodayPlan()">Back to guided plan</button></div>';
   return;
  }
 
@@ -1438,15 +1438,15 @@ function checkMilestone(totalLearned){
 function showMilestone(count){
  const overlay=document.getElementById('milestoneOverlay');
  let emoji='&#127881;',msg='';
- if(count>=5000){emoji='&#127942;';msg='You\'ve mastered the entire course!'}
- else if(count>=2500){emoji='&#128142;';msg='More than halfway to full mastery!'}
- else if(count>=1000){emoji='&#11088;';msg='You can handle most daily conversations!'}
- else if(count>=500){emoji='&#128640;';msg='You\'re building strong recall across daily-life sentences!'}
- else if(count>=250){emoji='&#128170;';msg='You\'re on a roll!'}
- else if(count>=100){emoji='&#127775;';msg='Triple digits - amazing progress!'}
- else if(count>=50){emoji='&#128293;';msg='You\'re picking up speed!'}
- else if(count>=25){emoji='&#127793;';msg='Great start, keep it up!'}
- else{emoji='&#127881;';msg='You\'re on your way!'}
+ if(count>=5000){emoji='&#10003;';msg='Course path completed. Keep reviewing so the sentences stay available.'}
+ else if(count>=2500){emoji='&#128204;';msg='Halfway through the course path. Keep the review habit steady.'}
+ else if(count>=1000){emoji='&#11088;';msg='You have a broad daily-life base. Keep using reviews before new work.'}
+ else if(count>=500){emoji='&#128204;';msg='500 sentences saved. Keep reviews due-first before adding more.'}
+ else if(count>=250){emoji='&#128204;';msg='250 sentences saved. Keep reviews due-first before adding more.'}
+ else if(count>=100){emoji='&#128204;';msg='Triple digits. Keep the review loop steady.'}
+ else if(count>=50){emoji='&#128204;';msg='50 sentences saved. Keep the habit small and regular.'}
+ else if(count>=25){emoji='&#127793;';msg='25 sentences saved. Continue with short guided sessions.'}
+ else{emoji='&#128204;';msg='First milestone saved. Keep using the guided path.'}
 
  overlay.innerHTML=`
   <div class="milestone-overlay" onclick="closeMilestone()">
@@ -1454,7 +1454,7 @@ function showMilestone(count){
     <div class="milestone-emoji">${emoji}</div>
     <div class="milestone-title">${count} Sentences Learned!</div>
     <div class="milestone-text">${msg}</div>
-    <button class="milestone-close" onclick="closeMilestone()">Keep Going!</button>
+    <button class="milestone-close" onclick="closeMilestone()">Return to study</button>
    </div>
   </div>`;
 }
@@ -1804,7 +1804,7 @@ function showStudySummary(){
 
  document.getElementById('studyContent').innerHTML=`
   <div class="study-summary fade-in">
-   <h2>&#127881; Session Complete!</h2>
+   <h2>&#10003; Today's Guided Lesson Saved</h2>
    <div class="summary-sub">Lang5K saved your ratings and picked the next best drill.</div>
    <div class="summary-stats">
     <div class="summary-stat"><div class="s-num" style="color:var(--green)">${studySessionStats.newCount}</div><div class="s-label">New Learned</div></div>
