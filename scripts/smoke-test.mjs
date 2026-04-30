@@ -46,6 +46,7 @@ assertIncludes('index.html', index, 'Lang5K');
 assertIncludes('index.html', index, 'hosted audio');
 assertIncludes('index.html', index, '5,000-sentence path');
 assertIncludes('index.html', index, '5000</div><div class="label">Hosted Audio Files');
+assertIncludes('index.html', index, 'A Fast Practical Study Method');
 assertIncludes('app.html', app, 'Cloze');
 assertIncludes('app.html', app, 'Dictation');
 assertIncludes('app.html', app, "Today's guided lesson");
@@ -60,6 +61,18 @@ assertIncludes('app.html', app, 'The app does not use a microphone');
 assertIncludes('app.html', app, 'Optional: type any Russian you remember');
 assertIncludes('app.html', app, 'Show Russian answer and play audio');
 assertIncludes('app.html', app, 'Why first? This sentence is due for spaced review today.');
+assertIncludes('app.html', app, 'Best practical path: review due cards first, then add new ones.');
+assertIncludes('app.html', app, 'Again, Hard, Good, or Easy schedules the next repetition.');
+assertIncludes('app.html', app, 'Again = missed it, Hard = barely got it, Good = got most, Easy = knew it cleanly.');
+assertIncludes('app.html', app, 'Use Hard if you only remembered part of it. Use Easy only if it came back quickly and cleanly.');
+assertIncludes('app.html', app, 'Type it if you can, or say it to yourself');
+assertIncludes('app.html', app, 'If you do not have a Cyrillic keyboard yet');
+assertIncludes('app.html', app, 'Again - I missed it');
+assertIncludes('app.html', app, 'Good - I got it');
+assertIncludes('app.html', app, 'I barely got it');
+assertIncludes('app.html', app, 'I knew it');
+assertIncludes('app.html', app, 'Why this now');
+assertIncludes('app.html', app, 'This sentence stayed close for more review. The next drill is ready.');
 assertIncludes('app.html', app, 'showClozeView');
 assertIncludes('app.html', app, 'showDictationView');
 assertIncludes('manifest.webmanifest', manifest, '"name": "Lang5K"');
@@ -93,6 +106,7 @@ for (const page of publicPages) {
   assertNotIncludes(page, content, 'Paid beta');
   assertNotIncludes(page, content, 'Launch plan');
   assertNotIncludes(page, content, 'not ready yet');
+  assertNotIncludes(page, content, 'The Fastest Practical Method');
 }
 
 const missingLinks = [];

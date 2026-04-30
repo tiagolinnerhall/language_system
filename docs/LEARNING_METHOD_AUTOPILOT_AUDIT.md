@@ -44,6 +44,25 @@ Useful evidence references:
 - Session completion now chooses the next best drill: review bin, dictation, due reviews, or cloze.
 - Escaped displayed course and user-entered text in high-risk study/practice templates.
 - Expanded smoke tests to guard the new autopilot method markers.
+- Added a four-level rating scale for guided review: Again, Hard, Good, Easy.
+- Clarified that no microphone is used and that typing is optional in recall, cloze, and dictation.
+- Rewrote review and recall cards to explain the exact learner task and why review appears first.
+- Added visible drill explanations for why cloze and dictation appear next.
+- Added post-drill saved-state feedback so practice does not advance silently.
+
+## Specialist-Agent Verdicts
+
+- Method Specialist: `Partially Appropriate`
+- Learner UX Specialist: `Partially Appropriate`
+- Course Quality Specialist: `Partially Appropriate`
+- Autopilot Specialist: `Partially Appropriate`
+
+### Main reasons
+
+- The core method is now defensible: retrieval before reveal, immediate feedback, spacing, audio support, cloze, and dictation are present.
+- The learner flow is much clearer, but still depends on self-rating and does not yet have pronunciation scoring or cloud progress.
+- The course still needs native-speaker review, better early-course ordering, and sensitive-content filtering for a stronger premium product.
+- The business is not autopilot yet because subscriptions, webhooks, analytics, reminders, and account recovery are still missing.
 
 ## Remaining Autopilot Gaps
 
@@ -56,6 +75,12 @@ Useful evidence references:
 
 ## Readiness Judgment
 
-The learning method is now implemented as a credible paid-beta flow: retrieval, feedback, spacing, audio, cloze, and dictation are present and guided.
+Lang5K is now a credible guided sentence-learning product with a defensible study loop. It is stronger than a generic sentence browser and no longer depends on hidden method assumptions.
 
-It is not yet a full autopilot subscription business. The next highest-leverage work is cloud progress/accounts, Stripe subscription webhooks, customer portal, onboarding/reminder email, analytics, and native-speaker QA.
+It is still **not fully professional or fully autopilot yet**. The next highest-leverage work is:
+
+1. Cloud accounts and progress sync.
+2. Stripe subscriptions, webhook verification, and customer portal.
+3. Reminder/onboarding email automation.
+4. Server-side analytics and operational monitoring.
+5. Native-speaker QA, safer early-course ordering, and content filtering.

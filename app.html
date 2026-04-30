@@ -212,7 +212,9 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-rating{display:flex;gap:12px;justify-content:center}
 .study-rating button{flex:1;padding:14px;font-size:1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;transition:all .2s}
 .btn-again{background:rgba(239,68,68,.12);color:var(--red)}.btn-again:hover{background:var(--red);color:#fff}
+.btn-hard{background:rgba(249,115,22,.12);color:var(--orange)}.btn-hard:hover{background:var(--orange);color:#fff}
 .btn-good{background:rgba(16,185,129,.12);color:var(--green)}.btn-good:hover{background:var(--green);color:#fff}
+.btn-easy{background:rgba(37,99,235,.12);color:var(--primary)}.btn-easy:hover{background:var(--primary);color:#fff}
 .study-box-info{text-align:center;font-size:.8rem;color:var(--text3);margin-top:10px}
 
 .study-summary{max-width:500px;margin:40px auto;padding:40px 30px;background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);text-align:center;animation:fadeIn .4s ease}
@@ -265,6 +267,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .practice-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
 .practice-feedback{margin-top:14px;padding:12px;border-radius:12px;background:var(--bg);color:var(--text2);font-size:.95rem}
 .practice-feedback strong{color:var(--text)}
+.practice-hint{background:var(--primary-bg);border:1px solid rgba(37,99,235,.18);border-radius:12px;padding:10px 12px;margin:12px 0;color:var(--text2);font-size:.9rem;text-align:left}
+.practice-hint strong{display:block;color:var(--text);margin-bottom:3px}
 </style>
 </head>
 <body>
@@ -317,11 +321,11 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     <div class="coach-step"><strong>1. Listen</strong>Hear the sentence first.</div>
     <div class="coach-step"><strong>2. Recall</strong>Speak to yourself or type it. No microphone is used.</div>
     <div class="coach-step"><strong>3. Reveal</strong>Compare with the answer.</div>
-    <div class="coach-step"><strong>4. Review</strong>Again or Good schedules the next repetition.</div>
+    <div class="coach-step"><strong>4. Review</strong>Again, Hard, Good, or Easy schedules the next repetition.</div>
    </div>
    <div class="coach-action">
     <button class="btn btn-primary" onclick="startStudyView()">Start guided lesson</button>
-    <div class="coach-secondary">Fastest path: daily recall before browsing</div>
+    <div class="coach-secondary">Best practical path: review due cards first, then add new ones.</div>
    </div>
   </div>
  </div>
@@ -422,6 +426,7 @@ let audioManifestVersion='';
 
 // SRS Constants (Leitner system)
 const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
+const RATING_DAYS={again:1,hard:2,good:5,easy:14};
 const MILESTONES=[10,25,50,100,250,500,1000,2500,5000];
 const AUDIO_BASE_URL='https://audio.lang5k.com';
 const AUDIO_LANG_PREFIX={russian:'ru'}[langKey]||(langCode||'').split('-')[0]||langKey;
@@ -429,9 +434,10 @@ const AUDIO_LANG_PREFIX={russian:'ru'}[langKey]||(langCode||'').split('-')[0]||l
 // Study session state
 let studyQueue=[];
 let studyIndex=0;
-let studySessionStats={newCount:0,reviewCount:0,againCount:0,goodCount:0};
+let studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
 let studyRevealed=false;
 let dailyNewGoal=10;
+let practiceCarryMessage='';
 
 // Set page title
 document.getElementById('pageTitle').innerHTML=LANG.flag+' '+LANG.name+' Sentences<span><a href="index.html">&#8592; All Languages</a> &mdash; '+LANG.sentences+' sentences for daily life</span>';
@@ -777,13 +783,15 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Space'||e.code==='Enter'){
    e.preventDefault();
    if(studyRevealed){
-    // Space/Enter = Good when revealed
+    rateStudyCard('good');
    } else {
     revealStudyCard();
    }
   }
-  if(e.key==='1'&&studyRevealed){e.preventDefault();rateStudyCard(false)}
-  if(e.key==='2'&&studyRevealed){e.preventDefault();rateStudyCard(true)}
+  if(e.key==='1'&&studyRevealed){e.preventDefault();rateStudyCard('again')}
+  if(e.key==='2'&&studyRevealed){e.preventDefault();rateStudyCard('hard')}
+  if(e.key==='3'&&studyRevealed){e.preventDefault();rateStudyCard('good')}
+  if(e.key==='4'&&studyRevealed){e.preventDefault();rateStudyCard('easy')}
   return;
  }
  if(e.code==='Space'){
@@ -1049,11 +1057,32 @@ function getNewSentences(limit){
   .slice(0,limit);
 }
 
-function processRating(idx,correct){
+function normalizeRating(rating){
+ if(rating===true)return 'good';
+ if(rating===false)return 'again';
+ return ['again','hard','good','easy'].includes(rating)?rating:'good';
+}
+
+function isSuccessfulRating(rating){
+ return rating==='good'||rating==='easy';
+}
+
+function processRating(idx,rating){
+ rating=normalizeRating(rating);
  const data=srsData[idx]||{box:0,correctStreak:0};
- if(correct){
+ data.lastRating=rating;
+ if(rating==='easy'){
+  data.box=Math.min((data.box||0)+2,5);
+  data.correctStreak=(data.correctStreak||0)+1;
+ } else if(rating==='good'){
   data.box=Math.min((data.box||0)+1,5);
   data.correctStreak=(data.correctStreak||0)+1;
+ } else if(rating==='hard'){
+  data.box=Math.max(1,data.box||1);
+  data.correctStreak=0;
+  reviewBin[idx]=true;
+  localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+  updateBinBadge();
  } else {
   data.box=1;
   data.correctStreak=0;
@@ -1063,7 +1092,7 @@ function processRating(idx,correct){
  }
  const today=new Date();
  data.lastReview=getToday();
- const daysUntilNext=LEITNER_DAYS[data.box]||1;
+ const daysUntilNext=RATING_DAYS[rating]||LEITNER_DAYS[data.box]||1;
  const nextDate=new Date(today);
  nextDate.setDate(nextDate.getDate()+daysUntilNext);
  data.nextReview=nextDate.toISOString().slice(0,10);
@@ -1071,7 +1100,7 @@ function processRating(idx,correct){
  saveSRS();
 
  // Graduate from Box 5 → learned
- if(correct&&data.box>=5){
+ if(isSuccessfulRating(rating)&&data.box>=5){
   learned[idx]=true;
   localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
   checkMilestone(Object.keys(learned).length);
@@ -1146,7 +1175,7 @@ function showMilestone(count){
  if(count>=5000){emoji='&#127942;';msg='You\'ve mastered the entire course!'}
  else if(count>=2500){emoji='&#128142;';msg='More than halfway to full mastery!'}
  else if(count>=1000){emoji='&#11088;';msg='You can handle most daily conversations!'}
- else if(count>=500){emoji='&#128640;';msg='You\'re building serious fluency!'}
+ else if(count>=500){emoji='&#128640;';msg='You\'re building strong recall across daily-life sentences!'}
  else if(count>=250){emoji='&#128170;';msg='You\'re on a roll!'}
  else if(count>=100){emoji='&#127775;';msg='Triple digits - amazing progress!'}
  else if(count>=50){emoji='&#128293;';msg='You\'re picking up speed!'}
@@ -1250,7 +1279,7 @@ function beginStudySession(){
  }
 
  studyIndex=0;
- studySessionStats={newCount:0,reviewCount:0,againCount:0,goodCount:0};
+ studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
  studyRevealed=false;
 
  document.getElementById('studyHeaderBar').style.display='flex';
@@ -1283,7 +1312,7 @@ function showStudyCard(){
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label new">NEW SENTENCE</span>
-    <div class="study-prompt">Step 1: listen, then speak the Russian sentence to yourself once. Lang5K is not recording your voice.</div>
+    <div class="study-prompt">Step 1: listen first, check the meaning, then say the Russian sentence to yourself once. Lang5K is not recording your voice.</div>
     <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="margin-bottom:6px">${escapeHtml(s[0])}</div>
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${escapeHtml(s[1])}</div>
     <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${escapeHtml(s[2])}</div>
@@ -1305,10 +1334,11 @@ function showStudyCard(){
       <li>This is English. Try to remember the Russian translation.</li>
       <li>Say it quietly to yourself, or type any Russian words you remember.</li>
       <li>The app does not use a microphone. You self-check after reveal.</li>
-     </ul>
-    </div>
-    <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+    </ul>
+   </div>
+   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
     <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most, Easy = knew it cleanly.</div>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Why first? This sentence is due for spaced review today.</div>
    </div>`;
   // Focus the input (slight delay for animation)
@@ -1330,11 +1360,11 @@ function showNewRecallCard(){
      <li>This is English. Try to remember the Russian translation you just heard.</li>
      <li>Say it quietly to yourself, or type any Russian words you remember.</li>
      <li>The app does not use a microphone. You self-check after reveal.</li>
-    </ul>
-   </div>
-   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
-   <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
-   <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: choose Again if you missed it, Good if you remembered most of it.</div>
+   </ul>
+  </div>
+  <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+  <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
+   <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most, Easy = knew it cleanly.</div>
   </div>`;
  setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
 }
@@ -1367,25 +1397,29 @@ function revealStudyCard(){
     <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
     ${typedHTML}
     <div class="study-rating">
-     <button class="btn-again" onclick="rateStudyCard(false)">&#10060; Again (1)</button>
-     <button class="btn-good" onclick="rateStudyCard(true)">&#10003; Good (2)</button>
+     <button class="btn-again" onclick="rateStudyCard('again')">Again<br><small>I missed it</small></button>
+     <button class="btn-hard" onclick="rateStudyCard('hard')">Hard<br><small>I barely got it</small></button>
+     <button class="btn-good" onclick="rateStudyCard('good')">Good<br><small>I got most</small></button>
+     <button class="btn-easy" onclick="rateStudyCard('easy')">Easy<br><small>I knew it</small></button>
     </div>
     <div class="study-box-info" id="studyBoxInfo">${isNew?'First review will be scheduled after rating.':'Box '+srsInfo.box}</div>
+    <div class="study-box-info">Use Hard if you only remembered part of it. Use Easy only if it came back quickly and cleanly.</div>
    </div>
   </div>`;
 
  speakText(s[0],item.idx);
 }
 
-function rateStudyCard(correct){
+function rateStudyCard(rating){
+ rating=normalizeRating(rating);
  const item=studyQueue[studyIndex];
  const isNew=item.type==='new';
  const oldBox=(srsData[item.idx]||{box:1}).box||1;
 
- processRating(item.idx,correct);
+ processRating(item.idx,rating);
 
  const newBox=srsData[item.idx].box;
- const nextDays=LEITNER_DAYS[newBox]||1;
+ const nextDays=RATING_DAYS[rating]||LEITNER_DAYS[newBox]||1;
 
  // Update stats
  if(isNew){
@@ -1395,16 +1429,21 @@ function rateStudyCard(correct){
   studySessionStats.reviewCount++;
   userStats.todayReviews=(userStats.todayReviews||0)+1;
  }
- if(correct)studySessionStats.goodCount++;
- else studySessionStats.againCount++;
+ if(rating==='again')studySessionStats.againCount++;
+ else if(rating==='hard')studySessionStats.hardCount++;
+ else if(rating==='easy')studySessionStats.easyCount++;
+ else studySessionStats.goodCount++;
  saveStats();
 
  // Brief feedback
  const info=document.getElementById('studyBoxInfo');
  if(info){
-  if(correct){
+  if(isSuccessfulRating(rating)){
    info.textContent=isNew?`Scheduled for review in ${nextDays} day${nextDays>1?'s':''}`:`Box ${oldBox} \u2192 Box ${newBox} (review in ${nextDays} day${nextDays>1?'s':''})`;
    info.style.color='var(--green)';
+  } else if(rating==='hard'){
+   info.textContent=`Kept close: review in ${nextDays} days and added to weak practice`;
+   info.style.color='var(--orange)';
   } else {
    info.textContent=`Back to Box 1 (review tomorrow)`;
    info.style.color='var(--red)';
@@ -1421,7 +1460,7 @@ function rateStudyCard(correct){
 function getAutopilotNextStep(){
  const weakCount=Object.keys(reviewBin).length;
  const dueCount=getDueReviews().length;
- if(studySessionStats.againCount>0||weakCount>0){
+ if(studySessionStats.againCount>0||studySessionStats.hardCount>0||weakCount>0){
   return {
    title:'Next: repair weak sentences',
    text:`${weakCount} sentence${weakCount===1?' is':'s are'} in your weak practice bin. Listen first, keep the text hidden, then reveal only after recall.`,
@@ -1456,8 +1495,9 @@ function getAutopilotNextStep(){
 function showStudySummary(){
  document.getElementById('studyHeaderBar').style.display='none';
  const totalDone=studySessionStats.newCount+studySessionStats.reviewCount;
- const ratedTotal=studySessionStats.goodCount+studySessionStats.againCount;
- const accuracy=ratedTotal>0?Math.round(studySessionStats.goodCount/ratedTotal*100):100;
+ const successCount=studySessionStats.goodCount+studySessionStats.easyCount;
+ const ratedTotal=successCount+studySessionStats.hardCount+studySessionStats.againCount;
+ const accuracy=ratedTotal>0?Math.round(successCount/ratedTotal*100):100;
  const totalLearned=Object.keys(learned).length;
  const totalInSRS=Object.keys(srsData).length;
  const nextStep=getAutopilotNextStep();
@@ -1563,17 +1603,22 @@ function renderClozeCard(){
  }
  const cloze=buildCloze(s);
  clozeCurrent={idx,answer:cloze.answer,revealed:false};
+ const carryHTML=practiceCarryMessage?`<div class="practice-feedback"><strong>Saved</strong> ${escapeHtml(practiceCarryMessage)}</div>`:'';
+ practiceCarryMessage='';
  document.getElementById('clozeContent').innerHTML=`
   <div class="practice-card fade-in">
    <div class="practice-kicker">Cloze Recall</div>
    <h2>Fill the missing Russian word</h2>
    <p>Use the English meaning and the sentence pattern. This trains retrieval better than passive reading.</p>
+   ${carryHTML}
+   <div class="practice-hint"><strong>Why this now</strong>The app uses cloze when it wants stronger word-level recall after guided study.</div>
+   <div class="practice-hint"><strong>Your task</strong>Think of the missing Russian word. Type it if you can, or say it to yourself and use Show answer to self-check.</div>
    <div class="practice-english">${escapeHtml(s[2])}</div>
    <div class="practice-target">${cloze.prompt}</div>
-   <input class="practice-input" id="clozeInput" placeholder="Type the missing word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
+   <input class="practice-input" id="clozeInput" placeholder="Optional: type the missing Russian word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
    <div class="practice-actions">
     <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}',${idx})">&#128264; Listen</button>
-    <button class="btn btn-primary" onclick="revealCloze()">Reveal</button>
+    <button class="btn btn-primary" onclick="revealCloze()">Show answer</button>
     <button class="btn btn-secondary" onclick="renderClozeCard()">Skip</button>
    </div>
    <div id="clozeFeedback"></div>
@@ -1593,8 +1638,8 @@ function revealCloze(){
    <div><strong>Full sentence:</strong> ${escapeHtml(s[0])}</div>
    ${typed.trim()?`<div><strong>Your answer:</strong> ${escapeHtml(typed)} ${correct?'&#10003;':'&#8594; keep practicing'}</div>`:''}
    <div class="practice-actions">
-    <button class="btn btn-secondary" onclick="ratePractice(false,'cloze')">Again</button>
-    <button class="btn btn-primary" onclick="ratePractice(true,'cloze')">Good</button>
+    <button class="btn btn-secondary" onclick="ratePractice(false,'cloze')">Again - I missed it</button>
+    <button class="btn btn-primary" onclick="ratePractice(true,'cloze')">Good - I got it</button>
    </div>
   </div>`;
  speakText(s[0],clozeCurrent.idx);
@@ -1615,16 +1660,21 @@ function renderDictationCard(){
   return;
  }
  dictationCurrent={idx,revealed:false};
+ const carryHTML=practiceCarryMessage?`<div class="practice-feedback"><strong>Saved</strong> ${escapeHtml(practiceCarryMessage)}</div>`:'';
+ practiceCarryMessage='';
  document.getElementById('dictationContent').innerHTML=`
   <div class="practice-card fade-in">
    <div class="practice-kicker">Dictation</div>
    <h2>Write what you hear</h2>
-   <p>Listen first, write the Russian sentence from memory, then reveal and rate it.</p>
+   <p>Listen first, try to catch the Russian sentence, then reveal and rate it.</p>
+   ${carryHTML}
+   <div class="practice-hint"><strong>Why this now</strong>The app uses dictation when it wants a harder listening and recall check after guided study.</div>
+   <div class="practice-hint"><strong>Your task</strong>Type the Russian if you can. If you do not have a Cyrillic keyboard yet, repeat what you hear quietly, then use Show answer to self-check.</div>
    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${idx})" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
-   <input class="practice-input" id="dictationInput" placeholder="Type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
+   <input class="practice-input" id="dictationInput" placeholder="Optional: type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
    <div class="practice-actions">
     <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}',${idx})">&#128264; Replay</button>
-    <button class="btn btn-primary" onclick="revealDictation()">Reveal</button>
+    <button class="btn btn-primary" onclick="revealDictation()">Show answer</button>
     <button class="btn btn-secondary" onclick="renderDictationCard()">Skip</button>
    </div>
    <div id="dictationFeedback"></div>
@@ -1646,8 +1696,8 @@ function revealDictation(){
    <div><strong>Meaning:</strong> ${escapeHtml(s[2])}</div>
    ${typed.trim()?`<div><strong>Your answer:</strong> ${escapeHtml(typed)} ${correct?'&#10003;':'&#8594; compare and retry'}</div>`:''}
    <div class="practice-actions">
-    <button class="btn btn-secondary" onclick="ratePractice(false,'dictation')">Again</button>
-    <button class="btn btn-primary" onclick="ratePractice(true,'dictation')">Good</button>
+    <button class="btn btn-secondary" onclick="ratePractice(false,'dictation')">Again - I missed it</button>
+    <button class="btn btn-primary" onclick="ratePractice(true,'dictation')">Good - I got it</button>
    </div>
   </div>`;
 }
@@ -1656,6 +1706,9 @@ function ratePractice(correct,mode){
  const current=mode==='cloze'?clozeCurrent:dictationCurrent;
  if(!current)return;
  processRating(current.idx,correct);
+ practiceCarryMessage=correct
+  ? 'This sentence moved forward. The next drill is ready.'
+  : 'This sentence stayed close for more review. The next drill is ready.';
  updateProgress();
  updateDueBadge();
  if(mode==='cloze')renderClozeCard();
