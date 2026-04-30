@@ -239,3 +239,36 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic restore sanitization covered by static validators. A future browser pass should import a backup with very large stats and confirm the restored plan display remains realistic.
+
+### Safe Local Progress Startup
+
+Changed:
+- Added `readLocalJsonObject()` so malformed localStorage progress JSON no longer crashes the app before the learner can reach the guided lesson.
+- Added `normalizeStoredProgress()` after course load so stored learned rows, review-bin rows, SRS data, and study stats are sanitized against the loaded course before the UI renders.
+- Added `scripts/validate-safe-local-storage-startup.mjs` to prevent regressions back to direct startup parsing or unsanitized stored progress.
+
+Why:
+- A self-running premium study product should recover cleanly from corrupted browser storage instead of leaving learners on a broken app shell. The app already had restore sanitizers for imported backups; startup storage now gets the same protective path.
+
+Verification:
+- Confirmed `node scripts/validate-safe-local-storage-startup.mjs` failed before the app change with `Startup must not parse localStorage directly`.
+- Ran `node scripts/validate-safe-local-storage-startup.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `259380e fix: recover from bad local progress storage`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is startup state recovery and is covered by the new static guard plus the existing flow validators. A future browser pass should seed malformed localStorage values and confirm the app opens to the guided lesson without a visible error.
