@@ -191,6 +191,10 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-card-label.review{background:var(--primary-bg);color:var(--primary)}
 .study-card .study-english{font-size:1.3rem;color:var(--text);font-weight:600;margin-bottom:16px;line-height:1.4}
 .study-card .study-prompt{font-size:.9rem;color:var(--text3);margin-bottom:12px}
+.study-instruction{background:var(--primary-bg);border:1px solid rgba(37,99,235,.18);border-radius:12px;padding:12px 14px;margin:12px 0;color:var(--text2);font-size:.95rem;text-align:left}
+.study-instruction strong{display:block;color:var(--text);font-size:1rem;margin-bottom:4px}
+.study-instruction ul{margin-left:18px}
+.study-instruction li{margin:4px 0}
 .study-type-input{width:100%;padding:14px 18px;border:2px solid var(--border);border-radius:12px;font-size:1.1rem;background:var(--bg);color:var(--text);outline:none;transition:border .2s;font-family:inherit}
 .study-type-input:focus{border-color:var(--primary)}
 .study-type-input::placeholder{color:var(--text3)}
@@ -1295,11 +1299,17 @@ function showStudyCard(){
    <div class="study-card fade-in">
     <span class="study-card-label review">REVIEW &middot; ${boxLabel}</span>
     <div class="study-english">${escapeHtml(s[2])}</div>
-    <div class="study-prompt" style="font-size:.82rem;color:var(--primary);font-weight:700;margin-bottom:8px">This appears first because it is due for spaced review today.</div>
-    <div class="study-prompt">Step 1: recall the ${escapeHtml(LANG.name)} sentence before you reveal it. Speak to yourself, or type it here if you want a stricter check. No microphone is used.</div>
-    <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type what you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
-    <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal and listen</button>
-    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again means review sooner, Good moves it forward.</div>
+    <div class="study-instruction">
+     <strong>Your task</strong>
+     <ul>
+      <li>This is English. Try to remember the Russian translation.</li>
+      <li>Say it quietly to yourself, or type any Russian words you remember.</li>
+      <li>The app does not use a microphone. You self-check after reveal.</li>
+     </ul>
+    </div>
+    <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+    <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Why first? This sentence is due for spaced review today.</div>
    </div>`;
   // Focus the input (slight delay for animation)
   setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
@@ -1314,10 +1324,17 @@ function showNewRecallCard(){
   <div class="study-card fade-in">
    <span class="study-card-label new">NEW RECALL</span>
    <div class="study-english">${escapeHtml(s[2])}</div>
-   <div class="study-prompt">Step 2: now cover the Russian in your mind and recall it. Speak to yourself, or type it here. No microphone is used.</div>
-   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type the Russian from memory" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
-   <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal, listen, and rate</button>
-   <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Again = I could not recall it. Good = I recalled most of it.</div>
+   <div class="study-instruction">
+    <strong>Your task</strong>
+    <ul>
+     <li>This is English. Try to remember the Russian translation you just heard.</li>
+     <li>Say it quietly to yourself, or type any Russian words you remember.</li>
+     <li>The app does not use a microphone. You self-check after reveal.</li>
+    </ul>
+   </div>
+   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+   <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
+   <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: choose Again if you missed it, Good if you remembered most of it.</div>
   </div>`;
  setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
 }
