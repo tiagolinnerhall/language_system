@@ -1192,6 +1192,50 @@ function saveSRS(){
  localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
 }
 
+function isBackupDate(value){
+ return typeof value==='string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function sanitizeProgressBackupMap(source){
+ const clean={};
+ let skipped=0;
+ if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
+ Object.keys(source).forEach(key=>{
+  const idx=Number(key);
+  if(Number.isInteger(idx)&&idx>=0&&idx<SENTENCES.length){
+   clean[idx]=Boolean(source[key]);
+  }else{
+   skipped++;
+  }
+ });
+ return {value:clean,skipped};
+}
+
+function sanitizeProgressBackupSrs(source){
+ const clean={};
+ let skipped=0;
+ if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
+ Object.entries(source).forEach(([key,item])=>{
+  const idx=Number(key);
+  if(!Number.isInteger(idx)||idx<0||idx>=SENTENCES.length||!item||typeof item!=='object'||Array.isArray(item)){
+   skipped++;
+   return;
+  }
+  const box=Number(item.box);
+  const correctStreak=Number(item.correctStreak);
+  const nextReview=isBackupDate(item.nextReview)?item.nextReview:getToday();
+  const safe={
+   box:Number.isFinite(box)?Math.max(0,Math.min(5,Math.round(box))):1,
+   correctStreak:Number.isFinite(correctStreak)?Math.max(0,Math.round(correctStreak)):0,
+   lastReview:isBackupDate(item.lastReview)?item.lastReview:'',
+   nextReview
+  };
+  if(['again','hard','good','easy'].includes(item.lastRating))safe.lastRating=item.lastRating;
+  clean[idx]=safe;
+ });
+ return {value:clean,skipped};
+}
+
 function exportProgressBackup(){
  const payload={
   language:langKey,
@@ -1221,9 +1265,12 @@ function importProgressBackup(event){
   try{
    const data=JSON.parse(String(reader.result||'{}'));
    if(data.language!==langKey)throw new Error('This backup is for a different language.');
-   learned=data.learned&&typeof data.learned==='object'?data.learned:{};
-   reviewBin=data.reviewBin&&typeof data.reviewBin==='object'?data.reviewBin:{};
-   srsData=data.srsData&&typeof data.srsData==='object'?data.srsData:{};
+   const learnedResult=sanitizeProgressBackupMap(data.learned);
+   const reviewBinResult=sanitizeProgressBackupMap(data.reviewBin);
+   const srsResult=sanitizeProgressBackupSrs(data.srsData);
+   learned=learnedResult.value;
+   reviewBin=reviewBinResult.value;
+   srsData=srsResult.value;
    userStats=data.userStats&&typeof data.userStats==='object'?data.userStats:{};
    localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
    localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
@@ -1234,7 +1281,8 @@ function importProgressBackup(event){
    updateBinBadge();
    updateStreakDisplay();
    render();
-   alert('Progress restored from backup.');
+   const skipped=learnedResult.skipped+reviewBinResult.skipped+srsResult.skipped;
+   alert(skipped?'Progress restored from backup. Invalid backup rows were skipped.':'Progress restored from backup.');
   }catch(error){
    alert(error.message||'Backup file could not be restored.');
   }finally{
