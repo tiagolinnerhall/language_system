@@ -1169,8 +1169,15 @@ function hideAllBin(){
 // === SPACED REPETITION (Leitner System) + STUDY MODE ===
 // ============================================================
 
+function formatLocalDate(date=new Date()){
+ const year=date.getFullYear();
+ const month=String(date.getMonth()+1).padStart(2,'0');
+ const day=String(date.getDate()).padStart(2,'0');
+ return `${year}-${month}-${day}`;
+}
+
 function getToday(){
- return new Date().toISOString().slice(0,10);
+ return formatLocalDate();
 }
 
 function getTodayStats(){
@@ -1354,7 +1361,7 @@ function processRating(idx,rating){
  const daysUntilNext=RATING_DAYS[rating]||LEITNER_DAYS[data.box]||1;
  const nextDate=new Date(today);
  nextDate.setDate(nextDate.getDate()+daysUntilNext);
- data.nextReview=nextDate.toISOString().slice(0,10);
+ data.nextReview=formatLocalDate(nextDate);
  srsData[idx]=data;
  saveSRS();
 
@@ -1382,7 +1389,7 @@ function updateStreak(){
 
  const yesterday=new Date();
  yesterday.setDate(yesterday.getDate()-1);
- const yesterdayStr=yesterday.toISOString().slice(0,10);
+ const yesterdayStr=formatLocalDate(yesterday);
 
  if(userStats.lastStudyDate===yesterdayStr){
   userStats.currentStreak=(userStats.currentStreak||0)+1;
@@ -1406,7 +1413,7 @@ function updateStreakDisplay(){
  const today=getToday();
  const yesterday=new Date();
  yesterday.setDate(yesterday.getDate()-1);
- const yesterdayStr=yesterday.toISOString().slice(0,10);
+ const yesterdayStr=formatLocalDate(yesterday);
 
  let displayStreak=streak;
  if(userStats.lastStudyDate && userStats.lastStudyDate!==today && userStats.lastStudyDate!==yesterdayStr){
