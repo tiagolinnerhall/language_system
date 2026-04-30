@@ -34,4 +34,14 @@ mustInclude(studyStart, "Weak Sentences", 'Study start must show weak sentence c
 mustInclude(studyStart, "Review weak sentences", 'Study start must offer weak repair when guided reviews and new cards are done.');
 mustInclude(studyStart, "You still have weak sentences waiting.", 'Study start must not say the day is done while weak repair remains.');
 
+const autopilotNext = extractFunction('getAutopilotNextStep');
+const dueNextBranch = autopilotNext.indexOf('dueCount>0');
+const weakNextBranch = autopilotNext.indexOf('weakCount>0');
+if (dueNextBranch < 0 || weakNextBranch < 0) {
+  throw new Error('Session summary must handle both remaining due reviews and weak repair.');
+}
+if (dueNextBranch > weakNextBranch) {
+  throw new Error('Session summary must keep remaining due reviews before weak repair.');
+}
+
 console.log('Guided study flow validation passed.');

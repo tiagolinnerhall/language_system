@@ -1750,6 +1750,14 @@ function scheduleStudyRepair(idx,rating){
 function getAutopilotNextStep(){
  const weakCount=Object.keys(reviewBin).length;
  const dueCount=getDueReviews().length;
+ if(dueCount>0){
+  return {
+   title:'Next: finish due reviews',
+   text:'Some reviews are still due today. Clear them before adding more new sentences or repair drills.',
+   button:'Continue reviews',
+   action:'startStudyView()'
+  };
+ }
  if(studySessionStats.againCount>0||studySessionStats.hardCount>0||weakCount>0){
   return {
    title:'Next: repair weak sentences',
@@ -1764,14 +1772,6 @@ function getAutopilotNextStep(){
    text:'Your recall was strong. Now write what you hear to catch listening and spelling gaps.',
    button:'Start dictation',
    action:'showDictationView()'
-  };
- }
- if(dueCount>0){
-  return {
-   title:'Next: finish due reviews',
-   text:'Some reviews are still due today. Clear them before adding more new sentences.',
-   button:'Continue reviews',
-   action:'startStudyView()'
   };
  }
  return {
