@@ -1303,7 +1303,7 @@ function getDueReviews(){
  const today=getToday();
  return Object.entries(srsData)
   .filter(([idx,data])=>data.nextReview<=today && !learned[idx])
-  .sort((a,b)=>a[1].box-b[1].box)
+  .sort((a,b)=>a[1].nextReview.localeCompare(b[1].nextReview)||a[1].box-b[1].box)
   .map(([idx])=>parseInt(idx));
 }
 
