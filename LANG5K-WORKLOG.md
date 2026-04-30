@@ -214,3 +214,28 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is import/restore validation covered by the new static guard and the existing flow checks. A future browser pass should manually import a deliberately malformed backup and inspect the alert plus restored daily-goal state.
+
+### Capped Restored Progress Stats
+
+Changed:
+- Added `scripts/validate-progress-stat-caps.mjs` to guard against restored progress backups importing impossible daily counters or streak counters.
+- Updated `sanitizeProgressBackupStats()` so `todayNew` and `todayReviews` are capped to the loaded course size, while `currentStreak` and `longestStreak` are capped to 3,650 days.
+
+Why:
+- A coached, self-running study product should not let a malformed backup make today's guided lesson look finished, inflate review history, or create unrealistic streak state. Restore already sanitized IDs, SRS dates, and daily-goal choices; restored counters needed bounded values too.
+
+Verification:
+- Confirmed `node scripts/validate-progress-stat-caps.mjs` failed before the app change with `User stats restore must cap impossible backup stats: const maxDailyCount=SENTENCES.length;`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `7bbb5cb fix: cap restored progress stats`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic restore sanitization covered by static validators. A future browser pass should import a backup with very large stats and confirm the restored plan display remains realistic.
