@@ -124,3 +124,32 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic due-review ordering covered by the new validator and existing study-flow checks. A future live-site pass should still inspect the guided lesson start screen with mixed overdue reviews.
+
+### Neutral Coach Tone Guard
+
+Changed:
+- Replaced milestone, review-bin-empty, and guided-summary copy that overclaimed mastery or used hype-heavy encouragement with calmer coached-product wording.
+- Added `scripts/validate-neutral-coach-tone.mjs` to prevent regressions back to mastery claims, conversation-ability overclaims, or hype-heavy completion language.
+
+Why:
+- A premium early-course language product should stay practical and credible. Learners need clear next-step coaching, not claims that local progress equals mastery or conversation readiness.
+
+Verification:
+- Confirmed `node scripts/validate-neutral-coach-tone.mjs` failed before the app copy change with `Neutral coach tone guard failed`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `f358a6c fix: keep coach tone neutral`
+
+Remaining Risk:
+- No browser session was opened in this run; the change is copy-only and covered by static validators. A future visual pass should inspect milestone and study-summary spacing on small mobile screens.
