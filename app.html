@@ -276,6 +276,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .practice-hint{background:var(--primary-bg);border:1px solid rgba(37,99,235,.18);border-radius:12px;padding:10px 12px;margin:12px 0;color:var(--text2);font-size:.9rem;text-align:left}
 .practice-hint strong{display:block;color:var(--text);margin-bottom:3px}
 .summary-stop-note{font-size:.84rem;color:var(--text3);margin:-8px 0 12px}
+.today-plan-card{max-width:980px;margin:18px auto 0;padding:20px 24px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow)}
+.today-plan-kicker{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--primary);margin-bottom:8px}
+.today-plan-title{font-size:1.3rem;font-weight:800;margin-bottom:6px}
+.today-plan-text{font-size:.94rem;color:var(--text3);margin-bottom:16px}
+.today-plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.today-plan-stat{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px}
+.today-plan-stat strong{display:block;font-size:1.25rem;color:var(--text);margin-bottom:4px}
+.today-plan-stat span{font-size:.85rem;color:var(--text3)}
+.today-plan-note{font-size:.84rem;color:var(--text3);margin-top:10px}
+.advanced-tools{display:flex;gap:10px;flex-wrap:wrap}
+.self-check-list{margin:10px 0 0;padding-left:18px;color:var(--text2);font-size:.9rem;text-align:left}
+.self-check-list li{margin:4px 0}
 </style>
 </head>
 <body>
@@ -285,16 +297,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="header-controls">
    <div class="streak-display inactive" id="streakDisplay"><span class="streak-fire">&#128293;</span> <span id="streakCount">0</span> day streak</div>
    <button class="btn btn-study" id="studyBtn" onclick="startStudyView()">&#9654; Study <span class="due-badge" id="dueBadge">0</span></button>
-   <div class="speed-control">
-    <label>Speed:</label>
-   <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.1" value="0.85">
-   <span id="speedVal">0.85x</span>
-  </div>
-   <button class="btn btn-secondary" onclick="exportProgressBackup()">Backup progress</button>
-   <button class="btn btn-secondary" onclick="document.getElementById('progressRestoreInput').click()">Restore progress</button>
-   <input type="file" id="progressRestoreInput" accept="application/json" style="display:none" onchange="importProgressBackup(event)">
-   <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
-   <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Bin <span class="bin-badge" id="binBadge">0</span></button>
+   <div class="advanced-tools" id="advancedTools">
+    <div class="speed-control">
+     <label>Speed:</label>
+    <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.1" value="0.85">
+    <span id="speedVal">0.85x</span>
+   </div>
+    <button class="btn btn-secondary" onclick="exportProgressBackup()">Backup progress</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('progressRestoreInput').click()">Restore progress</button>
+    <input type="file" id="progressRestoreInput" accept="application/json" style="display:none" onchange="importProgressBackup(event)">
+    <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
+    <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Bin <span class="bin-badge" id="binBadge">0</span></button>
+   </div>
    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">&#127769;</button>
   </div>
  </div>
@@ -303,11 +317,11 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="progress-text" id="progressText">0 / 0 learned</div>
  </div>
  <div class="mode-tabs" id="modeTabs">
-  <button class="mode-tab active" data-mode="browse" onclick="showBrowseView()">Browse</button>
+  <button class="mode-tab active" data-mode="browse" data-advanced-mode="true" onclick="showBrowseView()">Browse</button>
   <button class="mode-tab" data-mode="study" onclick="startStudyView()">Study</button>
-  <button class="mode-tab" data-mode="cloze" onclick="showClozeView()">Cloze</button>
-  <button class="mode-tab" data-mode="dictation" onclick="showDictationView()">Dictation</button>
-  <button class="mode-tab" data-mode="bin" onclick="toggleBinView()">Review Bin <span id="binBadgeTab">0</span></button>
+  <button class="mode-tab" data-mode="cloze" data-advanced-mode="true" onclick="showClozeView()">Cloze</button>
+  <button class="mode-tab" data-mode="dictation" data-advanced-mode="true" onclick="showDictationView()">Dictation</button>
+  <button class="mode-tab" data-mode="bin" data-advanced-mode="true" onclick="toggleBinView()">Review Bin <span id="binBadgeTab">0</span></button>
  </div>
  <div class="filters" id="filtersBar">
   <input type="text" id="searchInput" placeholder="Search sentences..." oninput="filterSentences()">
@@ -345,6 +359,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="dash-card"><div class="dash-num" id="dashDue">0</div><div class="dash-label">Due Today</div></div>
   <div class="dash-card"><div class="dash-num" id="dashCourse">0</div><div class="dash-label">Course Sentences</div></div>
  </div>
+ <div id="todayPlanHome"></div>
  <div id="accessNotice"></div>
  <div class="container" id="app"><div class="loading">Loading sentences...</div></div>
 </div>
@@ -447,6 +462,7 @@ const CURATED_FALLBACK_CATEGORY='Everyday Conversation';
 let studyQueue=[];
 let studyIndex=0;
 let studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
+let studyRepairCounts={};
 let studyRevealed=false;
 let dailyNewGoal=10;
 let practiceCarryMessage='';
@@ -650,6 +666,84 @@ function updateProgress(){
  updateDashboard();
 }
 
+function isCoachFirstMode(){
+ return !userStats.completedFirstGuidedSession && Object.keys(learned).length<15;
+}
+
+function updateCoachModeUI(){
+ const coachFirst=isCoachFirstMode();
+ const advancedTools=document.getElementById('advancedTools');
+ if(advancedTools)advancedTools.style.display=coachFirst?'none':'flex';
+ document.querySelectorAll('[data-advanced-mode="true"]').forEach(el=>{
+  el.style.display=coachFirst?'none':'';
+ });
+ const filters=document.getElementById('filtersBar');
+ if(filters){
+  if(coachFirst)filters.style.display='none';
+  else if(currentMode==='browse')filters.style.display='';
+ }
+}
+
+function getTodayPlanSummary(){
+ const stats=getTodayStats();
+ const dueCount=getDueReviews().length;
+ const newPlanned=Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0));
+ const weakCount=Object.keys(reviewBin).length;
+ let nextLabel='Start guided lesson';
+ let nextAction='startStudyView()';
+ if(weakCount>0){
+  nextLabel='Repair weak sentences';
+  nextAction='toggleBinView()';
+ } else if(dueCount>0){
+  nextLabel='Continue due reviews';
+  nextAction='startStudyView()';
+ } else if(newPlanned===0){
+  nextLabel='Browse all sentences';
+  nextAction='showBrowseView()';
+ }
+ return {dueCount,newPlanned,weakCount,nextLabel,nextAction};
+}
+
+function renderTodayPlanHome(){
+ const host=document.getElementById('todayPlanHome');
+ if(!host)return;
+ const stats=getTodayStats();
+ const plan=getTodayPlanSummary();
+ const coachFirst=isCoachFirstMode();
+ const doneToday=(stats.todayNew||0)+(stats.todayReviews||0);
+ host.innerHTML=`
+  <div class="today-plan-card">
+   <div class="today-plan-kicker">Today&apos;s plan</div>
+   <div class="today-plan-title">${coachFirst?'Follow one guided path first':'Your next best study step is ready'}</div>
+   <div class="today-plan-text">${coachFirst?'Lang5K starts as a coached session. Advanced sentence tools stay out of the way until you finish a real guided lesson.':'Reviews come first, then new sentences, then repair drills when needed.'}</div>
+   <div class="today-plan-grid">
+    <div class="today-plan-stat"><strong>${plan.dueCount}</strong><span>Reviews due now</span></div>
+    <div class="today-plan-stat"><strong>${plan.newPlanned}</strong><span>New sentences planned today</span></div>
+    <div class="today-plan-stat"><strong>${plan.weakCount}</strong><span>Weak sentences waiting</span></div>
+    <div class="today-plan-stat"><strong>${doneToday}</strong><span>Steps completed today</span></div>
+   </div>
+   <div class="hero-actions" style="justify-content:flex-start">
+    <button class="btn btn-primary" onclick="${plan.nextAction}">${plan.nextLabel}</button>
+    <button class="btn btn-secondary" onclick="showBrowseView()">Browse all sentences</button>
+   </div>
+   <div class="today-plan-note">${coachFirst?'Your first session should stay inside Study. After that, Lang5K unlocks the extra tools on this device.':'If today feels heavy, finish the guided lesson first and leave the extra drills for later.'}</div>
+  </div>`;
+}
+
+function goToTodayPlan(){
+ showBrowseView();
+ const host=document.getElementById('todayPlanHome');
+ if(host){
+  setTimeout(()=>host.scrollIntoView({behavior:'smooth',block:'start'}),50);
+ }
+}
+
+function markGuidedSessionComplete(){
+ if(userStats.completedFirstGuidedSession)return;
+ userStats.completedFirstGuidedSession=true;
+ saveStats();
+}
+
 function setActiveMode(mode){
  currentMode=mode;
  document.querySelectorAll('.mode-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.mode===mode));
@@ -665,6 +759,8 @@ function updateDashboard(){
   const el=document.getElementById(id);
   if(el)el.textContent=value;
  });
+ renderTodayPlanHome();
+ updateCoachModeUI();
 }
 
 function hideAllViews(){
@@ -1386,6 +1482,7 @@ function beginStudySession(){
 
  studyIndex=0;
  studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
+ studyRepairCounts={};
  studyRevealed=false;
 
  document.getElementById('studyHeaderBar').style.display='flex';
@@ -1487,11 +1584,17 @@ function revealStudyCard(){
  const srsInfo=srsData[item.idx]||{box:isNew?0:1};
  const typedAnswer=(document.getElementById('studyInput')||{}).value||'';
  const analysis=analyzeAttempt(typedAnswer,s[0]);
+ if(isNew && analysis.rating==='easy'){
+  analysis.rating='good';
+  analysis.summary='Strong first recall. Count it as Good so the sentence stays close.';
+ }
  const patternNote=buildPatternNote(s[0],s[2]);
+ const allowEasy=!isNew;
 
  // Compare typed answer
  let typedHTML='';
  if(typedAnswer.trim())typedHTML=attemptFeedbackHTML(typedAnswer,analysis);
+ else typedHTML=buildSelfCheckRubric('study',s[0],isNew);
 
  document.getElementById('studyContent').innerHTML=`
   <div class="study-card fade-in">
@@ -1507,11 +1610,11 @@ function revealStudyCard(){
      <button class="btn-again" onclick="rateStudyCard('again')">Again<br><small>I missed it</small></button>
     <button class="btn-hard" onclick="rateStudyCard('hard')">Hard<br><small>I barely got it</small></button>
     <button class="btn-good" onclick="rateStudyCard('good')">Good<br><small>I got most</small></button>
-    <button class="btn-easy" onclick="rateStudyCard('easy')">Easy<br><small>I knew it</small></button>
+    ${allowEasy?`<button class="btn-easy" onclick="rateStudyCard('easy')">Easy<br><small>I knew it</small></button>`:''}
    </div>
     ${patternNote?`<div class="pattern-note"><strong>${escapeHtml(patternNote.title)}</strong><span>${escapeHtml(patternNote.text)}</span></div>`:''}
     <div class="study-box-info" id="studyBoxInfo">${isNew?'First review will be scheduled after rating.':'Box '+srsInfo.box}</div>
-    <div class="study-box-info">Use Hard if you only remembered part of it. Use Easy only if it came back quickly and cleanly.</div>
+    <div class="study-box-info">${isNew?'New cards stop at Good on the first pass so they stay close.':'Use Hard if you only remembered part of it. Use Easy only if it came back quickly and cleanly.'}</div>
    </div>
   </div>`;
 
@@ -1522,9 +1625,11 @@ function rateStudyCard(rating){
  rating=normalizeRating(rating);
  const item=studyQueue[studyIndex];
  const isNew=item.type==='new';
+ if(isNew && rating==='easy')rating='good';
  const oldBox=(srsData[item.idx]||{box:1}).box||1;
 
  processRating(item.idx,rating);
+ scheduleStudyRepair(item.idx,rating);
 
  const newBox=srsData[item.idx].box;
  const nextDays=RATING_DAYS[rating]||LEITNER_DAYS[newBox]||1;
@@ -1565,6 +1670,19 @@ function rateStudyCard(rating){
  },800);
 }
 
+function scheduleStudyRepair(idx,rating){
+ if(rating!=='again' && rating!=='hard')return;
+ const currentCount=studyRepairCounts[idx]||0;
+ const limit=rating==='again'?2:1;
+ if(currentCount>=limit)return;
+ const alreadyAhead=studyQueue.slice(studyIndex+1).some(item=>item.idx===idx && item.sessionRepair);
+ if(alreadyAhead)return;
+ const lag=rating==='again'?3:5;
+ const insertAt=Math.min(studyIndex+lag,studyQueue.length);
+ studyQueue.splice(insertAt,0,{idx,type:'review',sessionRepair:true});
+ studyRepairCounts[idx]=currentCount+1;
+}
+
 function getAutopilotNextStep(){
  const weakCount=Object.keys(reviewBin).length;
  const dueCount=getDueReviews().length;
@@ -1601,6 +1719,9 @@ function getAutopilotNextStep(){
 }
 
 function showStudySummary(){
+ if(studySessionStats.newCount>0 || studySessionStats.reviewCount>0){
+  markGuidedSessionComplete();
+ }
  document.getElementById('studyHeaderBar').style.display='none';
  const totalDone=studySessionStats.newCount+studySessionStats.reviewCount;
  const successCount=studySessionStats.goodCount+studySessionStats.easyCount;
@@ -1631,7 +1752,7 @@ function showStudySummary(){
    <button class="study-start-btn" onclick="${nextStep.action}" style="background:var(--primary);margin-bottom:0">${nextStep.button}</button>
    </div>
    <div class="summary-stop-note">If you are done for today, stop here. If you still have 5 more minutes, do the recommended next drill now.</div>
-   <button class="btn btn-secondary" onclick="startStudyView()" style="margin-bottom:10px">Stop here and return to my plan</button>
+   <button class="btn btn-secondary" onclick="goToTodayPlan()" style="margin-bottom:10px">Finish for today</button>
    <button class="btn btn-secondary" onclick="exitStudy()">Browse sentences</button>
   </div>`;
 
@@ -1754,6 +1875,29 @@ function attemptFeedbackHTML(typedText,analysis){
  return `<div class="study-typed-answer ${analysis.state}">Your answer: ${escapeHtml(typedText)}<div class="study-feedback-detail">${detail.join('<br>')}</div></div>`;
 }
 
+function buildSelfCheckRubric(kind,target,isNew){
+ const tokens=answerTokens(target);
+ const questionWord=tokens.find(token=>/^(кто|что|где|куда|когда|как|почему|зачем|сколько|какой|какая|какие|чей|чья|чьи)$/i.test(token));
+ const anchor=tokens.slice().sort((a,b)=>b.length-a.length).find(token=>token.length>=4) || tokens[0] || '';
+ const tail=tokens[tokens.length-1] && tokens[tokens.length-1]!==anchor ? tokens[tokens.length-1] : '';
+ const items=[];
+ if(kind==='study'){
+  items.push(isNew?'Did you rebuild the full Russian idea before revealing it?':'Did the Russian come back before you heard it again?');
+  if(questionWord)items.push(`Did you keep the question word "${questionWord}" in the right place?`);
+  if(anchor)items.push(`Did the key chunk around "${anchor}" come back, or only sound familiar after reveal?`);
+  if(tail)items.push(`Did the ending "${tail}" also come back, or only the start of the sentence?`);
+ } else if(kind==='cloze'){
+  items.push('Did you know the missing word before the answer appeared?');
+  if(anchor)items.push(`Was the key word "${anchor}" immediate, or only obvious after reveal?`);
+  items.push('Use Hard if you were close but needed the answer to confirm it.');
+ } else {
+  items.push('Did you catch the sentence from the audio before looking?');
+  if(anchor)items.push(`Did you clearly hear the anchor word "${anchor}"?`);
+  items.push('Use Hard if you understood the sentence but could not reproduce it cleanly.');
+ }
+ return `<div class="practice-feedback"><strong>Self-check before rating</strong><ul class="self-check-list">${items.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul></div>`;
+}
+
 function buildPatternNote(ru,en){
  const lowerRu=String(ru||'').toLowerCase();
  const lowerEn=String(en||'').toLowerCase();
@@ -1784,18 +1928,56 @@ function buildPatternNote(ru,en){
 function buildCloze(sentence){
  const words=sentence[0].split(/\s+/);
  let choice=0;
- let bestLength=0;
+ let bestScore=-1;
+ const priorityWords=/^(не|нет|да|где|куда|когда|как|кто|что|почему|зачем|можно|могу|можешь|может|хочу|хочешь|хочет|нужно|надо|был|была|были|будет|есть)$/i;
  words.forEach((word,i)=>{
   const cleaned=word.replace(/[.,!?;:"'«»]/g,'');
-  if(/[А-Яа-яЁё]/.test(cleaned) && cleaned.length>bestLength){
-   bestLength=cleaned.length;
-   choice=i;
+  if(/[А-Яа-яЁё]/.test(cleaned)){
+   const score=(priorityWords.test(cleaned)?100:0)+Math.min(cleaned.length,12);
+   if(score>bestScore){
+    bestScore=score;
+    choice=i;
+   }
   }
  });
+ if(bestScore<0){
+  words.forEach((word,i)=>{
+   const cleaned=word.replace(/[.,!?;:"'«»]/g,'');
+   if(/[А-Яа-яЁё]/.test(cleaned) && cleaned.length>bestScore){
+    bestScore=cleaned.length;
+   choice=i;
+  }
+  });
+ }
  const answer=words[choice].replace(/[.,!?;:"'«»]/g,'');
  const promptWords=words.map(word=>escapeHtml(word));
  promptWords[choice]='<span class="cloze-gap">'+escapeHtml(answer)+'</span>';
  return {prompt:promptWords.join(' '),answer};
+}
+
+function buildPracticeRatingButtons(mode){
+ return `
+  <div class="practice-actions">
+   <button class="btn btn-secondary" onclick="ratePractice('again','${mode}')">Again - I missed it</button>
+   <button class="btn btn-secondary" onclick="ratePractice('hard','${mode}')">Hard - I was close</button>
+   <button class="btn btn-primary" onclick="ratePractice('good','${mode}')">Good - I got most</button>
+   <button class="btn btn-primary" onclick="ratePractice('easy','${mode}')">Easy - I knew it cleanly</button>
+  </div>`;
+}
+
+function practiceCarryMessageForRating(rating,nextDays){
+ if(rating==='again')return 'Saved. This sentence will stay close and come back soon.';
+ if(rating==='hard')return `Saved. Kept nearby for another check in ${nextDays} day${nextDays>1?'s':''}.`;
+ if(rating==='easy')return `Saved. This one moved far enough ahead to rest for ${nextDays} days.`;
+ return `Saved. This one moved forward and will return in ${nextDays} days.`;
+}
+
+function buildPracticeRevealFeedback(mode,target,typed){
+ if(typed.trim()){
+  const analysis=analyzeAttempt(typed,target);
+  return attemptFeedbackHTML(typed,analysis);
+ }
+ return buildSelfCheckRubric(mode,target,false);
 }
 
 function showClozeView(){
@@ -1843,16 +2025,13 @@ function revealCloze(){
  clozeCurrent.revealed=true;
  const s=SENTENCES[clozeCurrent.idx];
  const typed=(document.getElementById('clozeInput')||{}).value||'';
- const correct=normalizeAnswer(typed)===normalizeAnswer(clozeCurrent.answer);
+ const feedback=buildPracticeRevealFeedback('cloze',clozeCurrent.answer,typed);
  document.getElementById('clozeFeedback').innerHTML=`
   <div class="practice-feedback">
    <div><strong>Answer:</strong> ${escapeHtml(clozeCurrent.answer)}</div>
    <div><strong>Full sentence:</strong> ${escapeHtml(s[0])}</div>
-   ${typed.trim()?`<div><strong>Your answer:</strong> ${escapeHtml(typed)} ${correct?'&#10003;':'&#8594; keep practicing'}</div>`:''}
-   <div class="practice-actions">
-    <button class="btn btn-secondary" onclick="ratePractice(false,'cloze')">Again - I missed it</button>
-    <button class="btn btn-primary" onclick="ratePractice(true,'cloze')">Good - I got it</button>
-   </div>
+   ${feedback}
+   ${buildPracticeRatingButtons('cloze')}
   </div>`;
  speakText(s[0],clozeCurrent.idx);
 }
@@ -1901,27 +2080,24 @@ function revealDictation(){
  dictationCurrent.revealed=true;
  const s=SENTENCES[dictationCurrent.idx];
  const typed=(document.getElementById('dictationInput')||{}).value||'';
- const correct=normalizeAnswer(typed)===normalizeAnswer(s[0]);
+ const feedback=buildPracticeRevealFeedback('dictation',s[0],typed);
  document.getElementById('dictationFeedback').innerHTML=`
   <div class="practice-feedback">
    <div><strong>Target:</strong> ${escapeHtml(s[0])}</div>
    <div><strong>Transliteration:</strong> ${escapeHtml(s[1])}</div>
    <div><strong>Meaning:</strong> ${escapeHtml(s[2])}</div>
-   ${typed.trim()?`<div><strong>Your answer:</strong> ${escapeHtml(typed)} ${correct?'&#10003;':'&#8594; compare and retry'}</div>`:''}
-   <div class="practice-actions">
-    <button class="btn btn-secondary" onclick="ratePractice(false,'dictation')">Again - I missed it</button>
-    <button class="btn btn-primary" onclick="ratePractice(true,'dictation')">Good - I got it</button>
-   </div>
+   ${feedback}
+   ${buildPracticeRatingButtons('dictation')}
   </div>`;
 }
 
-function ratePractice(correct,mode){
+function ratePractice(rating,mode){
  const current=mode==='cloze'?clozeCurrent:dictationCurrent;
  if(!current)return;
- processRating(current.idx,correct);
- practiceCarryMessage=correct
-  ? 'This sentence moved forward. The next drill is ready.'
-  : 'This sentence stayed close for more review. The next drill is ready.';
+ rating=normalizeRating(rating);
+ processRating(current.idx,rating);
+ const nextDays=RATING_DAYS[rating]||LEITNER_DAYS[(srsData[current.idx]||{}).box]||1;
+ practiceCarryMessage=practiceCarryMessageForRating(rating,nextDays);
  updateProgress();
  updateDueBadge();
  if(mode==='cloze')renderClozeCard();

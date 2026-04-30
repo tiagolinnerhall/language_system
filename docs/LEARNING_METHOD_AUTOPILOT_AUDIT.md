@@ -49,6 +49,14 @@ Useful evidence references:
 - Rewrote review and recall cards to explain the exact learner task and why review appears first.
 - Added visible drill explanations for why cloze and dictation appear next.
 - Added post-drill saved-state feedback so practice does not advance silently.
+- Added a real in-app "Today's plan" card that shows reviews due, new cards planned, weak sentences waiting, and the next recommended action.
+- Hid advanced sentence-tool controls during the first coached session so the product feels guided before it feels tool-heavy.
+- Added same-session repair: `Again` and `Hard` cards are reinserted later in the same guided session instead of waiting only for a later drill.
+- Capped brand-new cards at `Good` on the first successful pass so new sentences stay close before they spread out.
+- Unified cloze and dictation to the same `Again / Hard / Good / Easy` rating language used in the guided lesson.
+- Added stronger reveal-time self-check rubrics for learners who speak quietly instead of typing.
+- Improved cloze target selection so the hidden word is more often a useful function word or core anchor instead of only the longest token.
+- Tightened public wording on the home, pricing, and attribution pages to be more honest about corpus sourcing, filtering, reordering, and ongoing native-speaker QA.
 
 ## Specialist-Agent Verdicts
 
