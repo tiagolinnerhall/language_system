@@ -311,7 +311,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
    </div>
    <div class="coach-steps">
     <div class="coach-step"><strong>1. Listen</strong>Hear the sentence first.</div>
-    <div class="coach-step"><strong>2. Recall</strong>Say or type it from memory.</div>
+    <div class="coach-step"><strong>2. Recall</strong>Speak to yourself or type it. No microphone is used.</div>
     <div class="coach-step"><strong>3. Reveal</strong>Compare with the answer.</div>
     <div class="coach-step"><strong>4. Review</strong>Again or Good schedules the next repetition.</div>
    </div>
@@ -1279,7 +1279,7 @@ function showStudyCard(){
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label new">NEW SENTENCE</span>
-    <div class="study-prompt">Step 1: listen, then say the Russian sentence out loud once.</div>
+    <div class="study-prompt">Step 1: listen, then speak the Russian sentence to yourself once. Lang5K is not recording your voice.</div>
     <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="margin-bottom:6px">${escapeHtml(s[0])}</div>
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${escapeHtml(s[1])}</div>
     <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:16px">${escapeHtml(s[2])}</div>
@@ -1295,8 +1295,9 @@ function showStudyCard(){
    <div class="study-card fade-in">
     <span class="study-card-label review">REVIEW &middot; ${boxLabel}</span>
     <div class="study-english">${escapeHtml(s[2])}</div>
-    <div class="study-prompt">Step 1: say the ${escapeHtml(LANG.name)} sentence from memory before you reveal it.</div>
-    <input type="text" class="study-type-input" id="studyInput" placeholder="Type your answer (optional)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+    <div class="study-prompt" style="font-size:.82rem;color:var(--primary);font-weight:700;margin-bottom:8px">This appears first because it is due for spaced review today.</div>
+    <div class="study-prompt">Step 1: recall the ${escapeHtml(LANG.name)} sentence before you reveal it. Speak to yourself, or type it here if you want a stricter check. No microphone is used.</div>
+    <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type what you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
     <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal and listen</button>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again means review sooner, Good moves it forward.</div>
    </div>`;
@@ -1313,8 +1314,8 @@ function showNewRecallCard(){
   <div class="study-card fade-in">
    <span class="study-card-label new">NEW RECALL</span>
    <div class="study-english">${escapeHtml(s[2])}</div>
-   <div class="study-prompt">Step 2: now cover the Russian in your mind and say it from memory. Type it if you want a stricter check.</div>
-   <input type="text" class="study-type-input" id="studyInput" placeholder="Type the Russian from memory (optional)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+   <div class="study-prompt">Step 2: now cover the Russian in your mind and recall it. Speak to yourself, or type it here. No microphone is used.</div>
+   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type the Russian from memory" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
    <button class="study-reveal-btn" onclick="revealStudyCard()">Reveal, listen, and rate</button>
    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Again = I could not recall it. Good = I recalled most of it.</div>
   </div>`;
