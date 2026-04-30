@@ -588,7 +588,7 @@ async function loadLanguageData(){
   updateDueBadge();
   maybeStartGuidedLesson();
  }catch(e){
-  app.innerHTML='<div class="empty-state">Error loading language data: '+e.message+'</div>';
+  app.innerHTML='<div class="empty-state">Error loading language data: '+escapeHtml(e.message||'Unknown error')+'</div>';
  }
 }
 
@@ -605,7 +605,7 @@ function renderAccessRequired(message){
  if(accessNotice)accessNotice.innerHTML='';
  app.innerHTML=`<div class="access-required">
   <h2>Paid access required</h2>
-  <p>${message}</p>
+  <p>${escapeHtml(message)}</p>
   <a class="btn btn-primary" href="checkout.html">Start secure checkout</a>
   <a class="btn btn-secondary" href="app.html?lang=${langKey}&demo=1">Use demo mode</a>
  </div>`;
