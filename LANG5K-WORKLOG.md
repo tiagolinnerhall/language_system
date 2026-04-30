@@ -47,6 +47,37 @@ Remaining Risk:
 
 ## 2026-05-01
 
+### In-App Audio Readiness Notice
+
+Changed:
+- Added a learner-visible audio status notice inside `app.html` that reports when hosted audio is ready for the visible course and explains that browser speech keeps practice moving if hosted files are unavailable.
+- Added `scripts/validate-audio-status-notice.mjs` to guard the app shell, styling, status copy, and refresh hooks.
+
+Why:
+- A premium coached product should make critical lesson infrastructure visible inside the study workspace. Learners should not have to infer whether audio is loaded, unavailable, or still safe to practice with.
+
+Verification:
+- Confirmed `node scripts/validate-audio-status-notice.mjs` failed before the app change with `App shell must reserve space for learner-visible audio status.`
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+- Opened `http://127.0.0.1:4175/app.html?lang=russian&demo=1` in Playwright, injected sample course rows because the simple static server does not serve Vercel API routes, and verified the notice rendered on desktop and mobile with no horizontal overflow.
+
+Pushed Commit:
+- `d00f807 feat: show in-app audio readiness`
+
+Remaining Risk:
+- The browser check used a local static server with injected sample course rows; the only observed console error was the expected `/api/course` 404 from not running Vercel serverless routes locally. A future live deployment check should confirm the notice against the real `/api/course` response and production audio manifest.
+
 ### Standalone Practice Review Order Guard
 
 Changed:
