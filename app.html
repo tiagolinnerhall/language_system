@@ -1268,6 +1268,14 @@ function isSuccessfulRating(rating){
  return rating==='good'||rating==='easy';
 }
 
+function clearRecoveredWeakPractice(idx){
+ if(!reviewBin[idx])return false;
+ delete reviewBin[idx];
+ localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+ updateBinBadge();
+ return true;
+}
+
 function processRating(idx,rating){
  rating=normalizeRating(rating);
  const data=srsData[idx]||{box:0,correctStreak:0};
@@ -1275,9 +1283,11 @@ function processRating(idx,rating){
  if(rating==='easy'){
   data.box=Math.min((data.box||0)+2,5);
   data.correctStreak=(data.correctStreak||0)+1;
+  clearRecoveredWeakPractice(idx);
  } else if(rating==='good'){
   data.box=Math.min((data.box||0)+1,5);
   data.correctStreak=(data.correctStreak||0)+1;
+  clearRecoveredWeakPractice(idx);
  } else if(rating==='hard'){
   data.box=Math.max(1,data.box||1);
   data.correctStreak=0;
@@ -2095,9 +2105,14 @@ function ratePractice(rating,mode){
  const current=mode==='cloze'?clozeCurrent:dictationCurrent;
  if(!current)return;
  rating=normalizeRating(rating);
+ const wasWeak=Boolean(reviewBin[current.idx]);
  processRating(current.idx,rating);
  const nextDays=RATING_DAYS[rating]||LEITNER_DAYS[(srsData[current.idx]||{}).box]||1;
- practiceCarryMessage=practiceCarryMessageForRating(rating,nextDays);
+ if(wasWeak&&isSuccessfulRating(rating)){
+  practiceCarryMessage=`Recovered. Removed from weak practice. This one will return in ${nextDays} days.`;
+ }else{
+  practiceCarryMessage=practiceCarryMessageForRating(rating,nextDays);
+ }
  updateProgress();
  updateDueBadge();
  if(mode==='cloze')renderClozeCard();
