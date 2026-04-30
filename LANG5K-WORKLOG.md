@@ -97,3 +97,30 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the change is date-key logic covered by static validation and existing flow checks. A future live-site pass should still inspect daily-plan/streak behavior across local midnight in a browser.
+
+### Oldest Due Review Priority Guard
+
+Changed:
+- Updated guided due-review ordering so reviews overdue from earlier local dates come before reviews merely due today.
+- Added `scripts/validate-due-review-priority.mjs` to guard that `getDueReviews()` keeps oldest due dates ahead of box difficulty while still using box as the tiebreaker.
+
+Why:
+- A coached premium study loop should rescue overdue memory debt first. Sorting only by box could let a same-box card due today appear before a card that had been waiting for several days, making the product feel less self-running and less faithful to spaced review urgency.
+
+Verification:
+- Confirmed `node scripts/validate-due-review-priority.mjs` failed before the app change with `Due reviews must prioritize the oldest overdue review date before box difficulty.`
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `ef612d9 fix: prioritize oldest due reviews`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic due-review ordering covered by the new validator and existing study-flow checks. A future live-site pass should still inspect the guided lesson start screen with mixed overdue reviews.
