@@ -44,4 +44,14 @@ if (dueNextBranch > weakNextBranch) {
   throw new Error('Session summary must keep remaining due reviews before weak repair.');
 }
 
+const practicePicker = extractFunction('pickPracticeIndex');
+const duePracticeBranch = practicePicker.indexOf('const due=getDueReviews();');
+const weakPracticeBranch = practicePicker.indexOf('const weak=Object.keys(reviewBin)');
+if (duePracticeBranch < 0 || weakPracticeBranch < 0) {
+  throw new Error('Standalone practice must consider both due reviews and weak repair.');
+}
+if (duePracticeBranch > weakPracticeBranch) {
+  throw new Error('Standalone cloze and dictation must keep due reviews before weak repair.');
+}
+
 console.log('Guided study flow validation passed.');

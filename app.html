@@ -1834,14 +1834,6 @@ function exitStudy(){
 
 // === Cloze + Dictation Practice ===
 function pickPracticeIndex(){
- const weak=Object.keys(reviewBin).map(Number).filter(i=>Number.isInteger(i)&&SENTENCES[i]);
- if(weak.length){
-  practiceSelectionMeta={
-   kind:'weak',
-   reason:'This sentence was marked weak earlier, so the app is giving it extra repair work before it fades.'
-  };
-  return weak[0];
- }
  const due=getDueReviews();
  if(due.length){
   practiceSelectionMeta={
@@ -1849,6 +1841,14 @@ function pickPracticeIndex(){
    reason:'This sentence is due today, so the app is using a focused drill to keep it active.'
   };
   return due[0];
+ }
+ const weak=Object.keys(reviewBin).map(Number).filter(i=>Number.isInteger(i)&&SENTENCES[i]);
+ if(weak.length){
+  practiceSelectionMeta={
+   kind:'weak',
+   reason:'No spaced reviews are due right now, so the app is giving a weak sentence extra repair work before it fades.'
+  };
+  return weak[0];
  }
  const newOnes=getNewSentences(1);
  if(newOnes.length){
