@@ -1,4 +1,12 @@
 {
+  "functions": {
+    "api/preview-page.js": {
+      "includeFiles": "*.html"
+    },
+    "api/admin-report.js": {
+      "includeFiles": "admin-status.json"
+    }
+  },
   "routes": [
     {
       "src": "^/$",
