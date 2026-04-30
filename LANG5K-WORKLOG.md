@@ -305,3 +305,38 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic backup/startup sanitization covered by static guards. A future browser pass should import a backup containing false-valued learned and review-bin rows and confirm the dashboard counts stay realistic.
+
+### Restored SRS Date Window Guard
+
+Changed:
+- Added `clampBackupSrsDate()` so imported or locally normalized SRS rows cannot keep impossible review dates far beyond the app's real scheduling window.
+- Updated SRS restore sanitization to clamp `nextReview` to at most 31 days from the learner's current local date and reject future `lastReview` values.
+- Added `scripts/validate-srs-restore-date-window.mjs` to guard the restored SRS date-window behavior.
+
+Why:
+- A malformed backup with a syntactically valid date like `2099-01-01` could hide due reviews from the guided lesson for years. A self-running premium study product should recover that state into a realistic review schedule instead of silently losing the learner's review queue.
+
+Verification:
+- Confirmed `node scripts/validate-srs-restore-date-window.mjs` failed before the app change with `Missing function clampBackupSrsDate`.
+- Ran `node scripts/validate-srs-restore-date-window.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/validate-safe-local-storage-startup.mjs`.
+- Ran `node scripts/validate-truthy-progress-maps.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran app.html inline script parse-check with `new Function()` over extracted inline scripts.
+
+Pushed Commit:
+- `a2a5cd6 fix: clamp restored srs review dates`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic restore/startup sanitization covered by the new static guard and existing flow validators. A future browser pass should import a backup with a far-future `nextReview` and confirm the guided lesson shows the restored review within the normal schedule.
