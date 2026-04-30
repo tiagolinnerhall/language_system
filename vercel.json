@@ -1,52 +1,52 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/",
-      "destination": "/api/preview-page?file=index.html"
+      "src": "^/$",
+      "dest": "/api/preview-page?file=index.html"
     },
     {
-      "source": "/index.html",
-      "destination": "/api/preview-page?file=index.html"
+      "src": "^/index\\.html$",
+      "dest": "/api/preview-page?file=index.html"
     },
     {
-      "source": "/app.html",
-      "destination": "/api/preview-page?file=app.html"
+      "src": "^/app\\.html$",
+      "dest": "/api/preview-page?file=app.html"
     },
     {
-      "source": "/access.html",
-      "destination": "/api/preview-page?file=access.html"
+      "src": "^/access\\.html$",
+      "dest": "/api/preview-page?file=access.html"
     },
     {
-      "source": "/admin.html",
-      "destination": "/api/preview-page?file=admin.html"
+      "src": "^/admin\\.html$",
+      "dest": "/api/preview-page?file=admin.html"
     },
     {
-      "source": "/attribution.html",
-      "destination": "/api/preview-page?file=attribution.html"
+      "src": "^/attribution\\.html$",
+      "dest": "/api/preview-page?file=attribution.html"
     },
     {
-      "source": "/checkout.html",
-      "destination": "/api/preview-page?file=checkout.html"
+      "src": "^/checkout\\.html$",
+      "dest": "/api/preview-page?file=checkout.html"
     },
     {
-      "source": "/contact.html",
-      "destination": "/api/preview-page?file=contact.html"
+      "src": "^/contact\\.html$",
+      "dest": "/api/preview-page?file=contact.html"
     },
     {
-      "source": "/pricing.html",
-      "destination": "/api/preview-page?file=pricing.html"
+      "src": "^/pricing\\.html$",
+      "dest": "/api/preview-page?file=pricing.html"
     },
     {
-      "source": "/privacy.html",
-      "destination": "/api/preview-page?file=privacy.html"
+      "src": "^/privacy\\.html$",
+      "dest": "/api/preview-page?file=privacy.html"
     },
     {
-      "source": "/refund.html",
-      "destination": "/api/preview-page?file=refund.html"
+      "src": "^/refund\\.html$",
+      "dest": "/api/preview-page?file=refund.html"
     },
     {
-      "source": "/terms.html",
-      "destination": "/api/preview-page?file=terms.html"
+      "src": "^/terms\\.html$",
+      "dest": "/api/preview-page?file=terms.html"
     }
   ]
 }
