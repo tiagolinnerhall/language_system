@@ -272,3 +272,36 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is startup state recovery and is covered by the new static guard plus the existing flow validators. A future browser pass should seed malformed localStorage values and confirm the app opens to the guided lesson without a visible error.
+
+### Truthy Progress Map Guard
+
+Changed:
+- Updated progress-map sanitization so learned and weak-practice maps keep only active `true` rows, while inactive `false` rows are dropped instead of being kept as counted keys.
+- Added `scripts/validate-truthy-progress-maps.mjs` to prevent regressions that would let false-valued backup or local-storage rows inflate learned or weak-sentence counts.
+
+Why:
+- The guided product relies on accurate counts to choose and explain the next study step. A malformed backup or local entry such as `{ "42": false }` could previously survive sanitization and make the app overstate learned progress or weak-practice debt.
+
+Verification:
+- Confirmed `node scripts/validate-truthy-progress-maps.mjs` failed before the app change with `Progress maps must only keep active true rows: if(source[key]===true){`.
+- Ran `node scripts/validate-truthy-progress-maps.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/validate-safe-local-storage-startup.mjs`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `0fe6a49 fix: ignore inactive progress map rows`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic backup/startup sanitization covered by static guards. A future browser pass should import a backup containing false-valued learned and review-bin rows and confirm the dashboard counts stay realistic.
