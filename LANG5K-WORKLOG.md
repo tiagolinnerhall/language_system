@@ -240,6 +240,41 @@ Pushed Commit:
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic restore sanitization covered by static validators. A future browser pass should import a backup with very large stats and confirm the restored plan display remains realistic.
 
+### Strict First Guided Session Restore
+
+Changed:
+- Tightened `sanitizeProgressBackupStats()` so `completedFirstGuidedSession` is restored only when the backup/local progress value is a real boolean.
+- Added `scripts/validate-first-session-flag-guard.mjs` to prevent regressions back to truthy coercion.
+
+Why:
+- The coached first-session gate should not be bypassed by malformed restored progress such as `"false"`, `"yes"`, or `1`. A self-running premium learner path needs corrupted progress to fail closed into the guided study flow, not unlock advanced tools early.
+
+Verification:
+- Confirmed `node scripts/validate-first-session-flag-guard.mjs` failed before the app change with `First guided session flag must not coerce truthy backup values.`
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/validate-safe-local-storage-startup.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/validate-truthy-progress-maps.mjs`.
+- Ran `node scripts/validate-srs-restore-date-window.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `1dab3ea fix: guard first guided session restore`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic progress sanitization covered by static guards and flow validators. A future browser pass should restore a backup with string-valued `completedFirstGuidedSession` and confirm advanced tools stay hidden until a real guided lesson is completed.
+
 ### Safe Local Progress Startup
 
 Changed:
