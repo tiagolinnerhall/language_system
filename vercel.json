@@ -1,0 +1,52 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/api/preview-page?file=index.html"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/api/preview-page?file=index.html"
+    },
+    {
+      "source": "/app.html",
+      "destination": "/api/preview-page?file=app.html"
+    },
+    {
+      "source": "/access.html",
+      "destination": "/api/preview-page?file=access.html"
+    },
+    {
+      "source": "/admin.html",
+      "destination": "/api/preview-page?file=admin.html"
+    },
+    {
+      "source": "/attribution.html",
+      "destination": "/api/preview-page?file=attribution.html"
+    },
+    {
+      "source": "/checkout.html",
+      "destination": "/api/preview-page?file=checkout.html"
+    },
+    {
+      "source": "/contact.html",
+      "destination": "/api/preview-page?file=contact.html"
+    },
+    {
+      "source": "/pricing.html",
+      "destination": "/api/preview-page?file=pricing.html"
+    },
+    {
+      "source": "/privacy.html",
+      "destination": "/api/preview-page?file=privacy.html"
+    },
+    {
+      "source": "/refund.html",
+      "destination": "/api/preview-page?file=refund.html"
+    },
+    {
+      "source": "/terms.html",
+      "destination": "/api/preview-page?file=terms.html"
+    }
+  ]
+}
