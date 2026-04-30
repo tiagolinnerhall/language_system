@@ -694,7 +694,7 @@ function getTodayPlanSummary(){
  if(dueCount>0){
   nextLabel='Continue due reviews';
   nextAction='startStudyView()';
- } else if(weakCount>0){
+ } else if(newPlanned===0&&weakCount>0){
   nextLabel='Repair weak sentences';
   nextAction='toggleBinView()';
  } else if(newPlanned===0){

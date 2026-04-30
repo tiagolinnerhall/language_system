@@ -17,11 +17,15 @@ function mustInclude(source, marker, message) {
 const planSummary = extractFunction('getTodayPlanSummary');
 const dueBranch = planSummary.indexOf('dueCount>0');
 const weakBranch = planSummary.indexOf('weakCount>0');
+const newCompleteBranch = planSummary.indexOf('newPlanned===0');
 if (dueBranch < 0 || weakBranch < 0) {
   throw new Error('Today plan must handle both due reviews and weak repair.');
 }
 if (dueBranch > weakBranch) {
   throw new Error('Today plan must prioritize due reviews before weak repair.');
+}
+if (newCompleteBranch < 0 || weakBranch < newCompleteBranch) {
+  throw new Error('Today plan must keep guided new sentences before weak repair.');
 }
 
 const studyStart = extractFunction('showStudyStart');
