@@ -840,6 +840,11 @@ function render(){
  const catFilter=categoryFilter.value;
  const unlearned=unlearnedOnly.checked;
  app.innerHTML='';
+ if(isCoachFirstMode()&&currentMode==='browse'){
+  app.innerHTML='<div class="empty-state">Finish one guided lesson to unlock sentence browsing on this device.</div>';
+  updateProgress();
+  return;
+ }
  let globalNum=0;
  let anyResults=false;
 
