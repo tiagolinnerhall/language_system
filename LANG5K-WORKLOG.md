@@ -477,3 +477,32 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic copy in the new-card recall step and is covered by the new static guard plus guided-flow validators. A future browser pass should start a fresh guided lesson and confirm the new guidance fits cleanly on mobile.
+
+### Duplicate Study Rating Guard
+
+Changed:
+- Added a one-rating lock to guided study cards so repeated clicks or taps during the short post-rating transition cannot count the same card twice.
+- Reset the lock when a guided session starts, when each study card renders, and when the answer is revealed.
+- Added `scripts/validate-study-rating-lock.mjs` to keep the rating side effect order guarded before stats, SRS scheduling, or repair insertion can run.
+
+Why:
+- A premium self-running study flow should tolerate impatient double taps without corrupting daily counts, SRS dates, weak-practice scheduling, or the current card position.
+
+Verification:
+- Confirmed `node scripts/validate-study-rating-lock.mjs` failed before the app change with `Study mode must track whether the current card has already accepted a rating.`
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `95fdc6a fix: prevent duplicate study ratings`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic event-handler guard covered by the new static validator and adjacent study-flow checks. A future browser pass should rapidly double-click a rating button on a revealed study card and confirm the card advances once with one stats increment.
