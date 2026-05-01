@@ -625,3 +625,33 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic streak timing covered by the new static validator and adjacent guided-flow checks. A future browser pass should start a lesson, exit before rating, and confirm the visible streak does not increase until a rating is saved.
+
+### Today Plan Available New Count
+
+Changed:
+- Updated the home Today plan summary so "New sentences planned today" counts actual available new cards from the curated study order instead of only echoing the remaining daily goal.
+- Added `scripts/validate-today-plan-available-new-count.mjs` to keep the home CTA from advertising unavailable new-card work when the learner has no fresh cards left.
+
+Why:
+- A self-running premium study flow should not send a learner into a guided lesson that immediately bounces back because the daily goal says work remains but the course has no eligible new cards. The plan now reflects real due reviews, available new cards, and weak-practice repair more accurately.
+
+Verification:
+- Confirmed `node scripts/validate-today-plan-available-new-count.mjs` failed before the app change with `Today plan must calculate the remaining daily new-card budget.`
+- Ran `node scripts/validate-today-plan-available-new-count.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-active-review-summary.mjs`.
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran `node scripts/validate-practice-rating-lock.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `f72ec99 fix: count available new cards in today plan`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic home-plan logic covered by the new static validator and adjacent guided-flow checks. A future browser pass should simulate a nearly complete course with no eligible new cards and confirm the home CTA moves to weak repair or browse instead of starting an empty guided lesson.
