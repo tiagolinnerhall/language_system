@@ -47,6 +47,37 @@ Remaining Risk:
 
 ## 2026-05-01
 
+### Standalone Practice Rating Guard
+
+Changed:
+- Added a one-rating lock for standalone cloze and dictation practice cards.
+- Reset the lock when each practice card renders and when its answer is revealed.
+- Required cloze/dictation cards to be revealed before `ratePractice()` can save SRS, weak-bin, carry-message, or next-card side effects.
+- Added `scripts/validate-practice-rating-lock.mjs` to guard the lifecycle and side-effect order.
+
+Why:
+- Cloze and dictation are now part of the coached follow-up path after guided study. A premium self-running flow should tolerate impatient double clicks without saving the same practice card twice, moving SRS dates twice, or skipping the next recommended card.
+
+Verification:
+- Confirmed `node scripts/validate-practice-rating-lock.mjs` failed before the app change with `Standalone practice must track whether the current card has accepted a rating.`
+- Ran `node scripts/validate-practice-rating-lock.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-study-streak-after-rating.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `69d8fe3 fix: prevent duplicate practice ratings`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic click-guard logic covered by the new static validator and adjacent study/practice validators. A future browser pass should rapidly double-click a cloze or dictation rating and confirm only one rating is saved and one next card is rendered.
+
 ### In-App Audio Readiness Notice
 
 Changed:
