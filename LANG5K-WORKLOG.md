@@ -806,3 +806,33 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic first-session CTA render covered by the new validator and adjacent guided-flow checks. A future browser pass should seed a state with coach-first mode active plus no planned new cards or weak sentences present, then confirm the visible primary CTA still starts Study.
+
+### Coach-First Sentence Browser Gate
+
+Changed:
+- Replaced the full sentence browser list with a short guided-session unlock prompt while coach-first mode is active.
+- Added `scripts/validate-coach-first-browser-list-gate.mjs` so first-session learners cannot be exposed to the full browse list before one real guided lesson is completed.
+
+Why:
+- Recent coach-first changes hid the browse tab and shortcuts, but the full sentence list still rendered underneath the guided plan. That contradicted the coached-product promise that advanced sentence tools stay out of the way during the first session.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-browser-list-gate.mjs` failed before the app change with `Coach-first browse mode must gate the full sentence list.`
+- Ran `node scripts/validate-coach-first-browser-list-gate.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/validate-coach-first-primary-action.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `3f4320b fix: gate coach-first sentence browser`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic render guard covered by the new static validator and adjacent coach-first checks. A future browser pass should clear local progress, load the app, and confirm the sentence list is replaced by the unlock prompt until a guided session is saved.
