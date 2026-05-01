@@ -938,7 +938,15 @@ async function playAllInCategory(btn,catName){
 
 function toggleLearned(idx,btn){
  if(learned[idx]){delete learned[idx];btn.classList.remove('learned');btn.innerHTML=''}
- else{learned[idx]=true;btn.classList.add('learned');btn.innerHTML='&#10003;';checkMilestone(Object.keys(learned).length)}
+ else{
+  learned[idx]=true;
+  if(reviewBin[idx]){
+   delete reviewBin[idx];
+   localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+   updateBinBadge();
+  }
+  btn.classList.add('learned');btn.innerHTML='&#10003;';checkMilestone(Object.keys(learned).length)
+ }
  localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
  updateProgress();
  const catEl=btn.closest('.category');
