@@ -990,3 +990,30 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic function guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode and confirm direct Cloze or Dictation invocations return to the guided plan instead of opening advanced practice cards.
+
+### Coach-First Autopilot Next-Step Gate
+
+Changed:
+- Added a coach-first guard inside `getAutopilotNextStep()` so the session-summary recommendation cannot point first-session learners into Review Bin, Dictation, or Cloze before a real guided lesson is completed.
+- Added `scripts/validate-coach-first-autopilot-next-step-gate.mjs` to keep the summary recommendation boundary aligned with the existing coach-first view and action gates.
+
+Why:
+- The summary renderer currently marks a real guided session complete before asking for the next recommendation, but the recommendation function itself still assumed that caller order. A premium coached first session is safer if every advanced-drill recommendation point enforces the same first-session rule directly.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-autopilot-next-step-gate.mjs` failed before the app change with `Autopilot next step must check coach-first mode before recommending advanced drills.`
+- Ran `node scripts/validate-coach-first-autopilot-next-step-gate.mjs`.
+- Ran `node scripts/validate-coach-first-practice-view-gates.mjs`.
+- Ran `node scripts/validate-coach-first-bin-view-gate.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `4c34058 fix: gate coach-first autopilot next step`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic recommendation guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode and force a summary recommendation path to confirm the next-step card returns to the guided plan instead of exposing advanced drills.
