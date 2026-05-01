@@ -1743,7 +1743,7 @@ function showNewRecallCard(){
   </div>
   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
   <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
-   <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most, Easy = knew it cleanly.</div>
+   <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most. Good is the highest first-pass rating so the sentence stays close.</div>
   </div>`;
  setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
 }
