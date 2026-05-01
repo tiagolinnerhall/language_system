@@ -1662,8 +1662,6 @@ function beginStudySession(){
  studyRatingLocked=false;
 
  document.getElementById('studyHeaderBar').style.display='flex';
- updateStreak();
- updateStreakDisplay();
  showStudyCard();
 }
 
@@ -1827,6 +1825,8 @@ function rateStudyCard(rating){
  else if(rating==='easy')studySessionStats.easyCount++;
  else studySessionStats.goodCount++;
  saveStats();
+ updateStreak();
+ updateStreakDisplay();
 
  // Brief feedback
  const info=document.getElementById('studyBoxInfo');

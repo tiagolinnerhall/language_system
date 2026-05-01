@@ -506,3 +506,32 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic event-handler guard covered by the new static validator and adjacent study-flow checks. A future browser pass should rapidly double-click a rating button on a revealed study card and confirm the card advances once with one stats increment.
+
+### Study Streak Earned After Rating
+
+Changed:
+- Moved guided-study streak credit out of session start and into the first accepted card rating.
+- Added `scripts/validate-study-streak-after-rating.mjs` so starting or abandoning a lesson cannot count as real study progress.
+
+Why:
+- A self-running premium study flow should only reward actual saved learning work. Previously, opening a guided lesson could increment the streak before the learner rated any card, which made progress feedback less trustworthy.
+
+Verification:
+- Confirmed `node scripts/validate-study-streak-after-rating.mjs` failed before the app change with `Starting a guided lesson must not count the study streak before any rating is saved.`
+- Ran `node scripts/validate-study-streak-after-rating.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- Pending.
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic streak timing covered by the new static validator and adjacent guided-flow checks. A future browser pass should start a lesson, exit before rating, and confirm the visible streak does not increase until a rating is saved.
