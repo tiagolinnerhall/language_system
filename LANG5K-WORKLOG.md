@@ -445,7 +445,7 @@ Verification:
 - Ran app.html inline script parse-check with Node `vm.Script`.
 
 Pushed Commit:
-- `78742c3 fix: escape browse course rendering`
+- `1ecc0b8 fix: escape browse course rendering`
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic string escaping covered by the new static guard and existing flow validators. A future browser pass should load the browse view with course text containing quotes and markup-like characters to confirm visual spacing remains unchanged.
