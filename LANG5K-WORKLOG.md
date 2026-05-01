@@ -681,7 +681,7 @@ Verification:
 - Ran app.html inline script parse-check with Node `vm.Script`.
 
 Pushed Commit:
-- `7c36d01 fix: count practice ratings in study streak`
+- `6d6b2c9 fix: count practice ratings in study streak`
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic rating-side-effect order covered by the new static validator and adjacent practice/study-flow checks. A future browser pass should rate one cloze or dictation card and confirm the streak display increments immediately.
