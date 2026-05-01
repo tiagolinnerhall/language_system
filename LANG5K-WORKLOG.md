@@ -47,6 +47,34 @@ Remaining Risk:
 
 ## 2026-05-01
 
+### Restored Daily Goal Sync
+
+Changed:
+- Added a shared daily-goal sync helper so restored/sanitized `userStats.dailyGoal` updates the active in-memory study goal immediately.
+- Called the sync after stored-progress normalization and after progress-backup import, before the study UI re-renders.
+- Added `scripts/validate-restored-daily-goal-sync.mjs` to keep backup restore and startup normalization aligned with the current guided lesson target.
+
+Why:
+- Progress restore already sanitized and saved the learner's daily goal, but the active session could keep using the old in-memory goal until reload. A self-running premium study flow should apply restored coaching preferences immediately, especially after moving progress between devices.
+
+Verification:
+- Confirmed `node scripts/validate-restored-daily-goal-sync.mjs` failed before the app change with `Missing function syncDailyGoalFromStats`.
+- Ran `node scripts/validate-restored-daily-goal-sync.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/validate-safe-local-storage-startup.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `e4f71dc fix: sync restored daily study goal`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic restore/startup state sync covered by the new validator and adjacent backup/local-storage checks. A future browser pass should import a backup with a non-default daily goal and confirm the guided lesson picker updates without reload.
+
 ### Learned Sentences Clear Weak Practice
 
 Changed:
