@@ -449,3 +449,31 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic string escaping covered by the new static guard and existing flow validators. A future browser pass should load the browse view with course text containing quotes and markup-like characters to confirm visual spacing remains unchanged.
+
+### New Card Rating Guidance Alignment
+
+Changed:
+- Updated the new-card recall screen so it no longer tells first-pass learners to use an Easy rating that is intentionally unavailable for new cards.
+- Added `scripts/validate-new-card-rating-guidance.mjs` to keep the new-card guidance aligned with the existing Good cap, hidden Easy button, and Easy-to-Good clamp.
+
+Why:
+- The first guided lesson should feel coached and self-consistent. New cards already stop at Good on the first pass so they stay close in review, but the pre-reveal copy still mentioned Easy. That mismatch could make beginners think a control was missing or that the rating rules were inconsistent.
+
+Verification:
+- Confirmed `node scripts/validate-new-card-rating-guidance.mjs` failed before the app change with `New-card recall guidance must not mention Easy before first-pass rating.`
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-safe-course-rendering.mjs`.
+- Ran `node scripts/validate-safe-error-rendering.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `00b12d4 fix: align new card rating guidance`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic copy in the new-card recall step and is covered by the new static guard plus guided-flow validators. A future browser pass should start a fresh guided lesson and confirm the new guidance fits cleanly on mobile.
