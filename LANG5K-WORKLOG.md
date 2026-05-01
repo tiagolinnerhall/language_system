@@ -893,3 +893,35 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic Study start render guard covered by the new validator and adjacent coach-first checks. A future browser pass should seed coach-first mode with weak-practice items and no due/new cards, then confirm Study does not expose the review-bin action before the first guided session is completed.
+
+### Coach-First Done Fallback Gate
+
+Changed:
+- Kept the Study start "all done" fallback from pointing first-session learners back to Browse while coach-first mode is still active.
+- Added `scripts/validate-coach-first-study-start-done-gate.mjs` so unusual first-session states with no available cards return to the guided plan instead of an advanced sentence surface.
+
+Why:
+- Browsing was already gated, but the fallback button still said `Back to Browse`. That was low-risk technically, but it contradicted the coached-product promise that first-session learners should stay inside the guided path until a real lesson is completed.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-study-start-done-gate.mjs` failed before the app change with `Coach-first done fallback must return learners to the guided plan instead of Browse.`
+- Ran `node scripts/validate-coach-first-study-start-done-gate.mjs`.
+- Ran `node scripts/validate-coach-first-study-start-weak-gate.mjs`.
+- Ran `node scripts/validate-coach-first-browser-list-gate.mjs`.
+- Ran `node scripts/validate-coach-first-primary-action.mjs`.
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+
+Pushed Commit:
+- `d4577c9 fix: keep coach-first done fallback guided`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic Study start fallback covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode with no due/new cards and confirm the fallback button says `Back to guided plan` and scrolls to the Today plan.
