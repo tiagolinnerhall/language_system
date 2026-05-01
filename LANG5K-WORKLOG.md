@@ -746,3 +746,31 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic DOM guard covered by the new static validator and adjacent weak-practice checks. A future browser pass should open a weak-bin card, click remove before reveal to confirm the coaching alert, then reveal and remove successfully.
+
+### Coach-First Browse Shortcut Gate
+
+Changed:
+- Hid the Today plan "Browse all sentences" shortcut while coach-first mode is active.
+- Added `scripts/validate-coach-first-browse-gate.mjs` to keep first-session learners on one clear guided action while preserving browsing after the first guided session.
+
+Why:
+- The first-session copy says advanced sentence tools stay out of the way, and the browse tab is already hidden, but the Today plan still exposed a browse shortcut. Removing that shortcut during coach-first mode makes the early product flow more self-running and less ambiguous.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-browse-gate.mjs` failed before the app change with `Coach-first Today plan must conditionally hide the browse shortcut.`
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+
+Pushed Commit:
+- `749ef91 fix: gate browse shortcut in coach-first plan`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic first-session button render covered by the new static validator. A future browser pass should clear local progress, load the app, and confirm the Today plan shows only the guided lesson action before the first guided session, then restores Browse after completion.
