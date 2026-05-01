@@ -3,7 +3,43 @@ import { join } from 'node:path';
 import vm from 'node:vm';
 
 const ROOT = process.cwd();
-const PREMIUM_RISK_RE = /\b(kill|killed|murder|dead|death|die|dying|suicide|hate|idiot|stupid|liar|war|bomb|drunk|sexy|demon)\b/i;
+const app = readFileSync(join(ROOT, 'app.html'), 'utf8');
+const studyOrderValidator = readFileSync(join(ROOT, 'scripts', 'validate-premium-study-order.mjs'), 'utf8');
+
+function extractRiskRegex(source, label) {
+  const match = source.match(/const PREMIUM_RISK_RE\s*=\s*(\/[^\n]+\/[a-z]*)/);
+  if (!match) throw new Error(`${label} must define PREMIUM_RISK_RE.`);
+  const context = {};
+  vm.createContext(context);
+  vm.runInContext(`globalThis.re=${match[1]};`, context, { filename: label });
+  return context.re;
+}
+
+const appRisk = extractRiskRegex(app, 'app.html');
+const validatorRisk = extractRiskRegex(studyOrderValidator, 'validate-premium-study-order.mjs');
+
+const requiredRiskExamples = [
+  'I want to kill you.',
+  'He was killed.',
+  'This is murder.',
+  'Does that mean I am dying?',
+  'She tried to commit suicide.',
+  'I was drunk.',
+  'That was stupid.',
+  'Why are you staring at me, demon?',
+  'I am sexy and I know it.'
+];
+
+for (const example of requiredRiskExamples) {
+  if (!appRisk.test(example)) {
+    throw new Error(`App premium risk lexicon must catch early-course risk example: ${example}`);
+  }
+  appRisk.lastIndex = 0;
+  if (!validatorRisk.test(example)) {
+    throw new Error(`Study-order validator risk lexicon must catch: ${example}`);
+  }
+  validatorRisk.lastIndex = 0;
+}
 
 function loadRows() {
   const rows = [];
@@ -44,24 +80,23 @@ function scoreRow(row, idx) {
   const socialBonus = /friend|family|house|home|food|work|buy|help|go|come|think|need|want|where|how|what|кто|что|где|как|дом|друг|работ|куп|хочу|нужно/.test(text) ? -1.1 : 0;
   const abstractPenalty = /\b(all this time|in return|supposed to|guess|force|anyone else|exactly|liar)\b/i.test(en) ? 2.2 : 0;
   const quotePenalty = /["“”]/.test(en) ? 1.3 : 0;
-  const riskPenalty = PREMIUM_RISK_RE.test(en) ? 25 : 0;
+  const riskPenalty = appRisk.test(en) ? 25 : 0;
+  appRisk.lastIndex = 0;
   return lengthScore + dailyBonus + politeBonus + questionBonus + socialBonus + abstractPenalty + quotePenalty + riskPenalty + idx * 0.0001;
 }
 
-const rows = loadRows();
-const curated = rows
-  .map((row, idx) => ({ idx, row, score: scoreRow(row, idx) }))
-  .sort((a, b) => a.score - b.score);
+const riskyEarlyRows = loadRows()
+  .map((row, idx) => ({ row, idx, score: scoreRow(row, idx) }))
+  .sort((a, b) => a.score - b.score)
+  .slice(0, 1000)
+  .filter(item => {
+    const matched = appRisk.test(item.row[2]);
+    appRisk.lastIndex = 0;
+    return matched;
+  });
 
-const first1000 = curated.slice(0, 1000);
-const earlyRisk = first1000.filter(item => PREMIUM_RISK_RE.test(item.row[2]));
-if (earlyRisk.length) {
-  throw new Error(`Premium study order still contains risky English in first 1000 rows:\n${earlyRisk.slice(0, 12).map(item => `${item.idx + 1}: ${item.row[2]}`).join('\n')}`);
+if (riskyEarlyRows.length) {
+  throw new Error(`Premium risk lexicon still leaves risky English in the first 1000 guided rows:\n${riskyEarlyRows.slice(0, 12).map(item => `${item.idx + 1}: ${item.row[2]}`).join('\n')}`);
 }
 
-const first30 = first1000.slice(0, 30).map(item => item.row[2]);
-if (first30.some(line => PREMIUM_RISK_RE.test(line))) {
-  throw new Error(`Premium study order still has harsh content in the first 30 guided rows.`);
-}
-
-console.log(`Premium study order validation passed: ${first1000.length} early rows screened, ${earlyRisk.length} risky rows in first 1000.`);
+console.log('Premium risk lexicon validation passed.');

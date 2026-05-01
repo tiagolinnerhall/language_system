@@ -37,7 +37,7 @@ const commonRu = new Set(`
 `.trim().split(/\s+/));
 
 const blockedNames = /\b(tom|mary|john|boston|hokkaido|australia|canada|france|germany|japan)\b|(?:^|[\s,.!?])(?:том|тома|тому|томом|мэри|джон|бостон|хоккайдо)(?:$|[\s,.!?])/i;
-const blockedRiskEn = /\b(kill|dead|death|die|dying|hate|idiot|stupid|liar|war|bomb|murder|drunk)\b/i;
+const blockedRiskEn = /\b(kill|killed|murder|dead|death|die|dying|suicide|hate|idiot|stupid|liar|war|bomb|drunk|sexy|demon)\b/i;
 const blockedRiskRu = /\b(убить|убью|убьет|мертв|смерт|ненави|идиот|туп|лжец|войн|бомб|пьян)\b/i;
 const awkwardEnglishPatterns = [
   /\bI was to Europe\b/i,
