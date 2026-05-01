@@ -482,6 +482,7 @@ let studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCou
 let studyRepairCounts={};
 let studyRevealed=false;
 let studyRatingLocked=false;
+let practiceRatingLocked=false;
 let dailyNewGoal=10;
 let practiceCarryMessage='';
 let practiceSelectionMeta={kind:'available',reason:''};
@@ -2177,6 +2178,7 @@ function showClozeView(){
 function renderClozeCard(){
  const idx=pickPracticeIndex();
  const s=SENTENCES[idx];
+ practiceRatingLocked=false;
  if(!s){
   document.getElementById('clozeContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
   return;
@@ -2210,6 +2212,7 @@ function renderClozeCard(){
 function revealCloze(){
  if(!clozeCurrent||clozeCurrent.revealed)return;
  clozeCurrent.revealed=true;
+ practiceRatingLocked=false;
  const s=SENTENCES[clozeCurrent.idx];
  const typed=(document.getElementById('clozeInput')||{}).value||'';
  const feedback=buildPracticeRevealFeedback('cloze',clozeCurrent.answer,typed);
@@ -2233,6 +2236,7 @@ function showDictationView(){
 function renderDictationCard(){
  const idx=pickPracticeIndex();
  const s=SENTENCES[idx];
+ practiceRatingLocked=false;
  if(!s){
   document.getElementById('dictationContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
   return;
@@ -2265,6 +2269,7 @@ function renderDictationCard(){
 function revealDictation(){
  if(!dictationCurrent||dictationCurrent.revealed)return;
  dictationCurrent.revealed=true;
+ practiceRatingLocked=false;
  const s=SENTENCES[dictationCurrent.idx];
  const typed=(document.getElementById('dictationInput')||{}).value||'';
  const feedback=buildPracticeRevealFeedback('dictation',s[0],typed);
@@ -2280,7 +2285,8 @@ function revealDictation(){
 
 function ratePractice(rating,mode){
  const current=mode==='cloze'?clozeCurrent:dictationCurrent;
- if(!current)return;
+ if(!current||!current.revealed||practiceRatingLocked)return;
+ practiceRatingLocked=true;
  rating=normalizeRating(rating);
  const wasWeak=Boolean(reviewBin[current.idx]);
  processRating(current.idx,rating);
