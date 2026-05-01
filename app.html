@@ -1617,6 +1617,7 @@ function showStudyStart(){
  const weakCount=Object.keys(reviewBin).length;
  const coachFirst=isCoachFirstMode();
  const showWeakPracticeAction=weakCount>0&&!coachFirst;
+ const doneAction=coachFirst?{label:'Back to guided plan',action:'goToTodayPlan()'}:{label:'Back to Browse',action:'exitStudy()'};
  const totalSession=due.length+newAvail.length;
  const estMinutes=Math.max(1,Math.round(totalSession*0.8));
 
@@ -1655,10 +1656,10 @@ function showStudyStart(){
     <button class="study-start-btn" onclick="toggleBinView()" style="background:var(--orange)">Review weak sentences</button>
     <div class="study-time-est">Keep the text hidden until you recall the sentence.</div>
    `:`
-    <div style="color:var(--green);font-weight:600;font-size:1.1rem;margin:20px 0">&#10003; All done for today! Come back tomorrow.</div>
-    <button class="btn btn-secondary" onclick="exitStudy()">Back to Browse</button>
-   `}
-  </div>`;
+     <div style="color:var(--green);font-weight:600;font-size:1.1rem;margin:20px 0">&#10003; All done for today! Come back tomorrow.</div>
+     <button class="btn btn-secondary" onclick="${doneAction.action}">${doneAction.label}</button>
+    `}
+   </div>`;
 }
 
 function setDailyGoal(n){
