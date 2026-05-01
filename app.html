@@ -1898,6 +1898,14 @@ function scheduleStudyRepair(idx,rating){
 }
 
 function getAutopilotNextStep(){
+ if(isCoachFirstMode()){
+  return {
+   title:'Next: stay with the guided path',
+   text:'Finish one real guided lesson before opening repair drills or extra practice tools.',
+   button:'Back to guided plan',
+   action:'goToTodayPlan()'
+  };
+ }
  const weakCount=Object.keys(reviewBin).length;
  const dueCount=getDueReviews().length;
  if(dueCount>0){
