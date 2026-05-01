@@ -487,6 +487,10 @@ let dailyNewGoal=10;
 let practiceCarryMessage='';
 let practiceSelectionMeta={kind:'available',reason:''};
 
+function syncDailyGoalFromStats(){
+ if(userStats.dailyGoal)dailyNewGoal=userStats.dailyGoal;
+}
+
 // Set page title
 document.getElementById('pageTitle').innerHTML=LANG.flag+' '+LANG.name+' Sentences<span><a href="index.html">&#8592; All Languages</a> &mdash; '+LANG.sentences+' sentences for daily life</span>';
 document.title='Lang5K - Learn '+LANG.name;
@@ -1361,6 +1365,7 @@ function normalizeStoredProgress(){
  reviewBin=reviewBinResult.value;
  srsData=srsResult.value;
  userStats=statsResult.value;
+ syncDailyGoalFromStats();
  localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
  localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
  localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
@@ -1404,6 +1409,7 @@ function importProgressBackup(event){
    reviewBin=reviewBinResult.value;
    srsData=srsResult.value;
    userStats=statsResult.value;
+   syncDailyGoalFromStats();
    localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
    localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
    localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
@@ -2330,7 +2336,7 @@ function ratePractice(rating,mode){
  if(savedTheme==='dark'){document.documentElement.setAttribute('data-theme','dark');document.getElementById('themeToggle').textContent='\u2600\uFE0F'}
 
  // Load saved daily goal
- if(userStats.dailyGoal)dailyNewGoal=userStats.dailyGoal;
+ syncDailyGoalFromStats();
 
  loadHostedAudioManifest();
  loadLanguageData();
