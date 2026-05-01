@@ -1083,6 +1083,10 @@ function updateBinBadge(){
 }
 
 function toggleBinView(){
+ if(isCoachFirstMode()){
+  goToTodayPlan();
+  return;
+ }
  hideAllViews();
  setActiveMode('bin');
  binViewActive=true;
