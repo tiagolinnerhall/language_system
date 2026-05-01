@@ -956,3 +956,37 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic function guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode with weak-practice items and confirm a stale review-bin handler returns the learner to the guided plan instead of showing bin cards.
+
+### Coach-First Practice View Function Gates
+
+Changed:
+- Added function-level coach-first guards to `showClozeView()` and `showDictationView()` so stale handlers cannot open advanced practice views before one real guided lesson is completed.
+- Added `scripts/validate-coach-first-practice-view-gates.mjs` to keep Cloze and Dictation gated at the render boundary, matching the Review Bin guard.
+
+Why:
+- The tabs were already hidden during coach-first mode, but the functions could still render advanced drills if invoked directly. A premium coached first session should keep learners inside the guided path until the app has saved a real guided lesson.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-practice-view-gates.mjs` failed before the app change with `showClozeView must check coach-first mode before rendering.`
+- Ran `node scripts/validate-coach-first-practice-view-gates.mjs`.
+- Ran `node scripts/validate-coach-first-bin-view-gate.mjs`.
+- Ran `node scripts/validate-coach-first-study-start-done-gate.mjs`.
+- Ran `node scripts/validate-coach-first-study-start-weak-gate.mjs`.
+- Ran `node scripts/validate-coach-first-browser-list-gate.mjs`.
+- Ran `node scripts/validate-coach-first-primary-action.mjs`.
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `a183001 fix: gate coach-first practice views`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic function guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode and confirm direct Cloze or Dictation invocations return to the guided plan instead of opening advanced practice cards.
