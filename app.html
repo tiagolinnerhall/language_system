@@ -1909,7 +1909,7 @@ function showStudySummary(){
  const ratedTotal=successCount+studySessionStats.hardCount+studySessionStats.againCount;
  const accuracy=ratedTotal>0?Math.round(successCount/ratedTotal*100):100;
  const totalLearned=Object.keys(learned).length;
- const totalInSRS=Object.keys(srsData).length;
+ const activeReviewCount=Object.keys(srsData).filter(idx=>!learned[idx]).length;
  const nextStep=getAutopilotNextStep();
 
  document.getElementById('studyContent').innerHTML=`
@@ -1925,7 +1925,7 @@ function showStudySummary(){
    <div style="margin-bottom:20px">
     <div style="font-size:.9rem;color:var(--text2);margin-bottom:4px">Overall Progress</div>
     <div style="font-size:1.4rem;font-weight:800;color:var(--primary)">${totalLearned} / ${SENTENCES.length} learned</div>
-    <div style="font-size:.85rem;color:var(--text3)">${totalInSRS} sentences in active review</div>
+    <div style="font-size:.85rem;color:var(--text3)">${activeReviewCount} sentences in active review</div>
    </div>
    <div class="study-next-action">
    <strong>${nextStep.title}</strong>

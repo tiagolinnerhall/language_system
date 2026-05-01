@@ -47,6 +47,35 @@ Remaining Risk:
 
 ## 2026-05-01
 
+### Active Review Summary Count
+
+Changed:
+- Updated the guided-session summary so "sentences in active review" excludes sentences already marked learned.
+- Added `scripts/validate-active-review-summary.mjs` to guard the summary against counting every SRS record as active review.
+
+Why:
+- The dashboard already defines active review as SRS cards that are not learned. The session summary used the raw SRS record count, which could make a learner think completed Box 5 sentences still needed active review and reduce trust in the coached progress feedback.
+
+Verification:
+- Confirmed `node scripts/validate-active-review-summary.mjs` failed before the app change with `Study summary must count only non-learned SRS cards as active review.`
+- Ran `node scripts/validate-active-review-summary.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `fix: align active review summary count`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic summary math covered by the new validator and adjacent guided-study checks. A future browser pass should complete a guided session with at least one learned Box 5 sentence and confirm the visible active-review count matches the dashboard.
+
 ### Standalone Practice Rating Guard
 
 Changed:
