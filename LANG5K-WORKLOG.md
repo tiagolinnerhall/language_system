@@ -719,3 +719,30 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic guided-rating state guard covered by the new static validator and adjacent guided-flow checks. A future browser pass should start a guided lesson, reveal a card, rate it once, and confirm normal progression still feels clean on mobile.
+
+### Weak Bin Reveal Before Remove
+
+Changed:
+- Updated the weak-practice bin so the checkmark cannot remove a sentence while its text is still hidden.
+- Changed the remove tooltip from a learned claim to a reveal-first expectation.
+- Added `scripts/validate-weak-bin-reveal-before-remove.mjs` to keep weak-bin cleanup aligned with recall-before-clear guardrails.
+
+Why:
+- A self-running premium study flow should not let a learner clear weak practice without first revealing and self-checking the sentence. The previous tooltip also implied Lang5K knew the sentence was learned even though no rating was saved.
+
+Verification:
+- Confirmed `node scripts/validate-weak-bin-reveal-before-remove.mjs` failed before the app change with `Weak-bin remove control must not claim a sentence is learned without a rating.`
+- Ran `node scripts/validate-weak-bin-reveal-before-remove.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `8496590 fix: require reveal before weak bin removal`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic DOM guard covered by the new static validator and adjacent weak-practice checks. A future browser pass should open a weak-bin card, click remove before reveal to confirm the coaching alert, then reveal and remove successfully.
