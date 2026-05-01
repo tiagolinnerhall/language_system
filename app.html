@@ -1808,10 +1808,10 @@ function revealStudyCard(){
 }
 
 function rateStudyCard(rating){
- if(studyRatingLocked)return;
+ const item=studyQueue[studyIndex];
+ if(!studyRevealed||!item||studyRatingLocked)return;
  studyRatingLocked=true;
  rating=normalizeRating(rating);
- const item=studyQueue[studyIndex];
  const isNew=item.type==='new';
  if(isNew && rating==='easy')rating='good';
  const oldBox=(srsData[item.idx]||{box:1}).box||1;

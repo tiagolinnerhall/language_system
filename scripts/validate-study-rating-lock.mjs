@@ -26,10 +26,10 @@ const revealStudyCard = extractFunction('revealStudyCard');
 mustInclude(revealStudyCard, 'studyRatingLocked=false;', 'Reveal must leave the current card ready for exactly one rating.');
 
 const rateStudyCard = extractFunction('rateStudyCard');
-mustInclude(rateStudyCard, 'if(studyRatingLocked)return;', 'Rating a study card must ignore duplicate taps during the transition delay.');
+mustInclude(rateStudyCard, 'studyRatingLocked)return;', 'Rating a study card must ignore duplicate taps during the transition delay.');
 mustInclude(rateStudyCard, 'studyRatingLocked=true;', 'Rating a study card must lock immediately before stats or scheduling change.');
 
-const duplicateGuard = rateStudyCard.indexOf('if(studyRatingLocked)return;');
+const duplicateGuard = rateStudyCard.indexOf('studyRatingLocked)return;');
 const lockSet = rateStudyCard.indexOf('studyRatingLocked=true;');
 const processRatingCall = rateStudyCard.indexOf('processRating(item.idx,rating);');
 const statsUpdate = rateStudyCard.indexOf('studySessionStats.');
