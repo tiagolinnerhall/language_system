@@ -734,6 +734,7 @@ function renderTodayPlanHome(){
  const stats=getTodayStats();
  const plan=getTodayPlanSummary();
  const coachFirst=isCoachFirstMode();
+ const primaryAction=coachFirst?{label:'Start guided lesson',action:'startStudyView()'}:{label:plan.nextLabel,action:plan.nextAction};
  const doneToday=(stats.todayNew||0)+(stats.todayReviews||0);
  host.innerHTML=`
   <div class="today-plan-card">
@@ -747,7 +748,7 @@ function renderTodayPlanHome(){
     <div class="today-plan-stat"><strong>${doneToday}</strong><span>Steps completed today</span></div>
    </div>
    <div class="hero-actions" style="justify-content:flex-start">
-    <button class="btn btn-primary" onclick="${plan.nextAction}">${plan.nextLabel}</button>
+    <button class="btn btn-primary" onclick="${primaryAction.action}">${primaryAction.label}</button>
     ${coachFirst?'':`<button class="btn btn-secondary" onclick="showBrowseView()">Browse all sentences</button>`}
    </div>
    <div class="today-plan-note">${coachFirst?'Your first session should stay inside Study. After that, Lang5K unlocks the extra tools on this device.':'If today feels heavy, finish the guided lesson first and leave the extra drills for later.'}</div>
