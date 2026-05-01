@@ -685,3 +685,37 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic rating-side-effect order covered by the new static validator and adjacent practice/study-flow checks. A future browser pass should rate one cloze or dictation card and confirm the streak display increments immediately.
+
+### Study Ratings Require Reveal
+
+Changed:
+- Added a guarded state check so guided-study ratings are ignored unless the current card has been revealed and still exists in the queue.
+- Added `scripts/validate-study-rating-reveal-guard.mjs` to keep stale, premature, or duplicate guided-rating calls from saving progress before reveal.
+- Updated `scripts/validate-study-rating-lock.mjs` so the existing duplicate-rating lock guard accepts the stronger combined revealed-card guard.
+
+Why:
+- A premium self-running study flow should not rely only on visible button timing for progress safety. Ratings now require the learner to complete the listen/recall/reveal step before SRS, streak, stats, or repair scheduling side effects can run.
+
+Verification:
+- Confirmed `node scripts/validate-study-rating-reveal-guard.mjs` failed before the app change with `Study ratings must require a revealed current card and reject stale or duplicate rating calls.`
+- Ran `node scripts/validate-study-rating-reveal-guard.mjs`.
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran `node scripts/validate-study-streak-after-rating.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran `node scripts/validate-active-review-summary.mjs`.
+- Ran `node scripts/validate-today-plan-available-new-count.mjs`.
+- Ran `node scripts/validate-practice-rating-lock.mjs`.
+- Ran `node scripts/validate-practice-streak-after-rating.mjs`.
+
+Pushed Commit:
+- `1d6fff6 fix: guard study ratings before reveal`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic guided-rating state guard covered by the new static validator and adjacent guided-flow checks. A future browser pass should start a guided lesson, reveal a card, rate it once, and confirm normal progression still feels clean on mobile.
