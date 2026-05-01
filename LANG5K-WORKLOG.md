@@ -864,3 +864,32 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic render guard covered by the new static validator and adjacent coach-first checks. A future browser pass should clear local progress, load the app, and confirm the sentence list is replaced by the unlock prompt until a guided session is saved.
+
+### Coach-First Weak Practice Action Gate
+
+Changed:
+- Kept the Study start screen from offering the weak-practice shortcut while coach-first mode is still active.
+- Added `scripts/validate-coach-first-study-start-weak-gate.mjs` so restored or unusual first-session states cannot expose the review bin before one real guided lesson is completed.
+
+Why:
+- Recent coach-first work hid Browse and the full sentence list, but the Study start fallback could still route a first-session learner into weak practice if no due or new cards were available. That contradicted the coached-product promise that advanced repair tools stay out of the way until a guided session is saved.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-study-start-weak-gate.mjs` failed before the app change with `Study start must know when coach-first mode is active.`
+- Ran `node scripts/validate-coach-first-study-start-weak-gate.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/validate-coach-first-primary-action.mjs`.
+- Ran `node scripts/validate-coach-first-browser-list-gate.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `3bb42cf fix: gate coach-first weak practice action`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic Study start render guard covered by the new validator and adjacent coach-first checks. A future browser pass should seed coach-first mode with weak-practice items and no due/new cards, then confirm Study does not expose the review-bin action before the first guided session is completed.
