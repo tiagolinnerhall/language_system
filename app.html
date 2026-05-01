@@ -481,6 +481,7 @@ let studyIndex=0;
 let studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
 let studyRepairCounts={};
 let studyRevealed=false;
+let studyRatingLocked=false;
 let dailyNewGoal=10;
 let practiceCarryMessage='';
 let practiceSelectionMeta={kind:'available',reason:''};
@@ -1658,6 +1659,7 @@ function beginStudySession(){
  studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
  studyRepairCounts={};
  studyRevealed=false;
+ studyRatingLocked=false;
 
  document.getElementById('studyHeaderBar').style.display='flex';
  updateStreak();
@@ -1675,6 +1677,7 @@ function showStudyCard(){
  const s=SENTENCES[item.idx];
  const isNew=item.type==='new';
  studyRevealed=false;
+ studyRatingLocked=false;
 
  // Update progress bar
  const pct=Math.round(studyIndex/studyQueue.length*100);
@@ -1751,6 +1754,7 @@ function showNewRecallCard(){
 function revealStudyCard(){
  if(studyRevealed)return;
  studyRevealed=true;
+ studyRatingLocked=false;
 
  const item=studyQueue[studyIndex];
  const s=SENTENCES[item.idx];
@@ -1796,6 +1800,8 @@ function revealStudyCard(){
 }
 
 function rateStudyCard(rating){
+ if(studyRatingLocked)return;
+ studyRatingLocked=true;
  rating=normalizeRating(rating);
  const item=studyQueue[studyIndex];
  const isNew=item.type==='new';
