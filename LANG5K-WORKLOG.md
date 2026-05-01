@@ -1017,3 +1017,28 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic recommendation guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode and force a summary recommendation path to confirm the next-step card returns to the guided plan instead of exposing advanced drills.
+
+### Premium Risk Lexicon Guardrail Expansion
+
+Changed:
+- Expanded the premium guided-order risk lexicon in `app.html` so adjacent harsh or awkward early-course terms such as killed, murder, dying, suicide, sexy, and demon receive the same late-course penalty as existing risk terms.
+- Aligned `scripts/validate-premium-study-order.mjs` and `scripts/build-russian-5k-from-tatoeba.mjs` with the expanded lexicon.
+- Added `scripts/validate-premium-risk-lexicon.mjs` to verify the app and study-order validator catch the same risk examples and keep matched rows out of the first 1000 guided rows.
+
+Why:
+- The current premium ordering already pushed obvious harsh terms later, but the lexicon missed close variants that can still make the early Russian course feel less practical and neutral. Strengthening the guardrail is low-risk and improves the coached-product promise without editing course content or changing access, pricing, or legal copy.
+
+Verification:
+- Confirmed `node scripts/validate-premium-risk-lexicon.mjs` failed before the app change with `App premium risk lexicon must catch early-course risk example: He was killed.`
+- Ran `node scripts/validate-premium-risk-lexicon.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `3538e8b fix: expand premium risk lexicon`
+
+Remaining Risk:
+- This pass changes guided-order scoring and validation only; it does not remove any source sentence from the course. A future course QA pass should review whether risky rows should remain late-course material, receive a content warning, or be excluded from paid course data entirely.
