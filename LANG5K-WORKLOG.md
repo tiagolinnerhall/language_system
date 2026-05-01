@@ -47,6 +47,36 @@ Remaining Risk:
 
 ## 2026-05-01
 
+### Learned Sentences Clear Weak Practice
+
+Changed:
+- Updated manual learned marking so a sentence is removed from the weak-practice bin when the learner marks it learned.
+- Persisted the weak-practice cleanup immediately and refreshed the visible review-bin badge.
+- Added `scripts/validate-learned-clears-weak-practice.mjs` to guard the cleanup order inside `toggleLearned()`.
+
+Why:
+- The coached plan should not send learners back to repair a sentence they just marked complete. Leaving learned sentences in weak practice could inflate the review-bin count and make the product feel less self-running and less trustworthy.
+
+Verification:
+- Confirmed `node scripts/validate-learned-clears-weak-practice.mjs` failed before the app change with `Marking a sentence learned must remove it from weak practice.`
+- Ran `node scripts/validate-learned-clears-weak-practice.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-active-review-summary.mjs`.
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran `node scripts/validate-practice-rating-lock.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `250b80a fix: clear weak practice when learned`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic local progress cleanup covered by the new static validator and adjacent weak-practice/study-flow checks. A future browser pass should mark a weak sentence learned from Browse and confirm the Review Bin count drops immediately.
+
 ### Active Review Summary Count
 
 Changed:
