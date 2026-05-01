@@ -531,7 +531,7 @@ Verification:
 - Ran app.html inline script parse-check with Node `vm.Script`.
 
 Pushed Commit:
-- Pending.
+- `b694c4a fix: count study streak after rating`
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic streak timing covered by the new static validator and adjacent guided-flow checks. A future browser pass should start a lesson, exit before rating, and confirm the visible streak does not increase until a rating is saved.
