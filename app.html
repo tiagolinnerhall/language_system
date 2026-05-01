@@ -856,11 +856,11 @@ function render(){
   div.className='category open fade-in';
   div.innerHTML=`
    <div class="category-header" onclick="this.parentElement.classList.toggle('open')">
-    <h2>${catName} <span class="cat-count">${filtered.length} sentences</span>${catLearnedCount?`<span class="cat-learned">&#10003; ${catLearnedCount} learned</span>`:''}</h2>
+    <h2>${escapeHtml(catName)} <span class="cat-count">${filtered.length} sentences</span>${catLearnedCount?`<span class="cat-learned">&#10003; ${catLearnedCount} learned</span>`:''}</h2>
     <span class="chevron">&#9660;</span>
    </div>
    <div class="sentences">
-    <button class="btn btn-secondary play-all-btn" onclick="playAllInCategory(this,'${catName.replace(/'/g,"\\'")}')">&#9654; Play All in This Category</button>
+    <button class="btn btn-secondary play-all-btn" onclick="playAllInCategory(this,'${escapeForHandler(catName)}')">&#9654; Play All in This Category</button>
     ${filtered.map(s=>{
      globalNum++;
      const srsInfo=srsData[s.idx];
@@ -869,9 +869,9 @@ function render(){
      <div class="sentence" data-idx="${s.idx}" id="s${s.idx}">
       <div class="s-num">${globalNum}</div>
       <div class="s-content">
-       <div class="target-lang" onclick="speak(${s.idx})">${s.r} ${srsLabel}</div>
-       <div class="translit">${s.t}</div>
-       <div class="english">${s.e}</div>
+       <div class="target-lang" onclick="speak(${s.idx})">${escapeHtml(s.r)} ${srsLabel}</div>
+       <div class="translit">${escapeHtml(s.t)}</div>
+       <div class="english">${escapeHtml(s.e)}</div>
       </div>
       <div class="s-actions">
        <button class="speak-btn" onclick="speak(${s.idx})" title="Listen">&#128264;</button>
@@ -1984,7 +1984,14 @@ function pickPracticeIndex(){
 }
 
 function escapeForHandler(text){
- return String(text).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ');
+ return String(text)
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;')
+  .replace(/\\/g,'\\\\')
+  .replace(/'/g,"\\'")
+  .replace(/\n/g,' ');
 }
 
 function escapeHtml(text){

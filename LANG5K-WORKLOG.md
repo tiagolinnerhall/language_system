@@ -411,3 +411,41 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic escaping on error/access paths covered by the new static guard. A future browser pass should force a course API error containing markup and confirm the page displays the literal text without layout regressions.
+
+### Safe Browse Course Rendering Guard
+
+Changed:
+- Escaped browse-mode category names, Russian sentence text, transliteration, and English meaning before inserting course rows into `innerHTML`.
+- Hardened inline handler escaping so generated `onclick` attributes stay valid if course/category text contains HTML-sensitive characters or quotes.
+- Added `scripts/validate-safe-course-rendering.mjs` to keep browse course text aligned with the safer study/practice rendering paths.
+
+Why:
+- The guided study and practice cards already render course text defensively, but the browse list still trusted course strings directly. A premium self-running language product should tolerate imported or generated course text without turning unexpected markup into page HTML.
+
+Verification:
+- Confirmed `node scripts/validate-safe-course-rendering.mjs` failed before the app change with `Browse rendering must not inject raw course text into innerHTML: ${catName}`.
+- Ran `node scripts/validate-safe-course-rendering.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-progress-backup-guardrails.mjs`.
+- Ran `node scripts/validate-safe-local-storage-startup.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-safe-error-rendering.mjs`.
+- Ran `node scripts/validate-audio-status-notice.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-progress-stat-caps.mjs`.
+- Ran `node scripts/validate-truthy-progress-maps.mjs`.
+- Ran `node scripts/validate-srs-restore-date-window.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-local-study-dates.mjs`.
+- Ran `node scripts/validate-due-review-priority.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `78742c3 fix: escape browse course rendering`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is deterministic string escaping covered by the new static guard and existing flow validators. A future browser pass should load the browse view with course text containing quotes and markup-like characters to confirm visual spacing remains unchanged.
