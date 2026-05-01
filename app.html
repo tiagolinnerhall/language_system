@@ -2202,6 +2202,10 @@ function buildPracticeRevealFeedback(mode,target,typed){
 }
 
 function showClozeView(){
+ if(isCoachFirstMode()){
+  goToTodayPlan();
+  return;
+ }
  hideAllViews();
  setActiveMode('cloze');
  document.getElementById('clozeView').classList.add('active');
@@ -2260,6 +2264,10 @@ function revealCloze(){
 }
 
 function showDictationView(){
+ if(isCoachFirstMode()){
+  goToTodayPlan();
+  return;
+ }
  hideAllViews();
  setActiveMode('dictation');
  document.getElementById('dictationView').classList.add('active');
