@@ -774,3 +774,35 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic first-session button render covered by the new static validator. A future browser pass should clear local progress, load the app, and confirm the Today plan shows only the guided lesson action before the first guided session, then restores Browse after completion.
+
+### Coach-First Primary Lesson Action
+
+Changed:
+- Forced the Today plan primary CTA to stay on `Start guided lesson` while coach-first mode is active.
+- Added `scripts/validate-coach-first-primary-action.mjs` so the first-session plan cannot route learners into Browse or weak-practice repair as the main action before a real guided session is completed.
+
+Why:
+- Coach-first mode already hides advanced tabs and the secondary Browse shortcut, but the primary plan button still used the general plan summary. If the learner had no planned new cards or had weak sentences waiting, the first-session CTA could point away from the guided lesson despite the copy saying advanced tools stay out of the way.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-primary-action.mjs` failed before the app change with `Coach-first Today plan must force the primary action back to the guided lesson.`
+- Ran `node scripts/validate-coach-first-primary-action.mjs`.
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-neutral-coach-tone.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran `node scripts/validate-today-plan-available-new-count.mjs`.
+- Ran `node scripts/validate-study-rating-reveal-guard.mjs`.
+- Ran `node scripts/validate-study-rating-lock.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `8d5774a fix: force coach-first primary lesson action`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic first-session CTA render covered by the new validator and adjacent guided-flow checks. A future browser pass should seed a state with coach-first mode active plus no planned new cards or weak sentences present, then confirm the visible primary CTA still starts Study.
