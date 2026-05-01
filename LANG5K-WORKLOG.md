@@ -925,3 +925,34 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic Study start fallback covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode with no due/new cards and confirm the fallback button says `Back to guided plan` and scrolls to the Today plan.
+
+### Coach-First Review Bin Function Gate
+
+Changed:
+- Added a function-level coach-first guard to `toggleBinView()` so stale handlers or restored UI state cannot open the weak-practice review bin before one real guided lesson is completed.
+- Added `scripts/validate-coach-first-bin-view-gate.mjs` to keep the review-bin surface gated at the render boundary, not only hidden through navigation and CTA state.
+
+Why:
+- Recent coach-first work hid the Review Bin tab and weak-practice shortcuts, but the review-bin function itself could still render the advanced repair surface if invoked directly. A premium coached first session should keep the learner in the guided plan until the app has saved a real guided lesson.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-bin-view-gate.mjs` failed before the app change with `Review bin view must check coach-first mode before rendering.`
+- Ran `node scripts/validate-coach-first-bin-view-gate.mjs`.
+- Ran `node scripts/validate-coach-first-study-start-done-gate.mjs`.
+- Ran `node scripts/validate-coach-first-study-start-weak-gate.mjs`.
+- Ran `node scripts/validate-coach-first-browser-list-gate.mjs`.
+- Ran `node scripts/validate-coach-first-primary-action.mjs`.
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `db0e8ef fix: gate coach-first review bin view`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic function guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode with weak-practice items and confirm a stale review-bin handler returns the learner to the guided plan instead of showing bin cards.
