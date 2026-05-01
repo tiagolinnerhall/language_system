@@ -1118,7 +1118,7 @@ function renderBinView(){
     <div class="bin-card-actions">
      <button class="speak-btn" onclick="speakBin(${idx})" title="Listen">&#128264;</button>
      <button class="reveal-btn" onclick="toggleReveal(${idx},this)" title="Reveal text">&#128065;</button>
-     <button class="remove-bin-btn" onclick="removeFromBin(${idx})" title="I learned this! Remove from bin">&#10003;</button>
+     <button class="remove-bin-btn" onclick="removeFromBin(${idx})" title="Remove from weak practice after reveal">&#10003;</button>
     </div>
    </div>
    <div class="s-content">
@@ -1162,6 +1162,11 @@ function toggleReveal(idx,btn){
 }
 
 function removeFromBin(idx){
+ const revealed=document.querySelector('[data-reveal="'+idx+'"].revealed');
+ if(!revealed){
+  alert('Reveal the sentence and self-check before removing it from weak practice.');
+  return;
+ }
  delete reviewBin[idx];
  localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
  updateBinBadge();
