@@ -1042,3 +1042,38 @@ Pushed Commit:
 
 Remaining Risk:
 - This pass changes guided-order scoring and validation only; it does not remove any source sentence from the course. A future course QA pass should review whether risky rows should remain late-course material, receive a content warning, or be excluded from paid course data entirely.
+
+### Coach-First Keyboard Browse Gate
+
+Changed:
+- Added a coach-first guard to the global keyboard handler so Space, ArrowDown, and ArrowUp cannot play hidden browse-list sentences before one real guided lesson is completed.
+- Added `scripts/validate-coach-first-keyboard-browse-gate.mjs` to keep the keyboard shortcut boundary aligned with the existing coach-first browse, tab, and advanced-practice gates.
+
+Why:
+- The browse list was already visually gated during coach-first mode, but the global keyboard shortcuts bypassed the render boundary and could still speak sentence-list items. A premium first session should keep the learner inside the guided plan until Lang5K has saved a real guided lesson.
+
+Verification:
+- Confirmed `node scripts/validate-coach-first-keyboard-browse-gate.mjs` failed before the app change with `Coach-first mode must gate browse-list keyboard shortcuts before they can speak sentence-list items.`
+- Ran `node scripts/validate-coach-first-keyboard-browse-gate.mjs`.
+- Ran `node scripts/validate-coach-first-browser-list-gate.mjs`.
+- Ran `node scripts/validate-coach-first-primary-action.mjs`.
+- Ran `node scripts/validate-coach-first-browse-gate.mjs`.
+- Ran `node scripts/validate-coach-first-practice-view-gates.mjs`.
+- Ran `node scripts/validate-coach-first-bin-view-gate.mjs`.
+- Ran `node scripts/validate-coach-first-study-start-done-gate.mjs`.
+- Ran `node scripts/validate-coach-first-study-start-weak-gate.mjs`.
+- Ran `node scripts/validate-coach-first-autopilot-next-step-gate.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-first-session-flag-guard.mjs`.
+- Ran `node scripts/validate-new-card-rating-guidance.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `27f7eb8 fix: gate coach-first keyboard browsing`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic keyboard guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode, press ArrowDown/ArrowUp/Space on the browse home, and confirm the page stays on the guided plan without playing hidden browse sentences.

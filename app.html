@@ -1005,6 +1005,11 @@ document.addEventListener('keydown',e=>{
   if(e.key==='4'&&studyRevealed){e.preventDefault();rateStudyCard('easy')}
   return;
  }
+ if(isCoachFirstMode()&&currentMode==='browse'&&(e.code==='Space'||e.code==='ArrowDown'||e.code==='ArrowUp')){
+  e.preventDefault();
+  goToTodayPlan();
+  return;
+ }
  if(e.code==='Space'){
   e.preventDefault();
   if(currentSpeaking!==null){stopPlayback();currentSpeaking=null}
