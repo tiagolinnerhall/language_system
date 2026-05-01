@@ -1073,7 +1073,7 @@ Verification:
 - Ran app.html inline script parse-check with Node `vm.Script`.
 
 Pushed Commit:
-- `27f7eb8 fix: gate coach-first keyboard browsing`
+- `bfc9a0e fix: gate coach-first keyboard browsing`
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is a deterministic keyboard guard covered by the new static validator and adjacent coach-first checks. A future browser pass should seed coach-first mode, press ArrowDown/ArrowUp/Space on the browse home, and confirm the page stays on the guided plan without playing hidden browse sentences.
