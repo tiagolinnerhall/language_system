@@ -2299,6 +2299,8 @@ function ratePractice(rating,mode){
  rating=normalizeRating(rating);
  const wasWeak=Boolean(reviewBin[current.idx]);
  processRating(current.idx,rating);
+ updateStreak();
+ updateStreakDisplay();
  const nextDays=RATING_DAYS[rating]||LEITNER_DAYS[(srsData[current.idx]||{}).box]||1;
  if(wasWeak&&isSuccessfulRating(rating)){
   practiceCarryMessage=`Recovered. Removed from weak practice. This one will return in ${nextDays} days.`;

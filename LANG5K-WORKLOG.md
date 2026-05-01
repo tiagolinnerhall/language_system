@@ -655,3 +655,33 @@ Pushed Commit:
 
 Remaining Risk:
 - No browser session was opened in this run; the changed surface is deterministic home-plan logic covered by the new static validator and adjacent guided-flow checks. A future browser pass should simulate a nearly complete course with no eligible new cards and confirm the home CTA moves to weak repair or browse instead of starting an empty guided lesson.
+
+### Practice Ratings Count Study Streak
+
+Changed:
+- Updated standalone cloze and dictation ratings so saved practice progress updates and refreshes the daily study streak, matching guided-lesson ratings.
+- Added `scripts/validate-practice-streak-after-rating.mjs` to guard that practice ratings count only after SRS progress is saved and before the next practice card renders.
+
+Why:
+- A premium self-running study loop should reward all real saved learning work consistently. Previously, cloze and dictation could save SRS progress without making the visible streak reflect that the learner studied.
+
+Verification:
+- Confirmed `node scripts/validate-practice-streak-after-rating.mjs` failed before the app change with `Practice rating must count toward the study streak after progress is saved.`
+- Ran `node scripts/validate-practice-streak-after-rating.mjs`.
+- Ran `node scripts/smoke-test.mjs`.
+- Ran `node scripts/validate-access-flow.mjs`.
+- Ran `node scripts/validate-russian-course.mjs`.
+- Ran `node scripts/validate-premium-study-order.mjs`.
+- Ran `node scripts/validate-guided-study-flow.mjs`.
+- Ran `node scripts/validate-study-streak-after-rating.mjs`.
+- Ran `node scripts/validate-practice-rating-lock.mjs`.
+- Ran `node scripts/validate-weak-practice-recovery.mjs`.
+- Ran `node scripts/validate-active-review-summary.mjs`.
+- Ran `node scripts/validate-today-plan-available-new-count.mjs`.
+- Ran app.html inline script parse-check with Node `vm.Script`.
+
+Pushed Commit:
+- `7c36d01 fix: count practice ratings in study streak`
+
+Remaining Risk:
+- No browser session was opened in this run; the changed surface is a deterministic rating-side-effect order covered by the new static validator and adjacent practice/study-flow checks. A future browser pass should rate one cloze or dictation card and confirm the streak display increments immediately.
