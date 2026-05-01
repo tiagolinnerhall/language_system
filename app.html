@@ -710,7 +710,8 @@ function updateCoachModeUI(){
 function getTodayPlanSummary(){
  const stats=getTodayStats();
  const dueCount=getDueReviews().length;
- const newPlanned=Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0));
+ const remainingNew=Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0));
+ const newPlanned=getNewSentences(remainingNew).length;
  const weakCount=Object.keys(reviewBin).length;
  let nextLabel='Start guided lesson';
  let nextAction='startStudyView()';
