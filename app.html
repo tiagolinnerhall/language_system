@@ -1615,6 +1615,8 @@ function showStudyStart(){
  const remainingNew=Math.max(0,dailyNewGoal-(stats.todayNew||0));
  const newAvail=getNewSentences(remainingNew);
  const weakCount=Object.keys(reviewBin).length;
+ const coachFirst=isCoachFirstMode();
+ const showWeakPracticeAction=weakCount>0&&!coachFirst;
  const totalSession=due.length+newAvail.length;
  const estMinutes=Math.max(1,Math.round(totalSession*0.8));
 
@@ -1648,7 +1650,7 @@ function showStudyStart(){
    ${totalSession>0?`
     <button class="study-start-btn" onclick="beginStudySession()">Start guided lesson</button>
     <div class="study-time-est">~${estMinutes} min estimated</div>
-   `:weakCount>0?`
+   `:showWeakPracticeAction?`
     <div style="color:var(--orange);font-weight:600;font-size:1.05rem;margin:20px 0">You still have weak sentences waiting.</div>
     <button class="study-start-btn" onclick="toggleBinView()" style="background:var(--orange)">Review weak sentences</button>
     <div class="study-time-est">Keep the text hidden until you recall the sentence.</div>
