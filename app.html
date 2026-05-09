@@ -368,6 +368,7 @@ body.teacher-active{padding-bottom:280px}
    </div>
     <button class="btn btn-secondary" onclick="exportProgressBackup()">Backup progress</button>
     <button class="btn btn-secondary" onclick="document.getElementById('progressRestoreInput').click()">Restore progress</button>
+    <button class="btn btn-secondary" onclick="resetProgressForFreshStart()">Reset progress</button>
     <input type="file" id="progressRestoreInput" accept="application/json" style="display:none" onchange="importProgressBackup(event)">
     <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
     <button class="btn btn-primary" id="binToggleBtn" onclick="toggleBinView()" style="background:var(--accent)">&#128221; Bin <span class="bin-badge" id="binBadge">0</span></button>
@@ -500,6 +501,7 @@ body.teacher-active{padding-bottom:280px}
 const urlParams=new URLSearchParams(window.location.search);
 const langKey=urlParams.get('lang')||'russian';
 const demoRequested=urlParams.get('demo')==='1';
+const resetProgressRequested=urlParams.get('resetProgress')==='1'||urlParams.get('reset')==='progress';
 const LANG=LANGUAGES[langKey];
 if(!LANG){document.body.innerHTML='<div style="text-align:center;padding:80px;font-size:1.2rem">Language not found. <a href="index.html">Go back</a></div>';throw new Error('Language not found')}
 
@@ -507,6 +509,19 @@ let SENTENCES=[];
 let langCode=LANG.code;
 let storagePrefix=langKey+'_';
 let courseAccessMode='demo';
+
+function clearStoredStudyProgress(){
+ ['learned','review_bin','srs','stats','teacher_mode','teacher_autopilot'].forEach(suffix=>localStorage.removeItem(storagePrefix+suffix));
+ localStorage.setItem(storagePrefix+'progress_updated_at',String(Date.now()));
+}
+
+if(resetProgressRequested){
+ clearStoredStudyProgress();
+ const cleanUrl=new URL(window.location.href);
+ cleanUrl.searchParams.delete('resetProgress');
+ cleanUrl.searchParams.delete('reset');
+ window.history.replaceState(null,'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
+}
 
 // DOM refs
 const app=document.getElementById('app');
@@ -1909,7 +1924,7 @@ async function loadLanguageData(){
   setLearnerShellVisible(true);
   renderAudioStatusNotice();
   premiumStudyOrder=buildPremiumStudyOrder();
-  await syncCloudProgress('load');
+  await syncCloudProgress(resetProgressRequested?'save':'load');
   populateCategoryFilter();
   render();
   renderAccessNotice(data);
@@ -2919,6 +2934,15 @@ function importProgressBackup(event){
   }
  };
  reader.readAsText(file);
+}
+
+function resetProgressForFreshStart(){
+ if(!confirm('Reset local study progress for this language? This keeps your login/access but clears learned cards, reviews, weak cards, and teacher mode on this browser.'))return;
+ const next=new URL(window.location.href);
+ next.searchParams.set('lang',langKey);
+ if(demoRequested)next.searchParams.set('demo','1');
+ next.searchParams.set('resetProgress','1');
+ window.location.href=next.pathname+next.search+next.hash;
 }
 
 function getDueReviews(){

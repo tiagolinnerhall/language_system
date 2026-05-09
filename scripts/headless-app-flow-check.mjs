@@ -121,6 +121,26 @@ try {
   if (!/10\s+New Sentences/i.test(text.replace(/\s+/g, ' '))) {
     throw new Error(`Fresh guided lesson did not plan 10 new sentences. Saw: ${text}`);
   }
+  await page.evaluate(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('russian_srs', JSON.stringify({ 0: { box: 1, nextReview: today, lastReview: today, reps: 1 } }));
+    localStorage.setItem('russian_review_bin', JSON.stringify({ 0: true }));
+    localStorage.setItem('russian_stats', JSON.stringify({ dailyGoal: 10, todayNew: 10, todayReviews: 4, lastStudyDate: today }));
+    localStorage.setItem('russian_teacher_autopilot', '1');
+  });
+  await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1&resetProgress=1`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.study-start');
+  const resetState = await page.evaluate(() => ({
+    url: window.location.href,
+    srs: JSON.parse(localStorage.getItem('russian_srs') || '{}'),
+    reviewBin: JSON.parse(localStorage.getItem('russian_review_bin') || '{}'),
+    stats: JSON.parse(localStorage.getItem('russian_stats') || '{}'),
+    teacherAutopilot: localStorage.getItem('russian_teacher_autopilot'),
+    startText: document.querySelector('.study-start')?.textContent || ''
+  }));
+  if (resetState.url.includes('resetProgress') || Object.keys(resetState.srs).length || Object.keys(resetState.reviewBin).length || resetState.teacherAutopilot !== null || !/10\s*New Sentences/i.test(resetState.startText.replace(/\s+/g, ' '))) {
+    throw new Error(`Fresh-start reset did not clear local progress: ${JSON.stringify(resetState)}`);
+  }
   await page.locator('#teacherToggleBtn').click();
   await page.locator('#teacherPanel.active .teacher-title').waitFor();
   await page.getByRole('button', { name: 'Start Autopilot' }).click();
