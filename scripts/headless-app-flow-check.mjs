@@ -102,6 +102,35 @@ const { port } = server.address();
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
+  await page.addInitScript(() => {
+    class FakeSpeechRecognition {
+      constructor() {
+        this.lang = 'en-US';
+        this.continuous = false;
+        this.interimResults = false;
+        this.maxAlternatives = 1;
+        window.__lastSpeechRecognition = this;
+      }
+      start() {
+        this.started = true;
+        if (this.onstart) setTimeout(() => this.onstart(), 0);
+      }
+      stop() {
+        this.started = false;
+        if (this.onend) setTimeout(() => this.onend(), 0);
+      }
+    }
+    window.SpeechRecognition = FakeSpeechRecognition;
+    window.webkitSpeechRecognition = FakeSpeechRecognition;
+    window.__emitTeacherSpeech = transcript => {
+      const recognition = window.__lastSpeechRecognition;
+      if (!recognition?.onresult) return;
+      recognition.onresult({
+        resultIndex: 0,
+        results: [{ isFinal: true, 0: { transcript } }]
+      });
+    };
+  });
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
@@ -171,7 +200,7 @@ try {
   }
   await page.locator('#teacherToggleBtn').click();
   await page.locator('#teacherPanel.active .teacher-title').waitFor();
-  await page.getByRole('button', { name: 'Start Autopilot' }).click();
+  await page.getByRole('button', { name: 'Start Live Teacher' }).click();
   await page.waitForTimeout(700);
   const teacherMessage = await page.locator('#teacherMessage').innerText();
   const lastTeacherChat = teacherChatBodies.at(-1);
@@ -180,6 +209,21 @@ try {
   }
   if (!/AI Autopilot decided/i.test(teacherMessage)) {
     throw new Error(`Teacher mode did not use the AI autopilot decision. Saw: ${teacherMessage}`);
+  }
+  const liveTeacherState = await page.evaluate(() => ({
+    live: eval('teacherLiveListening'),
+    listening: eval('teacherListening'),
+    continuous: window.__lastSpeechRecognition?.continuous,
+    button: document.getElementById('teacherTalkBtn')?.textContent || ''
+  }));
+  if (!liveTeacherState.live || !liveTeacherState.listening || !liveTeacherState.continuous || !/Pause Listening/i.test(liveTeacherState.button)) {
+    throw new Error(`Start Autopilot did not start continuous Live Teacher listening: ${JSON.stringify(liveTeacherState)}`);
+  }
+  const beforeSilenceCount = teacherChatBodies.length;
+  await page.evaluate(() => window.__emitTeacherSpeech('um'));
+  await page.waitForTimeout(150);
+  if (teacherChatBodies.length !== beforeSilenceCount) {
+    throw new Error('Live Teacher sent an AI request for filler/silence transcript.');
   }
   await page.evaluate(() => {
     eval('teacherCommand("where do I start")');

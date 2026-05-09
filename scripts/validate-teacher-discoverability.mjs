@@ -13,12 +13,11 @@ const required = [
   "teacherSetMode('autopilot')",
   'Self-guided',
   'AI Teacher Autopilot',
-  'Open AI Teacher',
-  'toggleTeacherMode(true);teacherGuide()',
+  'Start Live Teacher',
   'Hear AI voice guide',
   'Ask Teacher',
-  'Hold to Talk',
-  'teacherHoldTalkStart',
+  'Pause Listening',
+  'teacherStartLiveListening',
   'teacherListenToggle()'
 ];
 

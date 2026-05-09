@@ -208,6 +208,10 @@ body.study-advance-lock .header,body.study-advance-lock .study-view,body.study-a
 .teacher-live-controls .btn{margin:0;font-size:.82rem;font-weight:800}
 .teacher-live-open{box-shadow:0 8px 22px rgba(37,99,235,.18)}
 .teacher-live-talk.active{background:#dc2626;color:#fff}
+.teacher-live-state{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;text-transform:uppercase;color:var(--text3)}
+.teacher-live-state.active{color:#dc2626}
+.teacher-live-dot{width:8px;height:8px;border-radius:999px;background:var(--text3)}
+.teacher-live-state.active .teacher-live-dot{background:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,.12)}
 .teacher-live-note{width:100%;font-size:.74rem;color:var(--text3);line-height:1.35}
 .study-protocol{margin:0 auto 22px;text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px}
 .study-protocol-title{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px}
@@ -476,15 +480,15 @@ body.teacher-active{padding-bottom:280px}
  <div class="teacher-head">
   <div>
    <div class="teacher-title">AI Teacher Autopilot</div>
-   <div class="teacher-sub">Always context-aware. Mic is off until you press Talk.</div>
+  <div class="teacher-sub" id="teacherSub">Always context-aware. In Autopilot, live mic stays on until Pause or Stop.</div>
   </div>
   <button class="teacher-close" type="button" onclick="toggleTeacherMode(false)" aria-label="Close Teacher Mode">&#10005;</button>
  </div>
  <div class="teacher-message" id="teacherMessage">Turn on Teacher Mode when you want me to guide the lesson step by step.</div>
  <div class="teacher-actions">
-  <button class="btn btn-primary" type="button" onclick="teacherSetMode('autopilot')">Start Autopilot</button>
-  <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Next step</button>
-  <button class="btn btn-secondary" id="teacherTalkBtn" type="button" onpointerdown="teacherHoldTalkStart(event)" onpointerup="teacherHoldTalkEnd(event)" onpointerleave="teacherHoldTalkEnd(event)" onpointercancel="teacherHoldTalkEnd(event)" onkeydown="teacherHoldTalkKeyDown(event)" onkeyup="teacherHoldTalkKeyUp(event)">Hold to Talk</button>
+ <button class="btn btn-primary" type="button" onclick="teacherSetMode('autopilot')">Start Live Teacher</button>
+ <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Next step</button>
+ <button class="btn btn-secondary teacher-live-talk" id="teacherTalkBtn" type="button" onclick="teacherToggleLiveListening()">Start Live Mic</button>
  </div>
  <form class="teacher-chat" onsubmit="teacherSubmitQuestion(event)">
   <input id="teacherQuestionInput" type="text" maxlength="700" autocomplete="off" placeholder="Ask about this lesson">
@@ -492,7 +496,7 @@ body.teacher-active{padding-bottom:280px}
  </form>
  <div class="teacher-transcript" id="teacherTranscript"></div>
  <div class="teacher-voice-status" id="teacherVoiceStatus"></div>
- <div class="teacher-disclosure">Mic is off by default. Audio is not stored by Lang5K. When you ask the AI teacher a question, your transcript plus lesson context may be sent to the AI teacher so it can guide you.</div>
+ <div class="teacher-disclosure">Mic is off until you start the live teacher. Audio is not stored by Lang5K. While live listening is on, useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.</div>
 </div>
 
 <script src="languages/config.js"></script>
@@ -563,6 +567,9 @@ let teacherModeEnabled=localStorage.getItem(storagePrefix+'teacher_mode')==='1';
 let teacherAutopilotEnabled=localStorage.getItem(storagePrefix+'teacher_autopilot')==='1';
 let teacherRecognition=null;
 let teacherListening=false;
+let teacherLiveListening=false;
+let teacherRecognitionStopping=false;
+let teacherRecognitionRestartTimer=null;
 let teacherAiBusy=false;
 let teacherAttemptedRecallKey='';
 let teacherSpokenRecallAttempt={key:'',transcript:''};
@@ -866,11 +873,14 @@ function teacherStudyModeControlsHTML(){
 }
 
 function teacherLiveControlsHTML(){
+ const liveClass=teacherLiveListening?' active':'';
+ const liveText=teacherLiveListening?'Live listening':'Mic paused';
  return `<div class="teacher-live-controls">
-  <button type="button" class="btn btn-primary teacher-live-open" onclick="toggleTeacherMode(true);teacherGuide()">Open AI Teacher</button>
-  <button type="button" class="btn btn-secondary teacher-live-talk" onpointerdown="teacherHoldTalkStart(event)" onpointerup="teacherHoldTalkEnd(event)" onpointerleave="teacherHoldTalkEnd(event)" onpointercancel="teacherHoldTalkEnd(event)" onkeydown="teacherHoldTalkKeyDown(event)" onkeyup="teacherHoldTalkKeyUp(event)">&#127908; Hold to Talk</button>
+  <button type="button" class="btn btn-primary teacher-live-open" onclick="teacherSetMode('autopilot')">Start Live Teacher</button>
+  <button type="button" class="btn btn-secondary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">&#127908; ${teacherLiveListening?'Pause Listening':'Resume Listening'}</button>
   <button type="button" class="btn btn-secondary" onclick="teacherFocusQuestion()">Ask Teacher</button>
-  <div class="teacher-live-note">Mic listens only while you press Hold to Talk. The teacher reads this card and your performance before guiding the next step.</div>
+  <div class="teacher-live-state${liveClass}"><span class="teacher-live-dot"></span>${liveText}</div>
+  <div class="teacher-live-note">In Autopilot, the mic stays live until you pause or stop the teacher. Silence is ignored; useful transcripts are handled with this card and your performance.</div>
  </div>`;
 }
 
@@ -887,10 +897,11 @@ function teacherSetMode(mode){
  refreshTeacherStudyModeControls();
  if(autopilot){
   toggleTeacherMode(true);
-  teacherSay('AI Teacher Autopilot is on. I am checking your lesson state and performance now.',{speak:false});
+  teacherSay('Live AI Teacher is on. I am listening and checking your lesson state now.',{speak:false});
+  teacherStartLiveListening({announce:false});
   scheduleTeacherGuide(120);
  } else {
-  stopTeacherListening();
+  stopTeacherListening({disableLive:true});
   teacherAutopilotEnabled=false;
   localStorage.setItem(storagePrefix+'teacher_autopilot','0');
   teacherSay('Self-guided mode is on. You control the cards. Ask me or press Talk whenever you want help.',{speak:false});
@@ -901,6 +912,7 @@ function teacherEls(){
  return {
    panel:document.getElementById('teacherPanel'),
    toggle:document.getElementById('teacherToggleBtn'),
+   sub:document.getElementById('teacherSub'),
    message:document.getElementById('teacherMessage'),
    transcript:document.getElementById('teacherTranscript'),
    talk:document.getElementById('teacherTalkBtn'),
@@ -916,17 +928,16 @@ function teacherFocusQuestion(){
   els.input.focus();
   els.input.select();
  }
- teacherSay('Ask me what is difficult, say your recall, or press Talk and speak. I will guide only this language lesson.',{speak:false});
+ teacherSay('Ask me what is difficult, say your recall, or turn on Live Teacher so I can listen while you work. I will guide only this language lesson.',{speak:false});
 }
 
 function teacherHoldTalkStart(event){
  if(event)event.preventDefault();
- if(!teacherListening)teacherListenToggle();
+ teacherStartLiveListening();
 }
 
 function teacherHoldTalkEnd(event){
  if(event)event.preventDefault();
- if(teacherListening)stopTeacherListening();
 }
 
 function teacherHoldTalkKeyDown(event){
@@ -948,6 +959,7 @@ function initializeTeacherMode(){
   els.toggle.textContent=teacherModeEnabled?'AI Teacher On':'AI Teacher';
   els.toggle.setAttribute('aria-pressed',teacherModeEnabled?'true':'false');
  }
+ updateTeacherListeningUI();
  if(teacherModeEnabled)teacherSay('Teacher Mode is on. I can guide the next best step, play the target sentence, reveal answers, and help you rate honestly.',{speak:false});
 }
 
@@ -963,8 +975,9 @@ function toggleTeacherMode(force){
   els.toggle.textContent=next?'AI Teacher On':'AI Teacher';
   els.toggle.setAttribute('aria-pressed',next?'true':'false');
  }
+ updateTeacherListeningUI();
  if(!next){
-  stopTeacherListening();
+  stopTeacherListening({disableLive:true});
   stopPlayback();
   teacherSay('Teacher Mode is off. Continue with the cards on your own.',{speak:false});
   return;
@@ -1448,6 +1461,7 @@ function teacherAiContext(){
   recallAttempted:teacherHasRecallAttempt(),
   teacherMode:teacherAutopilotEnabled?'autopilot':'self-guided',
   teacherAutopilotEnabled,
+  teacherLiveListening,
   spokenRecallAttempt:teacherSpokenRecallText(),
   coachFirst:isCoachFirstMode(),
   difficulty,
@@ -1474,9 +1488,9 @@ function setTeacherAiBusy(busy){
   els.ask.disabled=busy;
   els.ask.textContent=busy?'Thinking':'Ask';
  }
- if(els.talk)els.talk.disabled=busy&&teacherListening;
+ if(els.talk)els.talk.disabled=false;
  document.querySelectorAll('.teacher-live-talk').forEach(button=>{
-  button.disabled=busy&&teacherListening;
+  button.disabled=false;
  });
 }
 
@@ -1488,7 +1502,7 @@ function teacherAutopilotInstruction(){
  const attempt=context.spokenRecallAttempt||difficulty.typedAttempt?.raw||difficulty.typedAttempt?.text||'none yet';
  return [
   'Autopilot: decide the next best step for this exact student now.',
-  'Use all supplied context: app route, mode, screen, current card, typed attempt, spoken recall transcript, ratings, due reviews, weak cards, session counts, and access state.',
+  'Use all supplied context: app route, mode, screen, current card, typed attempt, spoken recall transcript, live listening state, ratings, due reviews, weak cards, session counts, and access state.',
   'Choose the fastest practical and easiest path for this student: protect memory with due reviews, repair weak items, introduce new material only when the student is ready, and take one safe action at a time.',
   `Current app mode: ${context.mode}. Current screen: ${context.screen}. Current card: ${current.kind||'none'} ${current.type||''}.`,
   `Recommended local plan: ${plan.focus||'study'}; new limit ${plan.newLimit ?? 0}; due ${plan.dueCount ?? 0}; weak ${plan.weakCount ?? 0}.`,
@@ -1864,48 +1878,121 @@ function teacherCommand(raw){
  teacherAskAi(transcript,{source:'voice'});
 }
 
-function stopTeacherListening(){
- teacherListening=false;
+function updateTeacherListeningUI(){
  const els=teacherEls();
- if(els.talk)els.talk.textContent='Hold to Talk';
+ const liveText=teacherLiveListening?'Live mic on':'Live mic paused';
+ if(els.sub)els.sub.textContent=teacherLiveListening?'Live mic is on. I listen until you pause or stop Teacher.':'In Autopilot, live mic stays on until Pause or Stop.';
+ if(els.talk){
+  els.talk.textContent=teacherLiveListening?'Pause Listening':'Start Live Mic';
+  els.talk.classList.toggle('active',teacherLiveListening);
+ }
  document.querySelectorAll('.teacher-live-talk').forEach(button=>{
-  button.innerHTML='&#127908; Hold to Talk';
-  button.classList.remove('active');
+  button.innerHTML=teacherLiveListening?'&#9208; Pause Listening':'&#127908; Resume Listening';
+  button.classList.toggle('active',teacherLiveListening);
   button.disabled=false;
  });
- if(teacherRecognition){
-  try{teacherRecognition.stop()}catch(_){}
-  teacherRecognition=null;
+ document.querySelectorAll('.teacher-live-state').forEach(node=>{
+  node.classList.toggle('active',teacherLiveListening);
+  node.innerHTML=`<span class="teacher-live-dot"></span>${liveText}`;
+ });
+}
+
+function stopTeacherListening({disableLive=false}={}){
+ if(disableLive)teacherLiveListening=false;
+ teacherRecognitionStopping=true;
+ teacherListening=false;
+ if(teacherRecognitionRestartTimer){
+  clearTimeout(teacherRecognitionRestartTimer);
+  teacherRecognitionRestartTimer=null;
+ }
+ const recognition=teacherRecognition;
+ teacherRecognition=null;
+ updateTeacherListeningUI();
+ if(recognition){
+  try{recognition.stop()}catch(_){}
  }
 }
 
-function teacherListenToggle(){
+function teacherStartLiveListening({announce=true}={}){
  if(!teacherModeEnabled)toggleTeacherMode(true);
- if(teacherListening){
-  stopTeacherListening();
-  return;
- }
+ teacherLiveListening=true;
+ teacherRecognitionStopping=false;
+ updateTeacherListeningUI();
  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!SpeechRecognition){
-  teacherSay('This browser does not support voice commands here. You can still use Guide me and Do next.');
-  return;
+  teacherLiveListening=false;
+  updateTeacherListeningUI();
+  teacherSay('This browser does not support live voice commands here. You can still type to the teacher and use Next step.',{speak:false});
+  return false;
  }
+ if(teacherListening||teacherRecognition)return true;
  teacherRecognition=new SpeechRecognition();
  teacherRecognition.lang=teacherInRecallWindow()?'ru-RU':'en-US';
+ teacherRecognition.continuous=true;
  teacherRecognition.interimResults=false;
  teacherRecognition.maxAlternatives=1;
- teacherRecognition.onresult=event=>teacherCommand(event.results?.[0]?.[0]?.transcript||'');
- teacherRecognition.onerror=()=>teacherSay('I could not hear a clear command. Try again or use the buttons.');
- teacherRecognition.onend=()=>stopTeacherListening();
- teacherListening=true;
- const els=teacherEls();
- if(els.talk)els.talk.textContent='Listening';
- document.querySelectorAll('.teacher-live-talk').forEach(button=>{
-  button.textContent='Listening...';
-  button.classList.add('active');
- });
- setTeacherVoiceStatus('Listening. Ask a question, say your recall, or say Again, Hard, Good, or Easy.');
- teacherRecognition.start();
+ teacherRecognition.onresult=event=>{
+  for(let i=event.resultIndex||0;i<(event.results?.length||0);i++){
+   const result=event.results[i];
+   if(!result?.isFinal)continue;
+   const transcript=(result[0]?.transcript||'').trim();
+   if(teacherTranscriptLooksUseful(transcript))teacherCommand(transcript);
+  }
+ };
+ teacherRecognition.onerror=event=>{
+  const error=String(event?.error||'');
+  if(error==='not-allowed'||error==='service-not-allowed'){
+   teacherLiveListening=false;
+   setTeacherVoiceStatus('Microphone permission is blocked. Enable mic access to use Live Teacher.');
+   updateTeacherListeningUI();
+   return;
+  }
+  if(error&&error!=='no-speech'&&error!=='aborted')setTeacherVoiceStatus('Live mic had a listening issue. I will reconnect if Live Teacher is still on.');
+ };
+ teacherRecognition.onend=()=>{
+  teacherListening=false;
+  teacherRecognition=null;
+  updateTeacherListeningUI();
+  if(teacherLiveListening&&teacherModeEnabled&&!teacherRecognitionStopping){
+   teacherRecognitionRestartTimer=setTimeout(()=>teacherStartLiveListening({announce:false}),450);
+  }
+ };
+ try{
+  teacherRecognition.start();
+  teacherListening=true;
+  updateTeacherListeningUI();
+  if(announce)setTeacherVoiceStatus('Live mic on. I am listening while you study. Silence is ignored.');
+  return true;
+ }catch(_){
+  teacherRecognition=null;
+  teacherListening=false;
+  updateTeacherListeningUI();
+  return false;
+ }
+}
+
+function teacherTranscriptLooksUseful(transcript){
+ const clean=String(transcript||'').trim();
+ if(clean.length<2)return false;
+ if(/^(um+|uh+|er+|ah+|hmm+|silence|noise)$/i.test(clean))return false;
+ return true;
+}
+
+function teacherToggleLiveListening(){
+ if(teacherLiveListening){
+  stopTeacherListening({disableLive:true});
+  setTeacherVoiceStatus('Live mic paused. Resume when you want the teacher to listen again.');
+  return;
+ }
+ teacherAutopilotEnabled=true;
+ localStorage.setItem(storagePrefix+'teacher_autopilot','1');
+ refreshTeacherStudyModeControls();
+ teacherStartLiveListening();
+ scheduleTeacherGuide(120);
+}
+
+function teacherListenToggle(){
+ teacherToggleLiveListening();
 }
 
 function playAudio(text,idx,{onend,onerror}={}){
@@ -2799,6 +2886,7 @@ function activeSessionPayload(){
   studySessionStats:{...studySessionStats},
   teacherModeEnabled,
   teacherAutopilotEnabled,
+  teacherLiveListening,
   teacherAttemptedRecallKey,
   teacherSpokenRecallAttempt:{...teacherSpokenRecallAttempt},
   typedAttempt:attempt.raw||'',

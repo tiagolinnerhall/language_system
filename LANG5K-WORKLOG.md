@@ -1106,5 +1106,30 @@ Verification:
 - Ran `git diff --check`.
 
 Remaining Risk:
-- Browser speech recognition still depends on browser/platform support and only listens while the student presses Hold to Talk. Continuous always-on listening was not enabled because it would create privacy, permission, cost, and false-trigger risk.
 - Progress archive restore is available in MongoDB history and stale-save self-recovery is automatic, but there is not yet a learner-facing “restore older version” screen.
+
+### Live AI Teacher Continuous Listening
+
+Changed:
+- Replaced press-to-talk teacher controls with an opt-in Live Teacher mode. Starting Autopilot now starts the live mic, shows a visible listening state, and keeps speech recognition active until the student pauses listening or stops Teacher Mode.
+- Added browser speech-recognition auto-restart while Live Teacher remains on, because browsers can end recognition after pauses.
+- Added Pause/Resume listening controls and updated disclosure copy: audio is not stored, useful transcripts plus lesson context may be sent to the AI teacher, and silence/filler is ignored.
+- Added `teacherLiveListening` to AI context and cloud active-session progress so the teacher and progress sync know whether the student was in live-teacher mode.
+- Updated headless tests to simulate `SpeechRecognition`, prove Start Live Teacher enables continuous listening, and prove filler/silence such as “um” does not send an AI request.
+
+Why:
+- The intended product behavior is a real teacher-like Autopilot: the student should not need to press a button for every sentence or doubt. Live listening must still be explicit, visible, pausable, and cost-controlled.
+
+Verification:
+- Ran `node scripts\validate-teacher-router.mjs`.
+- Ran `node scripts\headless-app-flow-check.mjs`.
+- Ran `node scripts\smoke-test.mjs`.
+- Ran `node scripts\validate-teacher-discoverability.mjs`.
+- Ran `node scripts\validate-sell-readiness.mjs`.
+- Ran `node scripts\validate-preview-full-access.mjs`.
+- Ran `node scripts\headless-visual-quality-check.mjs`.
+- Ran `git diff --check`.
+
+Remaining Risk:
+- Continuous browser speech recognition still depends on the browser and microphone permission. The app now restarts recognition while Live Teacher is on, but Chrome or the OS can still interrupt microphone access.
+- The app does not send AI requests for silence/filler, but real background speech can still produce transcripts. The teacher remains language/Lang5K scoped server-side.
