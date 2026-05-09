@@ -265,7 +265,7 @@ async function askOpenAi(message, context) {
   if (!response.ok) {
     const providerText = await response.text().catch(() => '');
     const error = new Error(providerText || 'Teacher AI request failed.');
-    error.statusCode = response.status === 401 || response.status === 403 ? 503 : response.status;
+    error.statusCode = response.status === 401 || response.status === 403 || response.status === 429 ? 503 : response.status;
     throw error;
   }
   return parseTeacherReply(outputText(await response.json()));
