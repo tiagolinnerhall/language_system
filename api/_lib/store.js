@@ -33,6 +33,23 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function progressClientUpdatedAt(progress) {
+  const value = Number(progress?.clientUpdatedAt || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function progressSummary(progress) {
+  return {
+    learnedCount: Object.keys(progress?.learned || {}).length,
+    reviewBinCount: Object.keys(progress?.reviewBin || {}).length,
+    srsCount: Object.keys(progress?.srsData || {}).length,
+    dailyGoal: Number(progress?.userStats?.dailyGoal || 0),
+    todayNew: Number(progress?.userStats?.todayNew || 0),
+    todayReviews: Number(progress?.userStats?.todayReviews || 0),
+    clientUpdatedAt: progressClientUpdatedAt(progress)
+  };
+}
+
 async function collection(name) {
   return (await db()).collection(name);
 }
@@ -308,25 +325,135 @@ async function markStripeWebhookEventFailed(eventId, error) {
 }
 
 async function saveProgressSnapshot(email, language, progress) {
-  const payload = {
-    email: normalizeEmail(email),
-    language,
-    progress,
-    updatedAt: nowIso()
-  };
+  const cleanEmail = normalizeEmail(email);
+  const now = nowIso();
   const col = await collection('progress_snapshots');
   await col.createIndex({ email: 1, language: 1 }, { unique: true });
-  await col.updateOne(
-    { email: payload.email, language },
-    { $set: payload, $setOnInsert: { createdAt: nowIso() } },
-    { upsert: true }
-  );
-  return payload;
+  const existing = await col.findOne({ email: cleanEmail, language }, { projection: { _id: 0 } });
+  const incomingClientUpdatedAt = progressClientUpdatedAt(progress);
+  const existingClientUpdatedAt = Number(existing?.clientUpdatedAt || 0) || progressClientUpdatedAt(existing?.progress);
+  if (existing && existingClientUpdatedAt && (!incomingClientUpdatedAt || incomingClientUpdatedAt < existingClientUpdatedAt)) {
+    await safeArchiveProgressSnapshot({
+      ...existing,
+      conflictProgress: progress,
+      conflictSummary: progressSummary(progress)
+    }, 'stale-client-save');
+    return { ...existing, conflict: true, archived: true };
+  }
+  const revision = Number(existing?.revision || 0) + 1;
+  const payload = {
+    email: cleanEmail,
+    language,
+    progress,
+    revision,
+    clientUpdatedAt: incomingClientUpdatedAt || Date.now(),
+    summary: progressSummary(progress),
+    updatedAt: now
+  };
+  const updateFilter = {
+    email: payload.email,
+    language,
+    $or: [
+      { clientUpdatedAt: { $exists: false } },
+      { clientUpdatedAt: { $lte: payload.clientUpdatedAt } }
+    ]
+  };
+  let result;
+  try {
+    result = await col.updateOne(
+      existing ? updateFilter : { email: payload.email, language },
+      { $set: payload, $setOnInsert: { createdAt: existing?.createdAt || now } },
+      { upsert: !existing }
+    );
+  } catch (error) {
+    if (error && error.code === 11000) {
+      const latest = await getProgressSnapshot(cleanEmail, language);
+      await safeArchiveProgressSnapshot({
+        ...latest,
+        conflictProgress: progress,
+        conflictSummary: progressSummary(progress)
+      }, 'stale-client-save');
+      return { ...latest, conflict: true, archived: true };
+    }
+    throw error;
+  }
+  if (existing && result.matchedCount === 0) {
+    const latest = await getProgressSnapshot(cleanEmail, language);
+    await safeArchiveProgressSnapshot({
+      ...latest,
+      conflictProgress: progress,
+      conflictSummary: progressSummary(progress)
+    }, 'stale-client-save');
+    return { ...latest, conflict: true, archived: true };
+  }
+  if (existing) await safeArchiveProgressSnapshot(existing, 'superseded');
+  return { ...payload, conflict: false, archived: Boolean(existing) };
 }
 
 async function getProgressSnapshot(email, language) {
   const col = await collection('progress_snapshots');
   return col.findOne({ email: normalizeEmail(email), language }, { projection: { _id: 0 } });
+}
+
+async function archiveProgressSnapshot(snapshot, reason) {
+  if (!snapshot?.email || !snapshot?.language || !snapshot?.progress) return null;
+  const col = await collection('progress_archives');
+  await col.createIndex({ email: 1, language: 1, archivedAt: -1 });
+  await col.createIndex({ email: 1, language: 1, revision: -1 });
+  await col.createIndex({ archivedAtDate: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
+  const archive = {
+    email: normalizeEmail(snapshot.email),
+    language: snapshot.language,
+    revision: Number(snapshot.revision || 0),
+    reason,
+    progress: snapshot.progress,
+    summary: snapshot.summary || progressSummary(snapshot.progress),
+    originalUpdatedAt: snapshot.updatedAt || '',
+    archivedAt: nowIso(),
+    archivedAtDate: new Date()
+  };
+  if (snapshot.conflictProgress) {
+    archive.conflictProgress = snapshot.conflictProgress;
+    archive.conflictSummary = snapshot.conflictSummary || progressSummary(snapshot.conflictProgress);
+  }
+  await col.insertOne(archive);
+  const extra = await col
+    .find({ email: archive.email, language: archive.language }, { projection: { _id: 1 } })
+    .sort({ archivedAt: -1 })
+    .skip(30)
+    .toArray();
+  if (extra.length) await col.deleteMany({ _id: { $in: extra.map(row => row._id) } });
+  return archive;
+}
+
+async function safeArchiveProgressSnapshot(snapshot, reason) {
+  try {
+    return await archiveProgressSnapshot(snapshot, reason);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function getProgressArchiveList(email, language, limit = 20) {
+  const col = await collection('progress_archives');
+  await col.createIndex({ email: 1, language: 1, archivedAt: -1 });
+  return col
+    .find(
+      { email: normalizeEmail(email), language },
+      { projection: { _id: 0, progress: 0, conflictProgress: 0 } }
+    )
+    .sort({ archivedAt: -1 })
+    .limit(Math.max(1, Math.min(100, Number(limit) || 20)))
+    .toArray();
+}
+
+async function getProgressArchive(email, language, revision) {
+  const col = await collection('progress_archives');
+  const row = await col.findOne(
+    { email: normalizeEmail(email), language, revision: Number(revision || 0) },
+    { projection: { _id: 0 } }
+  );
+  return row || null;
 }
 
 async function recordAnalyticsEvent(event) {
@@ -384,6 +511,8 @@ module.exports = {
   getAdminMetrics,
   getEntitlement,
   getLoginCode,
+  getProgressArchive,
+  getProgressArchiveList,
   getProgressSnapshot,
   markStripeWebhookEventFailed,
   markStripeWebhookEventProcessed,

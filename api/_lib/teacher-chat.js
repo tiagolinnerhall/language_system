@@ -35,6 +35,24 @@ function hashSubject(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex').slice(0, 24);
 }
 
+function teacherVoiceTextHash(textValue) {
+  return crypto.createHash('sha256').update(String(textValue || '')).digest('hex');
+}
+
+function createTeacherVoiceToken(textValue) {
+  const secret = String(process.env.LANG5K_ACCESS_SECRET || '').trim();
+  if (!secret) return '';
+  const expiresAt = Date.now() + 5 * 60 * 1000;
+  const textHash = teacherVoiceTextHash(textValue);
+  const payload = `${expiresAt}.${textHash}`;
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${signature}`;
+}
+
+function attachTeacherVoiceToken(answer) {
+  return { ...answer, voiceToken: createTeacherVoiceToken(answer.reply) };
+}
+
 function activeEntitlement(entitlement) {
   return entitlement && entitlement.status === 'active' && entitlement.product === 'russian';
 }
@@ -170,9 +188,11 @@ function systemPrompt() {
     'Your only job is to help the student learn Russian inside Lang5K as fast as practical.',
     'You know the app map: Home explains the method; Study is the main guided path; Browse is manual search after guided work; Review Bin repairs weak sentences; Cloze drills one missing word; Dictation checks listening; Pricing, Checkout, Access, Contact, Attribution, Terms, Privacy, and Refunds are separate pages.',
     'Answer only a Russian, language, or language-learning question, or a Lang5K navigation/workflow question. Refuse everything else briefly and return focus "scope".',
+    'If the student asks any Russian, language-learning, pronunciation, spelling, meaning, grammar, course, or Lang5K doubt, answer naturally even if they do not use app command words.',
     'Method: prioritize due spaced reviews, weak repair, then new sentences. Use active recall before reveal, delayed recall, honest self-rating, cloze, dictation, and daily limits. Never encourage passive browsing as the main path.',
     'Use the supplied student performance, typed attempt analysis, due reviews, weak cards, lapses, current screen, and current sentence. Be specific and decisive.',
     'If context.teacherMode is self-guided, answer and advise but do not request automatic actions unless the student clearly asks for an action. If context.teacherAutopilotEnabled is true, you may choose the next safe study action.',
+    'In AI Teacher Autopilot, infer the next best step from the complete context instead of repeating a fixed script. Decide what the student needs now: listen, attempt recall, reveal, rate, repair, reduce new material, continue, or ask a clarifying question.',
     'Use spokenRecallAttempt when present as the student spoken recall transcript. Treat it as imperfect browser transcription, compare it gently to the current target, and prefer honest recall quality over speed.',
     'Sense difficulty. If accuracy is low, weak cards are high, lapses are repeated, or the typed attempt is partial/wrong, slow the pace, repair one sentence, and block extra new material.',
     'If the student is doing well, keep momentum but still prefer recall quality over speed. The easiest fast path is not more content; it is the right next recall at the right time.',
@@ -252,24 +272,27 @@ function normalizeReply(value) {
 
 function isLanguageScopeMessage(message) {
   const textMessage = String(message || '').toLowerCase();
-  return /\b(russian|language|languages|word|words|sentence|phrase|grammar|case|ending|conjugat|declension|pronoun|verb|noun|adjective|pronunciation|accent|spell|spelling|meaning|translate|translation|translit|cyrillic|vocabulary|lesson|card|review|cloze|dictation|audio|listen|speak|recall|remember|memor|study|learn|fluency|practice|answer|mistake|wrong|correct|why|how do i say|what does)\b/.test(textMessage);
+  return /\b(russian|русский|language|languages|word|words|sentence|phrase|grammar|case|ending|conjugat|declension|gender|pronoun|verb|noun|adjective|pronunciation|pronounce|accent|spell|spelling|meaning|translate|translation|translit|cyrillic|vocabulary|lesson|card|review|browse|cloze|dictation|audio|listen|speak|recall|remember|memor|study|learn|fluency|practice|answer|mistake|wrong|correct|lang5k|course|teacher|autopilot|student|navigation|pricing|checkout|access|account|contact|how do i say|what does|what is the meaning|where do i start|what should i study|what now|next step)\b/.test(textMessage);
 }
 
 function isOutOfScopeMessage(message) {
   const textMessage = String(message || '').toLowerCase();
-  const offTopic = /\b(weather|news|politic|recipe|joke|money|stock|crypto|medical|doctor|lawyer|legal|movie|music|dating|sports|shopping|travel booking|code|programming)\b/.test(textMessage);
-  return offTopic && !isLanguageScopeMessage(textMessage);
+  const languageIntent = isLanguageScopeMessage(textMessage);
+  const languageOverride = /\b(how do i say|translate|translation|what does|meaning|word for|pronounce|spell|in russian|russian word)\b/.test(textMessage);
+  const hardOffTopic = /\b(weather|news|politic|election|recipe|joke|money|stock|crypto|bitcoin|investment|medical|doctor|diagnos|lawyer|legal|lawsuit|movie|music|song|poem|story|dating|sports|shopping|travel booking|code|programming|math|homework|essay|bedtime story|write an email|business plan)\b/.test(textMessage);
+  if (hardOffTopic && !languageOverride) return true;
+  return !languageIntent;
 }
 
 function scopeReply() {
-  return {
+  return attachTeacherVoiceToken({
     reply: 'I can only help with Russian, language-learning questions, this lesson, and Lang5K navigation. Ask me about spelling, pronunciation, meaning, grammar, recall, reviews, or what to study next.',
     action: 'none',
     speak: true,
     difficulty: 'normal',
     focus: 'scope',
     modelTier: 'scope'
-  };
+  });
 }
 
 async function fetchWithTimeout(url, options, timeoutMs = 12000) {
@@ -367,7 +390,7 @@ async function askOpenAi(message, context) {
     throw error;
   }
   const answer = parseTeacherReply(outputText(await response.json()));
-  return { ...answer, modelTier: chosen.tier };
+  return attachTeacherVoiceToken({ ...answer, modelTier: chosen.tier });
 }
 
 module.exports = async function handler(req, res) {
@@ -384,9 +407,13 @@ module.exports = async function handler(req, res) {
       return;
     }
     const ipAllowed = await checkRateLimit(`teacher_chat:ip:${clientIp(req)}`, 12, 60);
+    const ipDailyAllowed = await checkRateLimit(`teacher_chat:ip_day:${clientIp(req)}`, 220, 24 * 60 * 60);
+    const previewDailyAllowed = access.subject.startsWith('preview:')
+      ? await checkRateLimit(`teacher_chat:preview_ip_day:${clientIp(req)}`, 120, 24 * 60 * 60)
+      : true;
     const subjectAllowed = await checkRateLimit(`teacher_chat:subject:${access.subject}`, 80, 60 * 60);
     const dailyAllowed = await checkRateLimit(`teacher_chat:day:${access.subject}`, 220, 24 * 60 * 60);
-    if (!ipAllowed || !subjectAllowed || !dailyAllowed) {
+    if (!ipAllowed || !ipDailyAllowed || !previewDailyAllowed || !subjectAllowed || !dailyAllowed) {
       res.status(429).json({ error: 'Too many AI teacher requests.' });
       return;
     }

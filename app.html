@@ -566,6 +566,10 @@ let teacherListening=false;
 let teacherAiBusy=false;
 let teacherAttemptedRecallKey='';
 let teacherSpokenRecallAttempt={key:'',transcript:''};
+let teacherLastAutopilotAt=0;
+let teacherLastAutopilotContextKey='';
+let teacherAutopilotCallTimes=[];
+let teacherAutopilotActionTimes=[];
 let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
@@ -590,6 +594,9 @@ const META_ARTIFACT_RE=/\b(translate this sentence|translated this sentence|tran
 const THIRD_LANGUAGE_RE=/\b(french|german|spanish|italian|portuguese|esperanto|latin|japanese|korean|chinese)\b/i;
 const CURATED_FALLBACK_CATEGORY='Everyday Conversation';
 const METHOD_AUDIO_INSTRUCTIONS='Lang5K works like this. Do not try to browse everything or memorize by rereading. Start the guided lesson. First, listen and connect the Russian sentence to the English meaning. Then recall before you reveal. Say the answer quietly, or type Russian or transliteration if you want. After reveal, compare honestly. Choose Again if you missed it, Hard if you barely got it, Good if you got most of it, and Easy only when the answer came back quickly and cleanly. Lang5K then schedules reviews, delayed recall, and repair drills automatically.';
+const TEACHER_AUTOPILOT_COOLDOWN_MS=2500;
+const TEACHER_AUTOPILOT_MAX_CALLS_PER_MINUTE=10;
+const TEACHER_AUTOPILOT_MAX_ACTIONS_PER_MINUTE=8;
 
 // Study session state
 let studyQueue=[];
@@ -728,10 +735,10 @@ function playBrowserVoice(text,{onend,onerror}={}){
 
 function teacherVoiceKeyForText(text){
  const payload=teacherVoicePayloadForText(text);
- return payload?payload.key:'';
+ return payload?.key||'';
 }
 
-function teacherVoicePayloadForText(text){
+function teacherVoicePayloadForText(text,voiceToken=''){
  const clean=String(text||'').replace(/\s+/g,' ').trim();
  const exact={
   [METHOD_AUDIO_INSTRUCTIONS]:'method_guide',
@@ -770,17 +777,14 @@ function teacherVoicePayloadForText(text){
  if(match)return {key:'teacher_session_done',vars:{focus:match[1]}};
  match=clean.match(/^Press Do next\. Your current best focus is ([^.]+)\./);
  if(match)return {key:'teacher_next_focus',vars:{focus:match[1]}};
+ if(clean)return {text:clean.slice(0,650),voiceToken};
  return null;
 }
 
-async function playPremiumTeacherVoice(text,{onend,onerror}={}){
+async function playPremiumTeacherVoice(text,{onend,onerror,voiceToken=''}={}){
  if(!window.fetch||typeof Audio==='undefined'||!URL||!URL.createObjectURL)throw new Error('Teacher voice playback is not supported.');
- const payload=teacherVoicePayloadForText(text);
- if(!payload){
-  const error=new Error('Custom teacher guidance is not a premium voice message.');
-  error.reason='custom_voice_message';
-  throw error;
- }
+ const payload=teacherVoicePayloadForText(text,voiceToken);
+ if(!payload)throw new Error('Teacher voice text is empty.');
  const controller=new AbortController();
  teacherVoiceAbortController=controller;
  let response;
@@ -816,7 +820,7 @@ async function playPremiumTeacherVoice(text,{onend,onerror}={}){
  return true;
 }
 
-function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButton=null}={}){
+function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButton=null,voiceToken=''}={}){
  stopPlayback();
  const requestId=++teacherVoiceRequestId;
  setTeacherVoiceStatus('Preparing premium AI voice...',sourceButton,true);
@@ -824,13 +828,12 @@ function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButto
   if(requestId===teacherVoiceRequestId)clearTeacherVoiceStatus(sourceButton);
   if(onend)onend();
  };
- playPremiumTeacherVoice(text,{onend:done,onerror:done}).then(()=>{
+ playPremiumTeacherVoice(text,{onend:done,onerror:done,voiceToken}).then(()=>{
   if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
  }).catch(error=>{
   if(error.name==='AbortError')return;
-  const customVoiceMessage=error.reason==='custom_voice_message';
-  trackAnalytics('audio_fallback',{reason:customVoiceMessage?'custom_teacher_message':'teacher_voice_unavailable'});
-  if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus(customVoiceMessage?'Custom guidance uses browser voice.':'Premium voice unavailable. Using browser voice.',sourceButton,true);
+  trackAnalytics('audio_fallback',{reason:'teacher_voice_unavailable'});
+  if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium voice unavailable. Using browser voice.',sourceButton,true);
   speakWithBrowserVoice(text,{lang,rate,onend:done,onerror:()=>{clearTeacherVoiceStatus(sourceButton);if(onerror)onerror()}});
  });
 }
@@ -884,8 +887,8 @@ function teacherSetMode(mode){
  refreshTeacherStudyModeControls();
  if(autopilot){
   toggleTeacherMode(true);
-  teacherSay('AI Teacher Autopilot is on. I will lead the lesson step by step, adapt the pace from your performance, and listen only when you press Talk.',{speak:true});
-  scheduleTeacherGuide(450);
+  teacherSay('AI Teacher Autopilot is on. I am checking your lesson state and performance now.',{speak:false});
+  scheduleTeacherGuide(120);
  } else {
   stopTeacherListening();
   teacherAutopilotEnabled=false;
@@ -971,14 +974,56 @@ function toggleTeacherMode(force){
  else teacherSay('AI Teacher is open. Stay self-guided, or choose AI Teacher Autopilot when you want me to lead the lesson.',{speak:false});
 }
 
-function teacherSay(text,{speak=true}={}){
+function teacherSay(text,{speak=true,voiceToken=''}={}){
  const els=teacherEls();
  if(els.message)els.message.textContent=text;
- if(teacherModeEnabled&&speak)speakTeacherVoice(text,{lang:'en-US',rate:.95});
+ if(teacherModeEnabled&&speak)speakTeacherVoice(text,{lang:'en-US',rate:.95,voiceToken});
 }
 
 function scheduleTeacherGuide(delay=250){
  setTimeout(()=>{if(teacherModeEnabled&&teacherAutopilotEnabled)teacherGuide()},delay);
+}
+
+function teacherAutopilotMinuteWindow(list){
+ const cutoff=Date.now()-60*1000;
+ return list.filter(time=>time>=cutoff);
+}
+
+function teacherAutopilotContextKey(){
+ const context=teacherAiContext();
+ const current=context.current||{};
+ const typed=context.difficulty?.typedAttempt||{};
+ return JSON.stringify({
+  mode:context.mode,
+  screen:context.screen,
+  idx:current.idx,
+  kind:current.kind,
+  type:current.type,
+  studyIndex,
+  revealed:context.revealed,
+  recallAttempted:context.recallAttempted,
+  typed:typed.raw||typed.state||'',
+  spoken:context.spokenRecallAttempt||'',
+  session:context.sessionCounts,
+  due:context.performance?.dueCount,
+  weak:context.performance?.weakCount,
+  learned:context.performance?.learnedCount
+ });
+}
+
+function canAskAutopilotTeacher(contextKey){
+ const now=Date.now();
+ teacherAutopilotCallTimes=teacherAutopilotMinuteWindow(teacherAutopilotCallTimes);
+ if(now-teacherLastAutopilotAt<TEACHER_AUTOPILOT_COOLDOWN_MS)return false;
+ if(contextKey&&contextKey===teacherLastAutopilotContextKey)return false;
+ if(teacherAutopilotCallTimes.length>=TEACHER_AUTOPILOT_MAX_CALLS_PER_MINUTE){
+  teacherSay('Autopilot is paused for a moment to protect your session. Keep working on this card, then ask me or press Next step.',{speak:false});
+  return false;
+ }
+ teacherLastAutopilotAt=now;
+ teacherLastAutopilotContextKey=contextKey;
+ teacherAutopilotCallTimes.push(now);
+ return true;
 }
 
 function teacherCurrentItem(){
@@ -1335,6 +1380,9 @@ function teacherCurrentAttemptAnalysis(){
  const analysis=value&&target?analyzeAttempt(value,target,translit):null;
  return {
   present:Boolean(value),
+  raw:value.slice(0,300),
+  target:target.slice(0,300),
+  translit:translit.slice(0,300),
   checkedAs:analysis?.checkedAs||'',
   state:analysis?.state||'',
   suggestedRating:analysis?.rating||'',
@@ -1432,15 +1480,33 @@ function setTeacherAiBusy(busy){
  });
 }
 
+function teacherAutopilotInstruction(){
+ const context=teacherAiContext();
+ const current=context.current||{};
+ const plan=context.plan||{};
+ const difficulty=context.difficulty||{};
+ const attempt=context.spokenRecallAttempt||difficulty.typedAttempt?.raw||difficulty.typedAttempt?.text||'none yet';
+ return [
+  'Autopilot: decide the next best step for this exact student now.',
+  'Use all supplied context: app route, mode, screen, current card, typed attempt, spoken recall transcript, ratings, due reviews, weak cards, session counts, and access state.',
+  'Choose the fastest practical and easiest path for this student: protect memory with due reviews, repair weak items, introduce new material only when the student is ready, and take one safe action at a time.',
+  `Current app mode: ${context.mode}. Current screen: ${context.screen}. Current card: ${current.kind||'none'} ${current.type||''}.`,
+  `Recommended local plan: ${plan.focus||'study'}; new limit ${plan.newLimit ?? 0}; due ${plan.dueCount ?? 0}; weak ${plan.weakCount ?? 0}.`,
+  `Student signal: ${attempt}. If more information is needed, ask for it instead of guessing.`
+ ].join('\n');
+}
+
 async function teacherAskAi(message,{source='typed'}={}){
  const clean=String(message||'').trim();
  if(!clean){teacherGuide();return}
  if(!teacherModeEnabled)toggleTeacherMode(true);
  const els=teacherEls();
- if(els.transcript)els.transcript.textContent=(source==='voice'?'You said: ':'You asked: ')+clean;
+ if(els.transcript){
+  els.transcript.textContent=source==='autopilot'?'AI teacher is assessing the lesson.':(source==='voice'?'You said: ':'You asked: ')+clean;
+ }
  if(teacherAiBusy)return;
  setTeacherAiBusy(true);
- setTeacherVoiceStatus('Teacher is thinking...');
+ setTeacherVoiceStatus(source==='autopilot'?'AI teacher is assessing your progress...':'Teacher is thinking...');
  try{
   const response=await fetch('/api/teacher-chat',{
    method:'POST',
@@ -1449,9 +1515,13 @@ async function teacherAskAi(message,{source='typed'}={}){
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
-  teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false});
+  teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false,voiceToken:data.voiceToken||''});
   if(teacherAutopilotEnabled&&data.action&&data.action!=='none')setTimeout(()=>applyTeacherAiAction(data.action),250);
  }catch(error){
+  if(source==='autopilot'){
+   teacherSay('AI Teacher Autopilot is temporarily unavailable. Use Next step for this card, then I will try again after the next state change.',{speak:false});
+   return;
+  }
   const fallbackUsed=teacherAnswerMappedQuestion(clean.toLowerCase());
   if(!fallbackUsed)teacherSay(error.message||'AI teacher is temporarily unavailable. I can still guide you with the buttons.');
  }finally{
@@ -1488,7 +1558,13 @@ function safeTeacherReveal(){
 function applyTeacherAiAction(action){
  if(!teacherAutopilotEnabled)return;
  if(!action||action==='none')return;
- if(action==='guide'){teacherGuide();return}
+ if(action==='guide')return;
+ teacherAutopilotActionTimes=teacherAutopilotMinuteWindow(teacherAutopilotActionTimes);
+ if(teacherAutopilotActionTimes.length>=TEACHER_AUTOPILOT_MAX_ACTIONS_PER_MINUTE){
+  teacherSay('Autopilot paused automatic actions for a moment. Tell me what is difficult, or press Next step when ready.',{speak:false});
+  return;
+ }
+ teacherAutopilotActionTimes.push(Date.now());
  if(action==='do_next'){teacherDoNext();return}
  if(action==='play_target'){teacherPlayTarget();return}
  if(action==='reveal'){safeTeacherReveal();return}
@@ -1512,6 +1588,17 @@ function applyTeacherAiAction(action){
 }
 
 function teacherGuide(){
+ if(!teacherModeEnabled)toggleTeacherMode(true);
+ if(teacherAutopilotEnabled){
+  const contextKey=teacherAutopilotContextKey();
+  if(!canAskAutopilotTeacher(contextKey))return;
+  teacherAskAi(teacherAutopilotInstruction(),{source:'autopilot'});
+  return;
+ }
+ teacherGuideLocal();
+}
+
+function teacherGuideLocal(){
  if(!teacherModeEnabled)toggleTeacherMode(true);
  const plan=teacherRecommendedPlan();
  const studyStart=document.querySelector('.study-start');
@@ -1681,8 +1768,15 @@ function teacherVoiceLooksLikeRecallAttempt(text){
  if(!teacherInRecallWindow())return false;
  if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text))return false;
  if(/\b(weather|news|politic|recipe|joke|money|stock|medical|doctor|lawyer|movie|music)\b/.test(text))return false;
- if(/\b(where|why|what now|what should|what do i do|should i do now|next step|explain|should i|can i|do you think|am i|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|say it|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
+ if(/\b(where|why|what|how|gender|case|grammar|meaning|means|pronounce|pronunciation|spell|spelling|doubt|question|confused|stuck|what now|what should|what do i do|should i do now|next step|explain|should i|can i|do you think|am i|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|say it|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
  return text.length>=2;
+}
+
+function teacherShouldAskAiFirst(text){
+ if(teacherVoiceLooksLikeRecallAttempt(text))return false;
+ if(teacherCommandHasRating(text,'again')||teacherCommandHasRating(text,'hard')||teacherCommandHasRating(text,'good')||teacherCommandHasRating(text,'easy'))return false;
+ if(/^\s*(reveal|show answer|answer|play|listen|repeat|next|continue|move on|start|begin)\s*$/i.test(text))return false;
+ return /\b(where do i start|what now|what should|what do i do|next step|why|how|what does|meaning|grammar|case|gender|pronunciation|pronounce|spell|spelling|translate|translation|explain|doubt|confused|stuck|mistake|wrong|should i|can i|open|go to|take me|show me)\b/.test(text);
 }
 
 function teacherCommand(raw){
@@ -1695,6 +1789,7 @@ function teacherCommand(raw){
   teacherSay('I can only help with this language course and Lang5K navigation. Ask me where to start, what this screen is, play audio, reveal, next, or rate the card.');
   return;
  }
+ if(teacherShouldAskAiFirst(text)){teacherAskAi(transcript,{source:'voice'});return}
  if(/\b(where|how).*(start|begin)|\bstart.*where|\bfirst\b/.test(text)){
   teacherAnswerMappedQuestion(text);
   return;
@@ -2693,8 +2788,26 @@ function saveSRS(){
  queueCloudProgressSync();
 }
 
+function activeSessionPayload(){
+ const attempt=teacherCurrentAttemptAnalysis();
+ return {
+  mode:currentMode,
+  studyViewActive,
+  studyIndex,
+  studyQueue:studyQueue.slice(0,120),
+  studyRevealed,
+  studySessionStats:{...studySessionStats},
+  teacherModeEnabled,
+  teacherAutopilotEnabled,
+  teacherAttemptedRecallKey,
+  teacherSpokenRecallAttempt:{...teacherSpokenRecallAttempt},
+  typedAttempt:attempt.raw||'',
+  updatedAt:Date.now()
+ };
+}
+
 function progressPayload(){
- return {learned,reviewBin,srsData,userStats,clientUpdatedAt:Number(localStorage.getItem(storagePrefix+'progress_updated_at')||Date.now())};
+ return {learned,reviewBin,srsData,userStats,activeSession:activeSessionPayload(),clientUpdatedAt:Number(localStorage.getItem(storagePrefix+'progress_updated_at')||Date.now())};
 }
 
 function markLocalProgressChanged(){
@@ -2714,6 +2827,15 @@ function applyProgressPayload(progress){
  return true;
 }
 
+function hasLocalStudyProgress(){
+ return Boolean(
+  Object.keys(learned||{}).length ||
+  Object.keys(reviewBin||{}).length ||
+  Object.keys(srsData||{}).length ||
+  (userStats&&Object.keys(userStats).length)
+ );
+}
+
 let cloudSyncTimer=null;
 
 function queueCloudProgressSync(){
@@ -2729,7 +2851,11 @@ async function syncCloudProgress(direction='save'){
    const response=await fetch('/api/progress?language='+encodeURIComponent(langKey),{cache:'no-store'});
    if(response.status===401)return;
    const data=await response.json().catch(()=>({}));
-   const localUpdatedAt=Number(localStorage.getItem(storagePrefix+'progress_updated_at')||0);
+   let localUpdatedAt=Number(localStorage.getItem(storagePrefix+'progress_updated_at')||0);
+   if(!localUpdatedAt&&hasLocalStudyProgress()){
+    markLocalProgressChanged();
+    localUpdatedAt=Number(localStorage.getItem(storagePrefix+'progress_updated_at')||Date.now());
+   }
    const serverUpdatedAt=Date.parse(data.updatedAt||'')||Number(data.progress?.clientUpdatedAt||0);
    if(response.ok&&data.progress&&serverUpdatedAt>localUpdatedAt&&applyProgressPayload(data.progress)){
     localStorage.setItem(storagePrefix+'progress_updated_at',String(serverUpdatedAt));
@@ -2738,15 +2864,30 @@ async function syncCloudProgress(direction='save'){
     updateBinBadge();
     updateStreakDisplay();
    } else if(response.ok&&localUpdatedAt>serverUpdatedAt){
-    queueCloudProgressSync(false);
+    queueCloudProgressSync();
    }
    return;
   }
-  await fetch('/api/progress',{
+  const response=await fetch('/api/progress',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
    body:JSON.stringify({language:langKey,progress:progressPayload()})
   }).catch(()=>null);
+  if(!response)return;
+  const data=await response.json().catch(()=>({}));
+  if(response.ok&&data.conflict&&data.progress&&applyProgressPayload(data.progress)){
+   const serverUpdatedAt=Date.parse(data.updatedAt||'')||Number(data.progress?.clientUpdatedAt||Date.now());
+   localStorage.setItem(storagePrefix+'progress_updated_at',String(serverUpdatedAt));
+   updateProgress();
+   updateDueBadge();
+   updateBinBadge();
+   updateStreakDisplay();
+   trackAnalytics('progress_conflict_restored',{revision:data.revision||0});
+   return;
+  }
+  if(response.ok&&data.updatedAt){
+   localStorage.setItem(storagePrefix+'progress_updated_at',String(Date.parse(data.updatedAt)||Date.now()));
+  }
  }catch{
   // Cloud sync should never block local study.
  }

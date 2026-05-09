@@ -21,6 +21,10 @@ mustInclude('teacher-chat', chat, 'Sense difficulty.');
 mustInclude('teacher-chat', chat, 'spokenRecallAttempt');
 mustInclude('teacher-chat', chat, 'language, or language-learning question');
 mustInclude('teacher-chat', chat, 'function isOutOfScopeMessage(message)');
+mustInclude('teacher-chat', chat, 'hardOffTopic');
+mustInclude('teacher-chat', chat, 'In AI Teacher Autopilot, infer the next best step');
+mustInclude('teacher-chat', chat, 'function createTeacherVoiceToken(textValue)');
+mustInclude('teacher-chat', chat, 'voiceToken');
 mustInclude('teacher-chat', chat, 'modelTier');
 
 mustInclude('app.html', app, 'function teacherCurrentAttemptAnalysis()');
@@ -28,7 +32,18 @@ mustInclude('app.html', app, 'function teacherDifficultyProfile(plan,performance
 mustInclude('app.html', app, 'difficulty,');
 mustInclude('app.html', app, 'sessionCounts:{...studySessionStats}');
 mustInclude('app.html', app, 'current recall attempt is');
+mustInclude('app.html', app, 'function teacherGuideLocal()');
+mustInclude('app.html', app, 'Autopilot: decide the next best step');
+mustInclude('app.html', app, "source==='autopilot'");
+mustInclude('app.html', app, 'TEACHER_AUTOPILOT_COOLDOWN_MS');
+mustInclude('app.html', app, 'function teacherShouldAskAiFirst(text)');
+mustInclude('app.html', app, 'raw:value.slice');
+mustInclude('app.html', app, 'activeSession:activeSessionPayload()');
 
 mustInclude('teacher-voice', voice, "eleven_flash_v2_5");
+mustInclude('teacher-voice', voice, 'function textFromRequestBody(body)');
+mustInclude('teacher-voice', voice, 'body.text');
+mustInclude('teacher-voice', voice, 'function verifyTeacherVoiceToken(textValue, tokenValue)');
+mustInclude('teacher-voice', voice, 'voiceToken');
 
 console.log('Teacher model router validation passed.');

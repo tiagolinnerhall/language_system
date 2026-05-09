@@ -6,6 +6,7 @@ const { checkRateLimit, getEntitlement } = require('./store');
 
 const OPENAI_SPEECH_URL = 'https://api.openai.com/v1/audio/speech';
 const PROVIDER_TIMEOUT_MS = 9000;
+const MAX_DYNAMIC_TEXT_LENGTH = 650;
 const VOICE_MESSAGES = {
   method_guide: 'Lang5K works like this. Do not try to browse everything or memorize by rereading. Start the guided lesson. First, listen and connect the Russian sentence to the English meaning. Then recall before you reveal. Say the answer quietly, or type Russian or transliteration if you want. After reveal, compare honestly. Choose Again if you missed it, Hard if you barely got it, Good if you got most of it, and Easy only when the answer came back quickly and cleanly. Lang5K then schedules reviews, delayed recall, and repair drills automatically.',
   study_new_intro: 'Step one: read the English meaning. Step two: play the Russian audio. Step three: say the Russian sentence once. Then continue to the memory test.',
@@ -94,6 +95,51 @@ function textFromMessageKey(value, vars = {}) {
     throw error;
   }
   return text;
+}
+
+function dynamicTeacherVoiceText(value) {
+  const clean = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!clean) {
+    const error = new Error('Teacher voice text is required.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (clean.length > MAX_DYNAMIC_TEXT_LENGTH) {
+    const error = new Error('Teacher voice text is too long.');
+    error.statusCode = 413;
+    throw error;
+  }
+  return clean;
+}
+
+function teacherVoiceTextHash(textValue) {
+  return crypto.createHash('sha256').update(String(textValue || '')).digest('hex');
+}
+
+function verifyTeacherVoiceToken(textValue, tokenValue) {
+  const secret = String(process.env.LANG5K_ACCESS_SECRET || '').trim();
+  const token = String(tokenValue || '');
+  const [expiresAtRaw, textHash, signature] = token.split('.');
+  const expiresAt = Number(expiresAtRaw || 0);
+  if (!secret || !expiresAt || !textHash || !signature || Date.now() > expiresAt) return false;
+  if (textHash !== teacherVoiceTextHash(textValue)) return false;
+  const expected = crypto.createHmac('sha256', secret).update(`${expiresAt}.${textHash}`).digest('hex');
+  const actualBuffer = Buffer.from(signature, 'hex');
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+function textFromRequestBody(body) {
+  if (body && Object.prototype.hasOwnProperty.call(body, 'text')) {
+    const clean = dynamicTeacherVoiceText(body.text);
+    if (!verifyTeacherVoiceToken(clean, body.voiceToken)) {
+      const error = new Error('Signed teacher voice token is required.');
+      error.statusCode = 403;
+      throw error;
+    }
+    return clean;
+  }
+  return textFromMessageKey(body?.key || body?.messageKey, body?.vars);
 }
 
 function cleanFocus(value) {
@@ -225,14 +271,18 @@ module.exports = async function handler(req, res) {
       return;
     }
     const ipAllowed = await checkRateLimit(`teacher_voice:ip:${clientIp(req)}`, 20, 60);
+    const ipDailyAllowed = await checkRateLimit(`teacher_voice:ip_day:${clientIp(req)}`, 240, 24 * 60 * 60);
+    const previewDailyAllowed = access.subject.startsWith('preview:')
+      ? await checkRateLimit(`teacher_voice:preview_ip_day:${clientIp(req)}`, 90, 24 * 60 * 60)
+      : true;
     const subjectAllowed = await checkRateLimit(`teacher_voice:subject:${access.subject}`, 120, 60 * 60);
     const dailyAllowed = await checkRateLimit(`teacher_voice:day:${access.subject}`, 300, 24 * 60 * 60);
-    if (!ipAllowed || !subjectAllowed || !dailyAllowed) {
+    if (!ipAllowed || !ipDailyAllowed || !previewDailyAllowed || !subjectAllowed || !dailyAllowed) {
       res.status(429).json({ error: 'Too many teacher voice requests.' });
       return;
     }
     const body = await readJsonBody(req, 8 * 1024);
-    const text = textFromMessageKey(body.key || body.messageKey, body.vars);
+    const text = textFromRequestBody(body);
     const result = await synthesize(text);
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', result.buffer.length);

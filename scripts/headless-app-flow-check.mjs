@@ -33,12 +33,40 @@ function readModuleData(filePath, variable) {
 }
 
 const rows = loadRows();
+const teacherChatBodies = [];
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://127.0.0.1');
   if (url.pathname === '/api/course') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ language: 'russian', mode: 'demo', total: rows.length, limit: 80, sentences: rows.slice(0, 80) }));
+    return;
+  }
+  if (url.pathname === '/api/teacher-chat') {
+    let raw = '';
+    req.on('data', chunk => {
+      raw += chunk;
+    });
+    req.on('end', () => {
+      const body = JSON.parse(raw || '{}');
+      teacherChatBodies.push(body);
+      const message = String(body.message || '').toLowerCase();
+      let reply = 'AI Autopilot decided: start with the guided lesson and keep 10 new sentences only if due reviews stay clear.';
+      if (message.includes('what should') || message.includes('what now')) {
+        reply = 'AI Autopilot decided: do not reveal yet. Try recall first, then compare the answer.';
+      } else if (message.includes('why this now')) {
+        reply = 'AI Autopilot decided: Lang5K selected a new sentence in the guided sequence.';
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        ok: true,
+        reply,
+        action: 'none',
+        speak: false,
+        difficulty: 'normal',
+        focus: 'study'
+      }));
+    });
     return;
   }
   if (url.pathname === '/api/analytics' || url.pathname === '/api/progress') {
@@ -146,25 +174,30 @@ try {
   await page.getByRole('button', { name: 'Start Autopilot' }).click();
   await page.waitForTimeout(700);
   const teacherMessage = await page.locator('#teacherMessage').innerText();
-  if (!/recommend 10 new sentences|first guided lesson|due reviews/i.test(teacherMessage)) {
-    throw new Error(`Teacher mode did not explain the performance-aware plan. Saw: ${teacherMessage}`);
+  const lastTeacherChat = teacherChatBodies.at(-1);
+  if (!lastTeacherChat?.message?.includes('Autopilot: decide the next best step') || lastTeacherChat.context?.teacherMode !== 'autopilot') {
+    throw new Error(`AI Teacher Autopilot did not send full-state decision context: ${JSON.stringify(lastTeacherChat)}`);
   }
-  const mappedAnswer = await page.evaluate(() => {
+  if (!/AI Autopilot decided/i.test(teacherMessage)) {
+    throw new Error(`Teacher mode did not use the AI autopilot decision. Saw: ${teacherMessage}`);
+  }
+  await page.evaluate(() => {
     eval('teacherCommand("where do I start")');
-    return document.getElementById('teacherMessage')?.textContent || '';
   });
-  if (!/Start with Study/i.test(mappedAnswer) || !/recommend 10 new sentences/i.test(mappedAnswer)) {
-    throw new Error(`Teacher map did not answer where to start with performance context. Saw: ${mappedAnswer}`);
+  await page.waitForTimeout(350);
+  const mappedAnswer = await page.locator('#teacherMessage').innerText();
+  const whereStartChat = teacherChatBodies.at(-1);
+  if (!whereStartChat?.message?.includes('where do I start')) {
+    throw new Error(`Teacher did not route where-to-start doubt to AI context: ${JSON.stringify(whereStartChat)}`);
   }
-  const modeNavigation = await page.evaluate(() => eval(`(() => {
-    teacherCommand("open browse");
-    const browse = currentMode;
-    teacherCommand("open study");
-    const study = currentMode;
-    return { browse, study };
-  })()`));
-  if (modeNavigation.browse !== 'browse' || modeNavigation.study !== 'study') {
-    throw new Error(`Teacher mode navigation failed: ${JSON.stringify(modeNavigation)}`);
+  if (!/AI Autopilot decided/i.test(mappedAnswer)) {
+    throw new Error(`Teacher did not answer where-to-start through AI Autopilot. Saw: ${mappedAnswer}`);
+  }
+  await page.evaluate(() => eval('teacherCommand("open browse")'));
+  await page.waitForTimeout(350);
+  const modeNavigationChat = teacherChatBodies.at(-1);
+  if (!modeNavigationChat?.message?.includes('open browse')) {
+    throw new Error(`Teacher navigation command was not routed through AI Autopilot: ${JSON.stringify(modeNavigationChat)}`);
   }
   const stressPlan = await page.evaluate(() => eval(`(() => {
     const today = getToday();
@@ -372,17 +405,15 @@ try {
   if (!/Try recall first/i.test(directRevealMessage) || await page.locator('.study-rating').count()) {
     throw new Error(`Direct reveal bypassed Teacher recall gate. Message: ${directRevealMessage}`);
   }
-  const currentHelp = await page.evaluate(() => {
-    eval('teacherCommand("what should I do")');
-    return document.getElementById('teacherMessage')?.textContent || '';
-  });
+  await page.evaluate(() => eval('teacherCommand("what should I do")'));
+  await page.waitForTimeout(350);
+  const currentHelp = await page.locator('#teacherMessage').innerText();
   if (!/Do not reveal yet|Try recall/i.test(currentHelp)) {
     throw new Error(`Teacher did not answer current-card help. Saw: ${currentHelp}`);
   }
-  const whyNow = await page.evaluate(() => {
-    eval('teacherCommand("why this now")');
-    return document.getElementById('teacherMessage')?.textContent || '';
-  });
+  await page.evaluate(() => eval('teacherCommand("why this now")'));
+  await page.waitForTimeout(350);
+  const whyNow = await page.locator('#teacherMessage').innerText();
   if (!/selected a new sentence|review|delayed|weak/i.test(whyNow)) {
     throw new Error(`Teacher did not answer why-this-now from current state. Saw: ${whyNow}`);
   }
