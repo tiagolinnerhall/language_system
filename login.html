@@ -18,8 +18,8 @@
   <p class="text">Use the preview login to open the site and admin panel while the product is being finished to premium standard.</p>
   <form id="loginForm">
    <div class="field">
-    <label for="email">Email</label>
-    <input id="email" name="email" type="email" autocomplete="username" required>
+    <label for="email">User</label>
+    <input id="email" name="email" type="text" autocomplete="username" placeholder="admin" required>
    </div>
    <div class="field">
     <label for="password">Password</label>
@@ -40,9 +40,9 @@
   button.disabled=true;
   status.textContent='Checking preview access...';
   try{
-   const email=document.getElementById('email').value.trim();
+   const user=document.getElementById('email').value.trim();
    const password=document.getElementById('password').value;
-   const response=await fetch('/api/admin-preview-login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password})});
+   const response=await fetch('/api/admin-preview-login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({user,email:user,password})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok||!data.ok)throw new Error(data.error||'Login failed.');
    status.textContent='Access granted. Opening the preview...';

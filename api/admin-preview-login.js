@@ -1,4 +1,4 @@
-const PREVIEW_EMAIL = (process.env.LANG5K_PREVIEW_EMAIL || '').trim().toLowerCase();
+const PREVIEW_USER = (process.env.LANG5K_PREVIEW_EMAIL || '').trim().toLowerCase();
 const PREVIEW_PASSWORD = process.env.LANG5K_PREVIEW_PASSWORD || '';
 const SESSION_COOKIE = 'lang5k_preview_session';
 const SESSION_TOKEN = (process.env.LANG5K_PREVIEW_SESSION || '').trim();
@@ -14,22 +14,22 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    if (!PREVIEW_EMAIL || !PREVIEW_PASSWORD || !SESSION_TOKEN) {
+    if (!PREVIEW_USER || !PREVIEW_PASSWORD || !SESSION_TOKEN) {
       res.status(503).json({ error: 'Preview access is not configured.' });
       return;
     }
 
     const body = await readJsonBody(req, 16 * 1024);
-    const email = String(body.email || '').trim().toLowerCase();
+    const user = String(body.user || body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
-    const allowed = await checkRateLimit(`preview_login:${email || 'missing'}:${clientIp(req)}`, 8, 15 * 60);
+    const allowed = await checkRateLimit(`preview_login:${user || 'missing'}:${clientIp(req)}`, 8, 15 * 60);
     if (!allowed) {
       res.status(429).json({ error: 'Too many attempts. Please wait and try again.' });
       return;
     }
 
-    if (email !== PREVIEW_EMAIL || password !== PREVIEW_PASSWORD) {
-      res.status(401).json({ error: 'Wrong email or password.' });
+    if (user !== PREVIEW_USER || password !== PREVIEW_PASSWORD) {
+      res.status(401).json({ error: 'Wrong user or password.' });
       return;
     }
 
