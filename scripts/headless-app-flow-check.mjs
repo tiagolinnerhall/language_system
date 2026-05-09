@@ -121,9 +121,10 @@ try {
   if (!/10\s+New Sentences/i.test(text.replace(/\s+/g, ' '))) {
     throw new Error(`Fresh guided lesson did not plan 10 new sentences. Saw: ${text}`);
   }
-  await page.getByRole('button', { name: 'Teacher' }).click();
+  await page.locator('#teacherToggleBtn').click();
   await page.locator('#teacherPanel.active .teacher-title').waitFor();
-  await page.getByRole('button', { name: 'Guide me' }).click();
+  await page.getByRole('button', { name: 'Start Autopilot' }).click();
+  await page.waitForTimeout(700);
   const teacherMessage = await page.locator('#teacherMessage').innerText();
   if (!/recommend 10 new sentences|first guided lesson|due reviews/i.test(teacherMessage)) {
     throw new Error(`Teacher mode did not explain the performance-aware plan. Saw: ${teacherMessage}`);
@@ -185,9 +186,85 @@ try {
   if (directDrillNavigation !== 'study') {
     throw new Error(`Teacher direct drill command bypassed due-review priority. Current mode: ${directDrillNavigation}`);
   }
+  const autopilotAttemptGate = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    localStorage.setItem(storagePrefix + 'teacher_autopilot', '1');
+    toggleTeacherMode(true);
+    showStudyCard();
+    teacherCommand('I tried');
+    const afterFake = { revealed: studyRevealed, message: document.getElementById('teacherMessage')?.textContent || '' };
+    teacherCommand('skazhi pozhaluysta');
+    teacherCommand('reveal');
+    return {
+      afterFake,
+      afterRealAttempt: { revealed: studyRevealed, message: document.getElementById('teacherMessage')?.textContent || '' }
+    };
+  })()`));
+  if (autopilotAttemptGate.afterFake.revealed || !/real attempt|will not reveal|need a real attempt/i.test(autopilotAttemptGate.afterFake.message)) {
+    throw new Error(`AI Teacher Autopilot accepted a fake recall attempt: ${JSON.stringify(autopilotAttemptGate.afterFake)}`);
+  }
+  if (!autopilotAttemptGate.afterRealAttempt.revealed) {
+    throw new Error(`AI Teacher Autopilot did not reveal after a spoken recall attempt: ${JSON.stringify(autopilotAttemptGate.afterRealAttempt)}`);
+  }
+  const teacherModeIsolation = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = false;
+    localStorage.setItem(storagePrefix + 'teacher_autopilot', '0');
+    showStudyCard();
+    applyTeacherAiAction('reveal');
+    const afterSelfAction = { revealed: studyRevealed };
+    teacherAutopilotEnabled = true;
+    showStudyCard();
+    teacherCommand('skazhi pozhaluysta');
+    const context = teacherAiContext();
+    teacherCommand('reveal');
+    const heardText = document.querySelector('.study-typed-answer')?.textContent || '';
+    return { afterSelfAction, context, heardText };
+  })()`));
+  if (teacherModeIsolation.afterSelfAction.revealed) {
+    throw new Error('Self-guided mode allowed an AI action to reveal the card.');
+  }
+  if (teacherModeIsolation.context.teacherMode !== 'autopilot' || !teacherModeIsolation.context.teacherAutopilotEnabled || !/skazhi/i.test(teacherModeIsolation.context.spokenRecallAttempt || '')) {
+    throw new Error(`Teacher context did not include autopilot/spoken recall state: ${JSON.stringify(teacherModeIsolation.context)}`);
+  }
+  if (!/Heard:/i.test(teacherModeIsolation.heardText)) {
+    throw new Error(`Spoken recall attempt was not shown after reveal: ${teacherModeIsolation.heardText}`);
+  }
+  const practiceSpokenRecall = await page.evaluate(() => eval(`(() => {
+    currentMode = 'cloze';
+    teacherAutopilotEnabled = true;
+    clozeCurrent = { idx: 0, answer: 'скажите', revealed: false };
+    teacherSpokenRecallAttempt = { key: teacherAttemptBaseKey(), transcript: 'skazhite' };
+    document.body.insertAdjacentHTML('beforeend', '<div id="clozeFeedback"></div>');
+    revealCloze();
+    const clozeText = document.getElementById('clozeFeedback')?.textContent || '';
+    currentMode = 'dictation';
+    dictationCurrent = { idx: 0, revealed: false };
+    teacherSpokenRecallAttempt = { key: teacherAttemptBaseKey(), transcript: 'skazhite pozhaluysta' };
+    document.body.insertAdjacentHTML('beforeend', '<div id="dictationFeedback"></div>');
+    revealDictation();
+    const dictationText = document.getElementById('dictationFeedback')?.textContent || '';
+    document.querySelectorAll('#clozeFeedback,#dictationFeedback').forEach(node => node.remove());
+    return { clozeText, dictationText };
+  })()`));
+  if (!/Heard:/i.test(practiceSpokenRecall.clozeText) || !/Heard:/i.test(practiceSpokenRecall.dictationText)) {
+    throw new Error(`Practice spoken recall was not shown after reveal: ${JSON.stringify(practiceSpokenRecall)}`);
+  }
   const spacingTeacherNext = await page.evaluate(() => eval(`(() => {
     studyQueue = buildStudyQueue([], [0]);
     studyIndex = 1;
+    currentMode = 'study';
+    studyViewActive = true;
+    teacherAutopilotEnabled = true;
     showStudyCard();
     toggleTeacherMode(true);
     teacherDoNext();
@@ -222,7 +299,7 @@ try {
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('.study-start');
-  await page.getByRole('button', { name: 'Hear lesson guide' }).click();
+  await page.getByRole('button', { name: /Hear AI voice guide/i }).click();
   await page.waitForTimeout(250);
   await page.getByRole('button', { name: 'Start guided lesson' }).click();
   await page.waitForSelector('.study-card');
@@ -258,14 +335,14 @@ try {
   await page.getByRole('button', { name: 'Start guided lesson' }).click();
   await page.getByRole('button', { name: 'Hear Audio Instructions' }).click();
   await page.waitForTimeout(250);
-  await page.getByRole('button', { name: 'Teacher' }).click();
+  await page.locator('#teacherToggleBtn').click();
   await page.evaluate(() => eval('teacherCommand("I tried")'));
   await page.getByRole('button', { name: 'Show Russian answer and play audio' }).click();
   const introCarryMessage = await page.locator('#teacherMessage').innerText();
   if (!/Try recall first/i.test(introCarryMessage) || await page.locator('.study-rating').count()) {
     throw new Error(`Intro "I tried" carried into recall reveal gate. Message: ${introCarryMessage}`);
   }
-  await page.getByRole('button', { name: 'Do next' }).click();
+  await page.getByRole('button', { name: 'Next step' }).click();
   const gatedRevealMessage = await page.locator('#teacherMessage').innerText();
   if (!/Try recall first/i.test(gatedRevealMessage) || await page.locator('.study-rating').count()) {
     throw new Error(`Teacher revealed before recall attempt or did not explain the gate. Message: ${gatedRevealMessage}`);

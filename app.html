@@ -197,6 +197,18 @@ body.study-advance-lock .header,body.study-advance-lock .study-view,body.study-a
 .study-help-strip{margin:16px 0 18px;text-align:left;color:var(--text2);font-size:.88rem;line-height:1.45}
 .study-help-strip strong{display:block;color:var(--text);font-size:.94rem;margin-bottom:4px}
 .study-help-strip .audio-instructions-btn{margin:8px 0 0}
+.study-help-actions,.teacher-live-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.teacher-mode-chooser{display:grid;gap:10px;margin:14px 0;padding:12px;border:1px solid rgba(37,99,235,.2);border-radius:14px;background:rgba(15,23,42,.04);text-align:left}
+.teacher-mode-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.teacher-mode-option{justify-content:center;border:1px solid var(--border);background:var(--card);color:var(--text);font-weight:800}
+.teacher-mode-option.active{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 10px 24px rgba(37,99,235,.22)}
+.teacher-mode-detail{font-size:.78rem;color:var(--text2);line-height:1.4}
+.teacher-mode-detail strong{color:var(--text)}
+.teacher-live-controls{padding:10px;border:1px solid rgba(37,99,235,.18);border-radius:12px;background:rgba(37,99,235,.08)}
+.teacher-live-controls .btn{margin:0;font-size:.82rem;font-weight:800}
+.teacher-live-open{box-shadow:0 8px 22px rgba(37,99,235,.18)}
+.teacher-live-talk.active{background:#dc2626;color:#fff}
+.teacher-live-note{width:100%;font-size:.74rem;color:var(--text3);line-height:1.35}
 .study-protocol{margin:0 auto 22px;text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px}
 .study-protocol-title{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px}
 .study-protocol ol{margin-left:18px;color:var(--text2);font-size:.88rem}
@@ -337,7 +349,7 @@ body.teacher-active{padding-bottom:280px}
 .teacher-disclosure{font-size:.72rem;color:var(--text3);line-height:1.35}
 .ai-voice-label{display:inline-flex;margin-left:6px;padding:1px 6px;border-radius:999px;border:1px solid var(--border);font-size:.68rem;font-weight:800;letter-spacing:0;color:var(--text3);background:var(--bg)}
 .audio-instructions-btn.voice-loading{opacity:.75;cursor:wait}
-@media(max-width:640px){body.teacher-active{padding-bottom:410px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:58vh}.teacher-actions{grid-template-columns:1fr}.teacher-chat{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}}
+@media(max-width:640px){body.teacher-active{padding-bottom:410px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:58vh}.teacher-actions{grid-template-columns:1fr}.teacher-chat{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}.teacher-mode-options{grid-template-columns:1fr}.teacher-live-controls .btn{flex:1 1 100%}}
 </style>
 </head>
 <body>
@@ -347,7 +359,7 @@ body.teacher-active{padding-bottom:280px}
   <div class="header-controls">
    <div class="streak-display inactive" id="streakDisplay"><span class="streak-fire">&#128293;</span> <span id="streakCount">0</span> day streak</div>
    <button class="btn btn-study" id="studyBtn" onclick="startStudyView()">&#9654; Study <span class="due-badge" id="dueBadge">0</span></button>
-   <button class="btn btn-secondary teacher-toggle" id="teacherToggleBtn" onclick="toggleTeacherMode()">Teacher</button>
+   <button class="btn btn-secondary teacher-toggle" id="teacherToggleBtn" onclick="toggleTeacherMode()">AI Teacher</button>
    <div class="advanced-tools" id="advancedTools">
     <div class="speed-control">
      <label>Speed:</label>
@@ -462,16 +474,16 @@ body.teacher-active{padding-bottom:280px}
 <div class="teacher-panel" id="teacherPanel" aria-live="polite" aria-label="AI Teacher Mode">
  <div class="teacher-head">
   <div>
-   <div class="teacher-title">Teacher Mode</div>
-   <div class="teacher-sub">A lesson-only guide for the fastest study path.</div>
+   <div class="teacher-title">AI Teacher Autopilot</div>
+   <div class="teacher-sub">Always context-aware. Mic is off until you press Talk.</div>
   </div>
   <button class="teacher-close" type="button" onclick="toggleTeacherMode(false)" aria-label="Close Teacher Mode">&#10005;</button>
  </div>
  <div class="teacher-message" id="teacherMessage">Turn on Teacher Mode when you want me to guide the lesson step by step.</div>
  <div class="teacher-actions">
-  <button class="btn btn-primary" type="button" onclick="teacherGuide()">Guide me</button>
-  <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Do next</button>
-  <button class="btn btn-secondary" id="teacherTalkBtn" type="button" onclick="teacherListenToggle()">Talk</button>
+  <button class="btn btn-primary" type="button" onclick="teacherSetMode('autopilot')">Start Autopilot</button>
+  <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Next step</button>
+  <button class="btn btn-secondary" id="teacherTalkBtn" type="button" onpointerdown="teacherHoldTalkStart(event)" onpointerup="teacherHoldTalkEnd(event)" onpointerleave="teacherHoldTalkEnd(event)" onpointercancel="teacherHoldTalkEnd(event)" onkeydown="teacherHoldTalkKeyDown(event)" onkeyup="teacherHoldTalkKeyUp(event)">Hold to Talk</button>
  </div>
  <form class="teacher-chat" onsubmit="teacherSubmitQuestion(event)">
   <input id="teacherQuestionInput" type="text" maxlength="700" autocomplete="off" placeholder="Ask about this lesson">
@@ -479,7 +491,7 @@ body.teacher-active{padding-bottom:280px}
  </form>
  <div class="teacher-transcript" id="teacherTranscript"></div>
  <div class="teacher-voice-status" id="teacherVoiceStatus"></div>
- <div class="teacher-disclosure">Teacher Mode only handles this language course. The teacher voice is AI-generated. Voice commands stay in this browser unless your browser service processes speech.</div>
+ <div class="teacher-disclosure">Mic is off by default. Audio is not stored by Lang5K. When you ask the AI teacher a question, your transcript plus lesson context may be sent to the AI teacher so it can guide you.</div>
 </div>
 
 <script src="languages/config.js"></script>
@@ -533,10 +545,12 @@ let teacherVoiceRequestId=0;
 let teacherVoiceSourceButton=null;
 let speechRate=0.85;
 let teacherModeEnabled=localStorage.getItem(storagePrefix+'teacher_mode')==='1';
+let teacherAutopilotEnabled=localStorage.getItem(storagePrefix+'teacher_autopilot')==='1';
 let teacherRecognition=null;
 let teacherListening=false;
 let teacherAiBusy=false;
 let teacherAttemptedRecallKey='';
+let teacherSpokenRecallAttempt={key:'',transcript:''};
 let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
@@ -820,6 +834,51 @@ function instructionButtonHTML(text,label='Hear Audio Instructions'){
  return `<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakInstruction('${escapeForHandler(text)}',this)">&#128266; ${escapeHtml(label)} <span class="ai-voice-label">AI voice</span></button>`;
 }
 
+function teacherStudyModeControlsHTML(){
+ const selfActive=!teacherAutopilotEnabled?' active':'';
+ const teacherActive=teacherAutopilotEnabled?' active':'';
+ return `<div class="teacher-mode-chooser">
+  <div><strong>Choose how to study</strong></div>
+  <div class="teacher-mode-options">
+   <button type="button" class="btn teacher-mode-option${selfActive}" onclick="teacherSetMode('self')">Self-guided</button>
+   <button type="button" class="btn teacher-mode-option${teacherActive}" onclick="teacherSetMode('autopilot')">AI Teacher Autopilot</button>
+  </div>
+  <div class="teacher-mode-detail">${teacherAutopilotEnabled?'<strong>AI Teacher Autopilot:</strong> the teacher speaks, chooses the next step, listens when you talk, and adapts to your ratings and weak cards.':'<strong>Self-guided:</strong> you control the cards. The app still schedules reviews, and the teacher stays available when you ask.'}</div>
+ </div>`;
+}
+
+function teacherLiveControlsHTML(){
+ return `<div class="teacher-live-controls">
+  <button type="button" class="btn btn-primary teacher-live-open" onclick="toggleTeacherMode(true);teacherGuide()">Open AI Teacher</button>
+  <button type="button" class="btn btn-secondary teacher-live-talk" onpointerdown="teacherHoldTalkStart(event)" onpointerup="teacherHoldTalkEnd(event)" onpointerleave="teacherHoldTalkEnd(event)" onpointercancel="teacherHoldTalkEnd(event)" onkeydown="teacherHoldTalkKeyDown(event)" onkeyup="teacherHoldTalkKeyUp(event)">&#127908; Hold to Talk</button>
+  <button type="button" class="btn btn-secondary" onclick="teacherFocusQuestion()">Ask Teacher</button>
+  <div class="teacher-live-note">Mic listens only while you press Hold to Talk. The teacher reads this card and your performance before guiding the next step.</div>
+ </div>`;
+}
+
+function refreshTeacherStudyModeControls(){
+ document.querySelectorAll('.teacher-mode-chooser').forEach(root=>{
+  root.outerHTML=teacherStudyModeControlsHTML();
+ });
+}
+
+function teacherSetMode(mode){
+ const autopilot=mode==='autopilot';
+ teacherAutopilotEnabled=autopilot;
+ localStorage.setItem(storagePrefix+'teacher_autopilot',autopilot?'1':'0');
+ refreshTeacherStudyModeControls();
+ if(autopilot){
+  toggleTeacherMode(true);
+  teacherSay('AI Teacher Autopilot is on. I will lead the lesson step by step, adapt the pace from your performance, and listen only when you press Talk.',{speak:true});
+  scheduleTeacherGuide(450);
+ } else {
+  stopTeacherListening();
+  teacherAutopilotEnabled=false;
+  localStorage.setItem(storagePrefix+'teacher_autopilot','0');
+  teacherSay('Self-guided mode is on. You control the cards. Ask me or press Talk whenever you want help.',{speak:false});
+ }
+}
+
 function teacherEls(){
  return {
    panel:document.getElementById('teacherPanel'),
@@ -832,13 +891,43 @@ function teacherEls(){
  };
 }
 
+function teacherFocusQuestion(){
+ if(!teacherModeEnabled)toggleTeacherMode(true);
+ const els=teacherEls();
+ if(els.input){
+  els.input.focus();
+  els.input.select();
+ }
+ teacherSay('Ask me what is difficult, say your recall, or press Talk and speak. I will guide only this language lesson.',{speak:false});
+}
+
+function teacherHoldTalkStart(event){
+ if(event)event.preventDefault();
+ if(!teacherListening)teacherListenToggle();
+}
+
+function teacherHoldTalkEnd(event){
+ if(event)event.preventDefault();
+ if(teacherListening)stopTeacherListening();
+}
+
+function teacherHoldTalkKeyDown(event){
+ if(event.key!==' '&&event.key!=='Enter')return;
+ teacherHoldTalkStart(event);
+}
+
+function teacherHoldTalkKeyUp(event){
+ if(event.key!==' '&&event.key!=='Enter')return;
+ teacherHoldTalkEnd(event);
+}
+
 function initializeTeacherMode(){
  const els=teacherEls();
  document.body.classList.toggle('teacher-active',teacherModeEnabled);
  if(els.panel)els.panel.classList.toggle('active',teacherModeEnabled);
  if(els.toggle){
   els.toggle.classList.toggle('active',teacherModeEnabled);
-  els.toggle.textContent=teacherModeEnabled?'Teacher On':'Teacher';
+  els.toggle.textContent=teacherModeEnabled?'AI Teacher On':'AI Teacher';
   els.toggle.setAttribute('aria-pressed',teacherModeEnabled?'true':'false');
  }
  if(teacherModeEnabled)teacherSay('Teacher Mode is on. I can guide the next best step, play the target sentence, reveal answers, and help you rate honestly.',{speak:false});
@@ -853,7 +942,7 @@ function toggleTeacherMode(force){
  if(els.panel)els.panel.classList.toggle('active',next);
  if(els.toggle){
   els.toggle.classList.toggle('active',next);
-  els.toggle.textContent=next?'Teacher On':'Teacher';
+  els.toggle.textContent=next?'AI Teacher On':'AI Teacher';
   els.toggle.setAttribute('aria-pressed',next?'true':'false');
  }
  if(!next){
@@ -863,7 +952,8 @@ function toggleTeacherMode(force){
   return;
  }
  trackAnalytics('teacher_mode',{enabled:true});
- teacherGuide();
+ if(teacherAutopilotEnabled)teacherGuide();
+ else teacherSay('AI Teacher is open. Stay self-guided, or choose AI Teacher Autopilot when you want me to lead the lesson.',{speak:false});
 }
 
 function teacherSay(text,{speak=true}={}){
@@ -873,7 +963,7 @@ function teacherSay(text,{speak=true}={}){
 }
 
 function scheduleTeacherGuide(delay=250){
- setTimeout(()=>{if(teacherModeEnabled)teacherGuide()},delay);
+ setTimeout(()=>{if(teacherModeEnabled&&teacherAutopilotEnabled)teacherGuide()},delay);
 }
 
 function teacherCurrentItem(){
@@ -900,6 +990,12 @@ function teacherAttemptKey(){
  return `${currentMode}:none`;
 }
 
+function teacherAttemptBaseKey(){
+ const current=teacherCurrentItem();
+ if(current)return `${current.kind}:${current.idx}:${studyIndex}`;
+ return `${currentMode}:none`;
+}
+
 function teacherTypedRecallAttempt(){
  const current=teacherCurrentItem();
  const id=current?.kind==='cloze'?'clozeInput':current?.kind==='dictation'?'dictationInput':current?.kind==='study'?'studyInput':'';
@@ -909,16 +1005,27 @@ function teacherTypedRecallAttempt(){
 }
 
 function teacherHasRecallAttempt(){
- return teacherTypedRecallAttempt()||teacherAttemptedRecallKey===teacherAttemptKey();
+ return teacherTypedRecallAttempt()||teacherAttemptedRecallKey===teacherAttemptKey()||Boolean(teacherSpokenRecallText());
 }
 
-function teacherMarkRecallAttempted(){
- teacherAttemptedRecallKey=teacherAttemptKey();
+function teacherSpokenRecallText(){
+ return teacherSpokenRecallAttempt.key===teacherAttemptBaseKey()?teacherSpokenRecallAttempt.transcript:'';
+}
+
+function teacherMarkRecallAttempted(transcript=''){
+ const key=teacherAttemptKey();
+  teacherAttemptedRecallKey=key;
+ const clean=String(transcript||'').trim();
+ if(clean)teacherSpokenRecallAttempt={key:teacherAttemptBaseKey(),transcript:clean};
 }
 
 function teacherRequireRecallAttempt(){
  if(!teacherModeEnabled)return true;
  if(teacherHasRecallAttempt())return true;
+ if(teacherAutopilotEnabled){
+  teacherSay('In AI Teacher Autopilot, give me a real attempt first: type what you remember, press Talk and say it, or choose skip after you have tried. I will not reveal just from a fake "I tried".');
+  return false;
+ }
  teacherSay('Try recall first. Say the Russian quietly, type what you remember, or tell me "I tried" before I reveal the answer.');
  return false;
 }
@@ -1276,6 +1383,9 @@ function teacherAiContext(){
   studyActive:studyViewActive,
   revealed:studyRevealed||Boolean(clozeCurrent?.revealed)||Boolean(dictationCurrent?.revealed),
   recallAttempted:teacherHasRecallAttempt(),
+  teacherMode:teacherAutopilotEnabled?'autopilot':'self-guided',
+  teacherAutopilotEnabled,
+  spokenRecallAttempt:teacherSpokenRecallText(),
   coachFirst:isCoachFirstMode(),
   difficulty,
   plan,
@@ -1302,6 +1412,9 @@ function setTeacherAiBusy(busy){
   els.ask.textContent=busy?'Thinking':'Ask';
  }
  if(els.talk)els.talk.disabled=busy&&teacherListening;
+ document.querySelectorAll('.teacher-live-talk').forEach(button=>{
+  button.disabled=busy&&teacherListening;
+ });
 }
 
 async function teacherAskAi(message,{source='typed'}={}){
@@ -1322,7 +1435,7 @@ async function teacherAskAi(message,{source='typed'}={}){
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
   teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false});
-  if(data.action&&data.action!=='none')setTimeout(()=>applyTeacherAiAction(data.action),250);
+  if(teacherAutopilotEnabled&&data.action&&data.action!=='none')setTimeout(()=>applyTeacherAiAction(data.action),250);
  }catch(error){
   const fallbackUsed=teacherAnswerMappedQuestion(clean.toLowerCase());
   if(!fallbackUsed)teacherSay(error.message||'AI teacher is temporarily unavailable. I can still guide you with the buttons.');
@@ -1358,6 +1471,7 @@ function safeTeacherReveal(){
 }
 
 function applyTeacherAiAction(action){
+ if(!teacherAutopilotEnabled)return;
  if(!action||action==='none')return;
  if(action==='guide'){teacherGuide();return}
  if(action==='do_next'){teacherDoNext();return}
@@ -1541,6 +1655,21 @@ function teacherCommandHasRating(text,rating){
  return !negated&&new RegExp(`\\b${rating}\\b`).test(text);
 }
 
+function teacherInRecallWindow(){
+ if(studyViewActive&&!studyRevealed&&!document.querySelector('button[onclick="showNewRecallCard()"]'))return true;
+ if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed)return true;
+ if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed)return true;
+ return false;
+}
+
+function teacherVoiceLooksLikeRecallAttempt(text){
+ if(!teacherInRecallWindow())return false;
+ if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text))return false;
+ if(/\b(weather|news|politic|recipe|joke|money|stock|medical|doctor|lawyer|movie|music)\b/.test(text))return false;
+ if(/\b(where|why|what now|what should|what do i do|should i do now|next step|explain|should i|can i|do you think|am i|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|say it|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
+ return text.length>=2;
+}
+
 function teacherCommand(raw){
  const transcript=String(raw||'').trim();
  const text=transcript.toLowerCase();
@@ -1575,7 +1704,16 @@ function teacherCommand(raw){
  if(/\b(start|begin|lesson|study)\b/.test(text)){teacherDoNext();return}
  if(/\b(next|continue|move on)\b/.test(text)){teacherDoNext();return}
  if(/\b(play|listen|repeat|audio|say it)\b/.test(text)){teacherPlayTarget();return}
+ if(teacherVoiceLooksLikeRecallAttempt(text)){
+  teacherMarkRecallAttempted(transcript);
+  teacherSay(`Heard: "${transcript}". Now reveal the answer and compare, or say reveal.`);
+  return;
+ }
  if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text)){
+  if(teacherAutopilotEnabled&&!teacherHasRecallAttempt()){
+   teacherSay('I need a real attempt in Autopilot. Type what you remember or press Talk and say the Russian you can produce. Then I can reveal and help you rate.');
+   return;
+  }
   if(studyViewActive&&!studyRevealed){
    if(document.querySelector('button[onclick="showNewRecallCard()"]')){teacherDoNext();return}
    teacherMarkRecallAttempted();
@@ -1619,7 +1757,12 @@ function teacherCommand(raw){
 function stopTeacherListening(){
  teacherListening=false;
  const els=teacherEls();
- if(els.talk)els.talk.textContent='Talk';
+ if(els.talk)els.talk.textContent='Hold to Talk';
+ document.querySelectorAll('.teacher-live-talk').forEach(button=>{
+  button.innerHTML='&#127908; Hold to Talk';
+  button.classList.remove('active');
+  button.disabled=false;
+ });
  if(teacherRecognition){
   try{teacherRecognition.stop()}catch(_){}
   teacherRecognition=null;
@@ -1638,7 +1781,7 @@ function teacherListenToggle(){
   return;
  }
  teacherRecognition=new SpeechRecognition();
- teacherRecognition.lang='en-US';
+ teacherRecognition.lang=teacherInRecallWindow()?'ru-RU':'en-US';
  teacherRecognition.interimResults=false;
  teacherRecognition.maxAlternatives=1;
  teacherRecognition.onresult=event=>teacherCommand(event.results?.[0]?.[0]?.transcript||'');
@@ -1647,6 +1790,11 @@ function teacherListenToggle(){
  teacherListening=true;
  const els=teacherEls();
  if(els.talk)els.talk.textContent='Listening';
+ document.querySelectorAll('.teacher-live-talk').forEach(button=>{
+  button.textContent='Listening...';
+  button.classList.add('active');
+ });
+ setTeacherVoiceStatus('Listening. Ask a question, say your recall, or say Again, Hard, Good, or Easy.');
  teacherRecognition.start();
 }
 
@@ -1975,9 +2123,11 @@ function renderTodayPlanHome(){
    </div>
   <div class="hero-actions" style="justify-content:flex-start">
    <button class="btn btn-primary" onclick="${primaryAction.action}">${primaryAction.label}</button>
-   ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear how to use it')}
+   ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear AI voice guide')}
    ${coachFirst?'':`<button class="btn btn-secondary" onclick="showBrowseView()">Browse all sentences</button>`}
   </div>
+  ${teacherStudyModeControlsHTML()}
+  ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
    <div class="today-plan-note">${plan.dueCount===0&&plan.newPlanned===0?'Done for now. Next review: '+escapeHtml(formatPlanDate(plan.nextReviewDate))+'.':coachFirst?'Your first session should stay inside Study. After that, Lang5K unlocks the extra tools on this device.':'If today feels heavy, finish the guided lesson first and leave the extra drills for later.'}</div>
   </div>`;
 }
@@ -3068,10 +3218,14 @@ function showStudyStart(){
    <div class="study-subtitle">${escapeHtml(LANG.name)} &middot; Listen, recall, reveal, rate. Lang5K schedules the next review automatically.</div>
    ${accessLine}
    ${startAction}
+   ${teacherStudyModeControlsHTML()}
    <div class="study-help-strip">
-    <strong>How to use it</strong>
-    Start the guided lesson. Recall before reveal, rate honestly, and let Lang5K choose the next review.
-    ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear lesson guide')}
+   <strong>How to use it</strong>
+   Start the guided lesson. Recall before reveal, rate honestly, and let Lang5K choose the next review.
+    <div class="study-help-actions">
+     ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear AI voice guide')}
+     ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
+    </div>
    </div>
    <div class="study-stats-row">
     <div class="study-stat"><div class="stat-num orange">${due.length}</div><div class="stat-label">Reviews Due</div></div>
@@ -3086,7 +3240,7 @@ function showStudyStart(){
     </div>
    </div>
    <div class="study-protocol">
-    <div class="study-protocol-title">Autopilot study order</div>
+    <div class="study-protocol-title">Lang5K study order</div>
    <ol>
      <li>Reviews due come first, because spaced retrieval protects memory.</li>
      <li>New sentences come from a curated daily-life path that pushes rougher or harsher sentences later.</li>
@@ -3175,10 +3329,11 @@ function showStudyCard(){
   const instruction='Step one: read the English meaning. Step two: play the Russian audio. Step three: say the Russian sentence once. Then continue to the memory test.';
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
-    <span class="study-card-label new">NEW SENTENCE</span>
-    <div class="study-prompt">Step 1: read the meaning. Step 2: play the audio. Step 3: say the Russian sentence once. Then continue to the memory test.</div>
-    ${instructionButtonHTML(instruction)}
-    <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:12px">${escapeHtml(s[2])}</div>
+   <span class="study-card-label new">NEW SENTENCE</span>
+   <div class="study-prompt">Step 1: read the meaning. Step 2: play the audio. Step 3: say the Russian sentence once. Then continue to the memory test.</div>
+   ${instructionButtonHTML(instruction)}
+   ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
+   <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:12px">${escapeHtml(s[2])}</div>
     <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="margin-bottom:6px">${escapeHtml(s[0])}</div>
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${escapeHtml(s[1])}</div>
     <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="width:48px;height:48px;font-size:1.3rem;margin:0 auto 16px;display:flex">&#128264;</button>
@@ -3201,10 +3356,11 @@ function showStudyCard(){
      <strong>Your task</strong>
      <ul>
       <li>This is English. Try to remember the Russian translation.</li>
-      <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-      <li>This recall is self-checked. Teacher Mode voice commands are optional.</li>
+     <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
+     <li>Use Talk to Teacher if you want the AI teacher to hear your recall or question.</li>
     </ul>
     ${instructionButtonHTML(instruction)}
+    ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
    </div>
    <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type Russian or transliteration" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
     <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
@@ -3235,10 +3391,11 @@ function showNewRecallCard(){
     <strong>Your task</strong>
     <ul>
      <li>This is English. Try to remember the Russian translation you just heard.</li>
-     <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-     <li>This recall is self-checked. Teacher Mode voice commands are optional.</li>
+    <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
+    <li>Use Talk to Teacher if you want the AI teacher to hear your recall or question.</li>
    </ul>
    ${instructionButtonHTML(instruction)}
+   ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
   </div>
   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type Russian or transliteration" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
   <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
@@ -3260,7 +3417,9 @@ function revealStudyCard(){
  const isDelayed=Boolean(item.sessionDelayed);
  const srsInfo=srsData[item.idx]||{box:isNew?0:1};
  const typedAnswer=(document.getElementById('studyInput')||{}).value||'';
- const analysis=analyzeAttempt(typedAnswer,s[0],s[1]);
+ const spokenAnswer=teacherSpokenRecallText();
+ const attemptedAnswer=typedAnswer.trim()?typedAnswer:spokenAnswer;
+ const analysis=analyzeAttempt(attemptedAnswer,s[0],s[1]);
  if(isNew && analysis && analysis.rating==='easy'){
   analysis.rating='good';
   analysis.summary='Strong first recall. Count it as Good so the sentence stays close.';
@@ -3274,6 +3433,7 @@ function revealStudyCard(){
  // Compare typed answer
  let typedHTML='';
  if(typedAnswer.trim())typedHTML=attemptFeedbackHTML(typedAnswer,analysis);
+ else if(spokenAnswer.trim())typedHTML=attemptFeedbackHTML(spokenAnswer,analysis,'Heard');
  else typedHTML=buildSelfCheckRubric('study',s[0],isNew);
 
  document.getElementById('studyContent').innerHTML=`
@@ -3283,7 +3443,8 @@ function revealStudyCard(){
    <div class="study-answer-section">
     <div class="study-prompt">${isNew?'Step 3: compare your recall, listen again, then rate it.':'Step 2: listen, compare, then rate your memory.'}</div>
     ${instructionButtonHTML(instruction)}
-    <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})">${escapeHtml(s[0])}</div>
+    ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
+   <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})">${escapeHtml(s[0])}</div>
     <div class="study-translit">${escapeHtml(s[1])}</div>
     <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
     ${shadowToolsHTML()}
@@ -3652,7 +3813,7 @@ function analyzeAttempt(typed,target,translit=''){
  return { exact, overlap, missing, extra, rating, state, summary, checkedAs:useTranslit?'transliteration':'Russian' };
 }
 
-function attemptFeedbackHTML(typedText,analysis){
+function attemptFeedbackHTML(typedText,analysis,label='Your answer'){
  if(!analysis)return '';
  const detail=[];
  detail.push(`<strong>Auto-check</strong> ${escapeHtml(analysis.summary)}`);
@@ -3660,7 +3821,7 @@ function attemptFeedbackHTML(typedText,analysis){
  if(analysis.missing.length)detail.push(`Missing: ${escapeHtml(analysis.missing.slice(0,4).join(', '))}`);
  if(analysis.extra.length)detail.push(`Extra or off-target: ${escapeHtml(analysis.extra.slice(0,4).join(', '))}`);
  detail.push(`Suggested rating: ${escapeHtml(analysis.rating.charAt(0).toUpperCase()+analysis.rating.slice(1))}`);
- return `<div class="study-typed-answer ${analysis.state}">Your answer: ${escapeHtml(typedText)}<div class="study-feedback-detail">${detail.join('<br>')}</div></div>`;
+ return `<div class="study-typed-answer ${analysis.state}">${escapeHtml(label)}: ${escapeHtml(typedText)}<div class="study-feedback-detail">${detail.join('<br>')}</div></div>`;
 }
 
 function buildSelfCheckRubric(kind,target,isNew){
@@ -3765,6 +3926,11 @@ function buildPracticeRevealFeedback(mode,target,typed){
   const analysis=analyzeAttempt(typed,target);
   return attemptFeedbackHTML(typed,analysis);
  }
+ const spoken=teacherSpokenRecallText();
+ if(spoken.trim()){
+  const analysis=analyzeAttempt(spoken,target);
+  return attemptFeedbackHTML(spoken,analysis,'Heard');
+ }
  return buildSelfCheckRubric(mode,target,false);
 }
 
@@ -3784,6 +3950,7 @@ function renderClozeCard(){
  const s=SENTENCES[idx];
  practiceRatingLocked=false;
  teacherAttemptedRecallKey='';
+ teacherSpokenRecallAttempt={key:'',transcript:''};
  if(!s){
   document.getElementById('clozeContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
   return;
@@ -3801,7 +3968,7 @@ function renderClozeCard(){
    <p>Use the English meaning and the sentence pattern. This trains retrieval better than passive reading.</p>
    ${carryHTML}
    <div class="practice-hint"><strong>Why this now</strong>${escapeHtml(reasonText)} Cloze narrows the task to one missing word before the full sentence.</div>
-   <div class="practice-hint"><strong>Your task</strong>Think of the missing Russian word. Type it if you can, or say it to yourself and use Show answer to self-check.${instructionButtonHTML(instruction)}</div>
+   <div class="practice-hint"><strong>Your task</strong>Think of the missing Russian word. Type it if you can, or say it to yourself and use Show answer to self-check.${instructionButtonHTML(instruction)}${teacherAutopilotEnabled?teacherLiveControlsHTML():''}</div>
    <div class="practice-english">${escapeHtml(s[2])}</div>
    <div class="practice-target">${cloze.prompt}</div>
    <input class="practice-input" id="clozeInput" placeholder="Optional: type the missing Russian word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
@@ -3849,6 +4016,7 @@ function renderDictationCard(){
  const s=SENTENCES[idx];
  practiceRatingLocked=false;
  teacherAttemptedRecallKey='';
+ teacherSpokenRecallAttempt={key:'',transcript:''};
  if(!s){
   document.getElementById('dictationContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
   return;
@@ -3865,7 +4033,7 @@ function renderDictationCard(){
    <p>Listen first, try to catch the Russian sentence, then reveal and rate it.</p>
    ${carryHTML}
    <div class="practice-hint"><strong>Why this now</strong>${escapeHtml(reasonText)} Dictation turns that sentence into a stricter listening-and-recall check.</div>
-   <div class="practice-hint"><strong>Your task</strong>Type the Russian if you can. If you do not have a Cyrillic keyboard yet, repeat what you hear quietly, then use Show answer to self-check.${instructionButtonHTML(instruction)}</div>
+   <div class="practice-hint"><strong>Your task</strong>Type the Russian if you can. If you do not have a Cyrillic keyboard yet, repeat what you hear quietly, then use Show answer to self-check.${instructionButtonHTML(instruction)}${teacherAutopilotEnabled?teacherLiveControlsHTML():''}</div>
    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${idx})" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
    <input class="practice-input" id="dictationInput" placeholder="Optional: type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
    <div class="practice-actions">

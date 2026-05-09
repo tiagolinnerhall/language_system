@@ -18,6 +18,9 @@ mustInclude('teacher-chat', chat, 'LANG5K_TEACHER_FAST_MODEL');
 mustInclude('teacher-chat', chat, 'LANG5K_TEACHER_PREMIUM_MODEL');
 mustInclude('teacher-chat', chat, 'typedAttempt');
 mustInclude('teacher-chat', chat, 'Sense difficulty.');
+mustInclude('teacher-chat', chat, 'spokenRecallAttempt');
+mustInclude('teacher-chat', chat, 'language, or language-learning question');
+mustInclude('teacher-chat', chat, 'function isOutOfScopeMessage(message)');
 mustInclude('teacher-chat', chat, 'modelTier');
 
 mustInclude('app.html', app, 'function teacherCurrentAttemptAnalysis()');

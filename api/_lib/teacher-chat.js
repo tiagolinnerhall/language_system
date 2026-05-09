@@ -96,9 +96,12 @@ function sanitizeContext(value) {
     mode: text(ctx.mode, 40),
     screen: text(ctx.screen, 700),
     courseAccess: text(ctx.courseAccess, 40),
+    teacherMode: text(ctx.teacherMode, 40),
+    teacherAutopilotEnabled: bool(ctx.teacherAutopilotEnabled),
     studyActive: bool(ctx.studyActive),
     revealed: bool(ctx.revealed),
     recallAttempted: bool(ctx.recallAttempted),
+    spokenRecallAttempt: text(ctx.spokenRecallAttempt, 260),
     coachFirst: bool(ctx.coachFirst),
     difficulty: {
       level: text(ctx.difficulty?.level, 40),
@@ -166,8 +169,11 @@ function systemPrompt() {
     'You are the Lang5K AI Teacher for the Russian course.',
     'Your only job is to help the student learn Russian inside Lang5K as fast as practical.',
     'You know the app map: Home explains the method; Study is the main guided path; Browse is manual search after guided work; Review Bin repairs weak sentences; Cloze drills one missing word; Dictation checks listening; Pricing, Checkout, Access, Contact, Attribution, Terms, Privacy, and Refunds are separate pages.',
+    'Answer only a Russian, language, or language-learning question, or a Lang5K navigation/workflow question. Refuse everything else briefly and return focus "scope".',
     'Method: prioritize due spaced reviews, weak repair, then new sentences. Use active recall before reveal, delayed recall, honest self-rating, cloze, dictation, and daily limits. Never encourage passive browsing as the main path.',
     'Use the supplied student performance, typed attempt analysis, due reviews, weak cards, lapses, current screen, and current sentence. Be specific and decisive.',
+    'If context.teacherMode is self-guided, answer and advise but do not request automatic actions unless the student clearly asks for an action. If context.teacherAutopilotEnabled is true, you may choose the next safe study action.',
+    'Use spokenRecallAttempt when present as the student spoken recall transcript. Treat it as imperfect browser transcription, compare it gently to the current target, and prefer honest recall quality over speed.',
     'Sense difficulty. If accuracy is low, weak cards are high, lapses are repeated, or the typed attempt is partial/wrong, slow the pace, repair one sentence, and block extra new material.',
     'If the student is doing well, keep momentum but still prefer recall quality over speed. The easiest fast path is not more content; it is the right next recall at the right time.',
     'Stay lesson-only. If the user asks unrelated questions, politely refuse and redirect to Russian learning or Lang5K navigation.',
@@ -242,6 +248,28 @@ function normalizeReply(value) {
     ? value.focus
     : 'study';
   return { reply, action, speak: value?.speak !== false, difficulty, focus };
+}
+
+function isLanguageScopeMessage(message) {
+  const textMessage = String(message || '').toLowerCase();
+  return /\b(russian|language|languages|word|words|sentence|phrase|grammar|case|ending|conjugat|declension|pronoun|verb|noun|adjective|pronunciation|accent|spell|spelling|meaning|translate|translation|translit|cyrillic|vocabulary|lesson|card|review|cloze|dictation|audio|listen|speak|recall|remember|memor|study|learn|fluency|practice|answer|mistake|wrong|correct|why|how do i say|what does)\b/.test(textMessage);
+}
+
+function isOutOfScopeMessage(message) {
+  const textMessage = String(message || '').toLowerCase();
+  const offTopic = /\b(weather|news|politic|recipe|joke|money|stock|crypto|medical|doctor|lawyer|legal|movie|music|dating|sports|shopping|travel booking|code|programming)\b/.test(textMessage);
+  return offTopic && !isLanguageScopeMessage(textMessage);
+}
+
+function scopeReply() {
+  return {
+    reply: 'I can only help with Russian, language-learning questions, this lesson, and Lang5K navigation. Ask me about spelling, pronunciation, meaning, grammar, recall, reviews, or what to study next.',
+    action: 'none',
+    speak: true,
+    difficulty: 'normal',
+    focus: 'scope',
+    modelTier: 'scope'
+  };
 }
 
 async function fetchWithTimeout(url, options, timeoutMs = 12000) {
@@ -369,6 +397,10 @@ module.exports = async function handler(req, res) {
       return;
     }
     const context = sanitizeContext(body.context);
+    if (isOutOfScopeMessage(message)) {
+      res.status(200).json({ ok: true, ...scopeReply() });
+      return;
+    }
     const answer = await askOpenAi(message, context);
     res.status(200).json({ ok: true, ...answer });
   } catch (error) {

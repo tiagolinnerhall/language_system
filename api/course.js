@@ -1,12 +1,23 @@
 const { verifyAccessToken } = require('./_lib/access');
 const { loadCuratedRussianCourse } = require('./_lib/course-data');
 const { noStore, tokenFromRequest } = require('./_lib/http');
+const { hasPreviewSession } = require('./_lib/preview');
 const { getEntitlement } = require('./_lib/store');
 const { isCheckoutSessionPaid, retrieveCheckoutSession, validateLang5KCheckoutSession } = require('./_lib/stripe');
 const handleTeacherChat = require('./_lib/teacher-chat');
 const handleTeacherVoice = require('./_lib/teacher-voice');
 
 const DEMO_LIMIT = 80;
+
+function sendFullCourse(res, rows) {
+  res.status(200).json({
+    language: 'russian',
+    mode: 'full',
+    total: rows.length,
+    limit: rows.length,
+    sentences: rows
+  });
+}
 
 module.exports = async function handler(req, res) {
   if (req.query.voice === 'teacher') {
@@ -23,6 +34,12 @@ module.exports = async function handler(req, res) {
   }
 
   const rows = loadCuratedRussianCourse();
+  if (hasPreviewSession(req)) {
+    noStore(res);
+    sendFullCourse(res, rows);
+    return;
+  }
+
   if (mode !== 'full') {
     res.status(200).json({
       language: 'russian',
@@ -47,26 +64,14 @@ module.exports = async function handler(req, res) {
     if (payload.email) {
       const entitlement = await getEntitlement(payload.email);
       if (entitlement && entitlement.status === 'active' && entitlement.product === 'russian') {
-        res.status(200).json({
-          language: 'russian',
-          mode: 'full',
-          total: rows.length,
-          limit: rows.length,
-          sentences: rows
-        });
+        sendFullCourse(res, rows);
         return;
       }
     }
     if (payload.session) {
       const session = await retrieveCheckoutSession(payload.session);
       if (await validateLang5KCheckoutSession(session) && isCheckoutSessionPaid(session)) {
-        res.status(200).json({
-          language: 'russian',
-          mode: 'full',
-          total: rows.length,
-          limit: rows.length,
-          sentences: rows
-        });
+        sendFullCourse(res, rows);
         return;
       }
     }
