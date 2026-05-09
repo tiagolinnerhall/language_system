@@ -40,6 +40,10 @@
   },
   "routes": [
     {
+      "src": "^/api/teacher-voice$",
+      "dest": "/api/course?voice=teacher"
+    },
+    {
       "src": "^/$",
       "dest": "/api/preview-page?file=index.html"
     },

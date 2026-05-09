@@ -1,8 +1,8 @@
 const crypto = require('crypto');
-const { verifyAccessToken } = require('./_lib/access');
-const { accountTokenFromRequest, clientIp, cookieValue, noStore, readJsonBody, tokenFromRequest } = require('./_lib/http');
-const { hasPreviewSession, SESSION_COOKIE } = require('./_lib/preview');
-const { checkRateLimit, getEntitlement } = require('./_lib/store');
+const { verifyAccessToken } = require('./access');
+const { accountTokenFromRequest, clientIp, cookieValue, noStore, readJsonBody, tokenFromRequest } = require('./http');
+const { hasPreviewSession, SESSION_COOKIE } = require('./preview');
+const { checkRateLimit, getEntitlement } = require('./store');
 
 const OPENAI_SPEECH_URL = 'https://api.openai.com/v1/audio/speech';
 const PROVIDER_TIMEOUT_MS = 9000;

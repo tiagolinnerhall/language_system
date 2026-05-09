@@ -42,7 +42,7 @@ const access = read('access.html');
 const previewPageApi = read('api/preview-page.js');
 const previewLoginApi = read('api/admin-preview-login.js');
 const adminReportApi = read('api/admin-report.js');
-const teacherVoiceApi = read('api/teacher-voice.js');
+const teacherVoiceApi = read('api/_lib/teacher-voice.js');
 const vercelConfig = read('vercel.json');
 const robots = read('robots.txt');
 const sitemap = read('sitemap.xml');
@@ -150,13 +150,14 @@ assertIncludes('sitemap.xml', sitemap, 'https://www.lang5k.com/attribution.html'
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_PUBLIC_BASE_URL');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'R2_ENDPOINT');
 assertIncludes('docs/audio-r2-setup.md', r2Docs, 'ELEVENLABS_API_KEY');
-assertIncludes('api/teacher-voice.js', teacherVoiceApi, 'gpt-4o-mini-tts');
-assertIncludes('api/teacher-voice.js', teacherVoiceApi, 'ELEVENLABS_VOICE_ID');
-assertIncludes('api/teacher-voice.js', teacherVoiceApi, 'VOICE_MESSAGES');
-assertIncludes('api/teacher-voice.js', teacherVoiceApi, 'textFromMessageKey');
-assertIncludes('api/teacher-voice.js', teacherVoiceApi, 'teacher_start_plan');
-assertIncludes('api/teacher-voice.js', teacherVoiceApi, 'teacher_voice:day:');
-assertIncludes('api/teacher-voice.js', teacherVoiceApi, 'checkRateLimit');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'gpt-4o-mini-tts');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'ELEVENLABS_VOICE_ID');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'VOICE_MESSAGES');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'textFromMessageKey');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'teacher_start_plan');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'teacher_voice:day:');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'checkRateLimit');
+assertIncludes('vercel.json', vercelConfig, '^/api/teacher-voice$');
 assertIncludes('vercel.json', vercelConfig, "media-src 'self' blob:");
 
 for (const page of publicPages) {
