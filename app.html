@@ -318,7 +318,7 @@ body.study-advance-lock .header,body.study-advance-lock .study-view,body.study-a
 .self-check-list li{margin:4px 0}
 .teacher-toggle{font-weight:800}
 .teacher-toggle.active{background:var(--green);color:#fff}
-body.teacher-active{padding-bottom:220px}
+body.teacher-active{padding-bottom:280px}
 .teacher-panel{position:fixed;right:20px;bottom:20px;width:min(390px,calc(100vw - 32px));max-height:min(70vh,520px);overflow:auto;z-index:250;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 40px rgba(15,23,42,.22);padding:16px;display:none;color:var(--text)}
 .teacher-panel.active{display:block}
 .teacher-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
@@ -328,12 +328,16 @@ body.teacher-active{padding-bottom:220px}
 .teacher-message{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text2);font-size:.92rem;line-height:1.45;margin-bottom:12px}
 .teacher-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
 .teacher-actions .btn{justify-content:center;padding:9px 10px;font-size:.8rem}
+.teacher-chat{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}
+.teacher-chat input{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);padding:10px 11px;font:inherit;font-size:.86rem}
+.teacher-chat input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.teacher-chat .btn{padding:9px 12px;font-size:.8rem}
 .teacher-transcript{min-height:18px;font-size:.82rem;color:var(--text3);margin-bottom:8px}
 .teacher-voice-status{min-height:16px;font-size:.74rem;color:var(--text3);margin-bottom:6px}
 .teacher-disclosure{font-size:.72rem;color:var(--text3);line-height:1.35}
 .ai-voice-label{display:inline-flex;margin-left:6px;padding:1px 6px;border-radius:999px;border:1px solid var(--border);font-size:.68rem;font-weight:800;letter-spacing:0;color:var(--text3);background:var(--bg)}
 .audio-instructions-btn.voice-loading{opacity:.75;cursor:wait}
-@media(max-width:640px){body.teacher-active{padding-bottom:360px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:54vh}.teacher-actions{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}}
+@media(max-width:640px){body.teacher-active{padding-bottom:410px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:58vh}.teacher-actions{grid-template-columns:1fr}.teacher-chat{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}}
 </style>
 </head>
 <body>
@@ -469,6 +473,10 @@ body.teacher-active{padding-bottom:220px}
   <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Do next</button>
   <button class="btn btn-secondary" id="teacherTalkBtn" type="button" onclick="teacherListenToggle()">Talk</button>
  </div>
+ <form class="teacher-chat" onsubmit="teacherSubmitQuestion(event)">
+  <input id="teacherQuestionInput" type="text" maxlength="700" autocomplete="off" placeholder="Ask about this lesson">
+  <button class="btn btn-secondary" id="teacherAskBtn" type="submit">Ask</button>
+ </form>
  <div class="teacher-transcript" id="teacherTranscript"></div>
  <div class="teacher-voice-status" id="teacherVoiceStatus"></div>
  <div class="teacher-disclosure">Teacher Mode only handles this language course. The teacher voice is AI-generated. Voice commands stay in this browser unless your browser service processes speech.</div>
@@ -527,6 +535,7 @@ let speechRate=0.85;
 let teacherModeEnabled=localStorage.getItem(storagePrefix+'teacher_mode')==='1';
 let teacherRecognition=null;
 let teacherListening=false;
+let teacherAiBusy=false;
 let teacherAttemptedRecallKey='';
 let selectedIdx=-1;
 let clozeCurrent=null;
@@ -813,11 +822,13 @@ function instructionButtonHTML(text,label='Hear Audio Instructions'){
 
 function teacherEls(){
  return {
-  panel:document.getElementById('teacherPanel'),
-  toggle:document.getElementById('teacherToggleBtn'),
-  message:document.getElementById('teacherMessage'),
-  transcript:document.getElementById('teacherTranscript'),
-  talk:document.getElementById('teacherTalkBtn')
+   panel:document.getElementById('teacherPanel'),
+   toggle:document.getElementById('teacherToggleBtn'),
+   message:document.getElementById('teacherMessage'),
+   transcript:document.getElementById('teacherTranscript'),
+   talk:document.getElementById('teacherTalkBtn'),
+   input:document.getElementById('teacherQuestionInput'),
+   ask:document.getElementById('teacherAskBtn')
  };
 }
 
@@ -1180,6 +1191,138 @@ function teacherAnswerMappedQuestion(text){
  return false;
 }
 
+function teacherAiContext(){
+ const current=teacherCurrentItem();
+ const plan=teacherRecommendedPlan();
+ const performance=teacherPerformanceProfile();
+ let currentPayload=null;
+ if(current){
+  const s=current.sentence;
+  const srs=srsData[current.idx]||{};
+  currentPayload={
+   kind:current.kind,
+   idx:current.idx,
+   type:current.item?.type||'',
+   sessionDelayed:Boolean(current.item?.sessionDelayed),
+   sessionRepair:Boolean(current.item?.sessionRepair),
+   sentence:{russian:s[0],translit:s[1],english:s[2]},
+   lastRating:srs.lastRating||'',
+   box:srs.box||0,
+   lapses:srs.lapses||0
+  };
+ }
+ return {
+  language:langKey,
+  mode:currentMode,
+  screen:teacherCurrentScreenAnswer(),
+  courseAccess:courseAccessMode,
+  studyActive:studyViewActive,
+  revealed:studyRevealed||Boolean(clozeCurrent?.revealed)||Boolean(dictationCurrent?.revealed),
+  recallAttempted:teacherHasRecallAttempt(),
+  coachFirst:isCoachFirstMode(),
+  plan,
+  performance,
+  current:currentPayload
+ };
+}
+
+function teacherSubmitQuestion(event){
+ if(event)event.preventDefault();
+ const els=teacherEls();
+ const value=(els.input?.value||'').trim();
+ if(!value)return;
+ if(els.input)els.input.value='';
+ teacherAskAi(value,{source:'typed'});
+}
+
+function setTeacherAiBusy(busy){
+ teacherAiBusy=busy;
+ const els=teacherEls();
+ if(els.ask){
+  els.ask.disabled=busy;
+  els.ask.textContent=busy?'Thinking':'Ask';
+ }
+ if(els.talk)els.talk.disabled=busy&&teacherListening;
+}
+
+async function teacherAskAi(message,{source='typed'}={}){
+ const clean=String(message||'').trim();
+ if(!clean){teacherGuide();return}
+ if(!teacherModeEnabled)toggleTeacherMode(true);
+ const els=teacherEls();
+ if(els.transcript)els.transcript.textContent=(source==='voice'?'You said: ':'You asked: ')+clean;
+ if(teacherAiBusy)return;
+ setTeacherAiBusy(true);
+ setTeacherVoiceStatus('Teacher is thinking...');
+ try{
+  const response=await fetch('/api/teacher-chat',{
+   method:'POST',
+   headers:{'content-type':'application/json'},
+   body:JSON.stringify({message:clean,context:teacherAiContext()})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
+  teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false});
+  if(data.action&&data.action!=='none')setTimeout(()=>applyTeacherAiAction(data.action),250);
+ }catch(error){
+  const fallbackUsed=teacherAnswerMappedQuestion(clean.toLowerCase());
+  if(!fallbackUsed)teacherSay(error.message||'AI teacher is temporarily unavailable. I can still guide you with the buttons.');
+ }finally{
+  setTeacherAiBusy(false);
+ }
+}
+
+function safeTeacherReveal(){
+ if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){
+  if(!teacherRequireRecallAttempt())return;
+  revealCloze();
+  scheduleTeacherGuide(250);
+  return;
+ }
+ if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){
+  if(!teacherRequireRecallAttempt())return;
+  revealDictation();
+  scheduleTeacherGuide(250);
+  return;
+ }
+ if(studyViewActive&&!studyRevealed){
+  if(document.querySelector('button[onclick="showNewRecallCard()"]')){
+   teacherSay('This first screen is for listening once. Press Next: test my memory before revealing.');
+   return;
+  }
+  if(!teacherRequireRecallAttempt())return;
+  revealStudyCard();
+  scheduleTeacherGuide(350);
+  return;
+ }
+ teacherGuide();
+}
+
+function applyTeacherAiAction(action){
+ if(!action||action==='none')return;
+ if(action==='guide'){teacherGuide();return}
+ if(action==='do_next'){teacherDoNext();return}
+ if(action==='play_target'){teacherPlayTarget();return}
+ if(action==='reveal'){safeTeacherReveal();return}
+ if(action==='rate_again'){teacherRate('again');return}
+ if(action==='rate_hard'){teacherRate('hard');return}
+ if(action==='rate_good'){teacherRate('good');return}
+ if(action==='rate_easy'){teacherRate('easy');return}
+ if(action==='open_study'){teacherOpenMode('study');return}
+ if(action==='open_browse'){teacherOpenMode('browse');return}
+ if(action==='open_review'){teacherOpenMode('review');return}
+ if(action==='open_cloze'){teacherOpenMode('cloze');return}
+ if(action==='open_dictation'){teacherOpenMode('dictation');return}
+ if(action==='open_pricing'){window.location.href='pricing.html';return}
+ if(action==='open_access'){window.location.href='access.html';return}
+ if(action==='open_contact'){window.location.href='contact.html';return}
+ const goal=String(action).match(/^set_goal_(5|10|15|20)$/);
+ if(goal){
+  setDailyGoal(Number(goal[1]));
+  scheduleTeacherGuide(250);
+ }
+}
+
 function teacherGuide(){
  if(!teacherModeEnabled)toggleTeacherMode(true);
  const plan=teacherRecommendedPlan();
@@ -1345,12 +1488,31 @@ function teacherCommand(raw){
  const els=teacherEls();
  if(els.transcript)els.transcript.textContent=transcript?'Voice command received.':'';
  if(!text){teacherGuide();return}
- if(teacherAnswerMappedQuestion(text))return;
  if(/\b(weather|news|politic|recipe|joke|money|stock|medical|doctor|lawyer|movie|music)\b/.test(text)){
   teacherSay('I can only help with this language course and Lang5K navigation. Ask me where to start, what this screen is, play audio, reveal, next, or rate the card.');
   return;
  }
- if(/\b(help|guide|what now|what should|explain)\b/.test(text)){teacherGuide();return}
+ if(/\b(where|how).*(start|begin)|\bstart.*where|\bfirst\b/.test(text)){
+  teacherAnswerMappedQuestion(text);
+  return;
+ }
+ if(/\bwhy this now|why now|why this card|why this sentence|why this drill\b/.test(text)){
+  teacherSay(teacherWhyThisNowAnswer());
+  return;
+ }
+ if(/\b(what now|what should|what do i do|should i do now|next step)\b/.test(text)){
+  teacherGuide();
+  return;
+ }
+ if(/\b(explain|why|where|how|should i|can i|do you think|am i)\b/.test(text)){teacherAskAi(transcript,{source:'voice'});return}
+ if(/\b(help|guide)\b/.test(text)){teacherGuide();return}
+ if(/\b(open|go to|take me|show me|visit)\b/.test(text)){
+  if(/\b(review bin|weak|review)\b/.test(text)){teacherOpenMode('review');return}
+  if(/\bbrowse\b/.test(text)){teacherOpenMode('browse');return}
+  if(/\bstudy\b/.test(text)){teacherOpenMode('study');return}
+  if(/\bcloze\b/.test(text)){teacherOpenMode('cloze');return}
+  if(/\bdictation\b/.test(text)){teacherOpenMode('dictation');return}
+ }
  if(/\b(start|begin|lesson|study)\b/.test(text)){teacherDoNext();return}
  if(/\b(next|continue|move on)\b/.test(text)){teacherDoNext();return}
  if(/\b(play|listen|repeat|audio|say it)\b/.test(text)){teacherPlayTarget();return}
@@ -1392,7 +1554,7 @@ function teacherCommand(raw){
  if(teacherCommandHasRating(text,'easy')){teacherRate('easy');return}
  if(/\bcloze\b/.test(text)){teacherOpenMode('cloze');return}
  if(/\bdictation\b/.test(text)){teacherOpenMode('dictation');return}
- teacherSay('I did not understand that lesson command. Try: guide me, play audio, reveal, next, again, hard, good, or easy.');
+ teacherAskAi(transcript,{source:'voice'});
 }
 
 function stopTeacherListening(){

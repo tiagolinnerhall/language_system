@@ -3,6 +3,7 @@ const { loadCuratedRussianCourse } = require('./_lib/course-data');
 const { noStore, tokenFromRequest } = require('./_lib/http');
 const { getEntitlement } = require('./_lib/store');
 const { isCheckoutSessionPaid, retrieveCheckoutSession, validateLang5KCheckoutSession } = require('./_lib/stripe');
+const handleTeacherChat = require('./_lib/teacher-chat');
 const handleTeacherVoice = require('./_lib/teacher-voice');
 
 const DEMO_LIMIT = 80;
@@ -10,6 +11,9 @@ const DEMO_LIMIT = 80;
 module.exports = async function handler(req, res) {
   if (req.query.voice === 'teacher') {
     return handleTeacherVoice(req, res);
+  }
+  if (req.query.teacher === 'chat') {
+    return handleTeacherChat(req, res);
   }
   const lang = req.query.lang || 'russian';
   const mode = req.query.mode || 'demo';

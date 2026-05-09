@@ -44,6 +44,10 @@
       "dest": "/api/course?voice=teacher"
     },
     {
+      "src": "^/api/teacher-chat$",
+      "dest": "/api/course?teacher=chat"
+    },
+    {
       "src": "^/$",
       "dest": "/api/preview-page?file=index.html"
     },
