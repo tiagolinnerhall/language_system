@@ -98,6 +98,8 @@ try {
   if (!/10\s+New Sentences/i.test(text.replace(/\s+/g, ' '))) {
     throw new Error(`Fresh guided lesson did not plan 10 new sentences. Saw: ${text}`);
   }
+  await page.getByRole('button', { name: 'Hear lesson guide' }).click();
+  await page.waitForTimeout(250);
   const translitCheck = await page.evaluate(() => {
     const analysis = eval('analyzeAttempt(SENTENCES[0][1], SENTENCES[0][0], SENTENCES[0][1])');
     return { rating: analysis?.rating, checkedAs: analysis?.checkedAs, state: analysis?.state };

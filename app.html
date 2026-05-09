@@ -55,6 +55,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .coach-step strong{display:block;color:#fff;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
 .coach-action{display:flex;flex-direction:column;gap:8px;align-items:stretch}
 .coach-action .btn{white-space:nowrap;justify-content:center}
+.coach-action .audio-instructions-btn{margin:0;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.16)}
+.coach-action .audio-instructions-btn:hover{background:#fff;color:#111827}
 .coach-secondary{font-size:.78rem;color:#cbd5e1;text-align:center}
 .btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-light)}
@@ -191,6 +193,9 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-time-est{font-size:.8rem;color:var(--text3);margin-top:10px}
 .study-access-line{margin:0 0 18px;padding:10px 12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:12px;font-size:.88rem}
 .study-access-line a{font-weight:800;color:#2563eb;text-decoration:none;margin-left:8px}
+.study-help-strip{margin:16px 0 18px;text-align:left;color:var(--text2);font-size:.88rem;line-height:1.45}
+.study-help-strip strong{display:block;color:var(--text);font-size:.94rem;margin-bottom:4px}
+.study-help-strip .audio-instructions-btn{margin:8px 0 0}
 .study-protocol{margin:0 auto 22px;text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px}
 .study-protocol-title{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px}
 .study-protocol ol{margin-left:18px;color:var(--text2);font-size:.88rem}
@@ -211,6 +216,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-instruction li{margin:4px 0}
 .audio-instructions-btn{margin:8px auto 14px;padding:8px 12px;font-size:.82rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px}
 .study-instruction .audio-instructions-btn,.practice-hint .audio-instructions-btn{margin:10px 0 0;display:flex;width:max-content;max-width:100%}
+.hero-actions .audio-instructions-btn{margin:0}
 .study-type-input{width:100%;padding:14px 18px;border:2px solid var(--border);border-radius:12px;font-size:1.1rem;background:var(--bg);color:var(--text);outline:none;transition:border .2s;font-family:inherit}
 .study-type-input:focus{border-color:var(--primary)}
 .study-type-input::placeholder{color:var(--text3)}
@@ -370,6 +376,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
    </div>
    <div class="coach-action">
     <button class="btn btn-primary" onclick="startStudyView()">Start guided lesson</button>
+    ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear how Lang5K works')}
     <div class="coach-secondary">Best practical path: review due cards first, then add new ones.</div>
    </div>
   </div>
@@ -497,6 +504,7 @@ const PREMIUM_RISK_RE=/\b(kill|killed|murder|dead|death|die|dying|suicide|hate|i
 const META_ARTIFACT_RE=/\b(translate this sentence|translated this sentence|translation of this sentence|delete this sentence|this sentence doesn't sound natural|whoever translates|tatoeba)\b/i;
 const THIRD_LANGUAGE_RE=/\b(french|german|spanish|italian|portuguese|esperanto|latin|japanese|korean|chinese)\b/i;
 const CURATED_FALLBACK_CATEGORY='Everyday Conversation';
+const METHOD_AUDIO_INSTRUCTIONS='Lang5K works like this. Do not try to browse everything or memorize by rereading. Start the guided lesson. First, listen and connect the Russian sentence to the English meaning. Then recall before you reveal. Say the answer quietly, or type Russian or transliteration if you want. After reveal, compare honestly. Choose Again if you missed it, Hard if you barely got it, Good if you got most of it, and Easy only when the answer came back quickly and cleanly. Lang5K then schedules reviews, delayed recall, and repair drills automatically.';
 
 // Study session state
 let studyQueue=[];
@@ -593,8 +601,8 @@ function speakInstruction(text){
  speakWithBrowserVoice(text,{lang:'en-US',rate:.95});
 }
 
-function instructionButtonHTML(text){
- return `<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakInstruction('${escapeForHandler(text)}')">&#128266; Hear Audio Instructions</button>`;
+function instructionButtonHTML(text,label='Hear Audio Instructions'){
+ return `<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakInstruction('${escapeForHandler(text)}')">&#128266; ${escapeHtml(label)}</button>`;
 }
 
 function playAudio(text,idx,{onend,onerror}={}){
@@ -919,10 +927,11 @@ function renderTodayPlanHome(){
     <div class="today-plan-stat"><strong>${plan.weakCount}</strong><span>Weak sentences waiting</span></div>
     <div class="today-plan-stat"><strong>${doneToday}</strong><span>Steps completed today</span></div>
    </div>
-   <div class="hero-actions" style="justify-content:flex-start">
-    <button class="btn btn-primary" onclick="${primaryAction.action}">${primaryAction.label}</button>
-    ${coachFirst?'':`<button class="btn btn-secondary" onclick="showBrowseView()">Browse all sentences</button>`}
-   </div>
+  <div class="hero-actions" style="justify-content:flex-start">
+   <button class="btn btn-primary" onclick="${primaryAction.action}">${primaryAction.label}</button>
+   ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear how to use it')}
+   ${coachFirst?'':`<button class="btn btn-secondary" onclick="showBrowseView()">Browse all sentences</button>`}
+  </div>
    <div class="today-plan-note">${plan.dueCount===0&&plan.newPlanned===0?'Done for now. Next review: '+escapeHtml(formatPlanDate(plan.nextReviewDate))+'.':coachFirst?'Your first session should stay inside Study. After that, Lang5K unlocks the extra tools on this device.':'If today feels heavy, finish the guided lesson first and leave the extra drills for later.'}</div>
   </div>`;
 }
@@ -943,6 +952,7 @@ function markGuidedSessionComplete(){
 
 function setActiveMode(mode){
  currentMode=mode;
+ document.body.dataset.mode=mode;
  document.querySelectorAll('.mode-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.mode===mode));
 }
 
@@ -2024,6 +2034,11 @@ function showStudyStart(){
    <div class="study-subtitle">${escapeHtml(LANG.name)} &middot; Listen, recall, reveal, rate. Lang5K schedules the next review automatically.</div>
    ${accessLine}
    ${startAction}
+   <div class="study-help-strip">
+    <strong>How to use it</strong>
+    Start the guided lesson. Recall before reveal, rate honestly, and let Lang5K choose the next review.
+    ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear lesson guide')}
+   </div>
    <div class="study-stats-row">
     <div class="study-stat"><div class="stat-num orange">${due.length}</div><div class="stat-label">Reviews Due</div></div>
     <div class="study-stat"><div class="stat-num green">${newAvail.length}</div><div class="stat-label">New Sentences</div></div>
