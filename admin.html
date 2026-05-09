@@ -36,7 +36,33 @@
  }
 
  function listHtml(items){
-  return `<ul class="list">${items.map(item=>`<li>${item}</li>`).join('')}</ul>`;
+  return `<ul class="list">${items.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+ }
+
+ function metricsHtml(metrics){
+  if(!metrics||!metrics.configured){
+   return `<div class="card"><h2>Live metrics</h2><p class="error">${escapeHtml(metrics?.error||'Live metrics are not connected yet.')}</p></div>`;
+  }
+  const cards=[
+   ['Active customers',metrics.activeCustomers],
+   ['Refunded',metrics.refundedCustomers],
+   ['Disputed',metrics.disputedCustomers],
+   ['Cloud progress users',metrics.progressAccounts],
+   ['Analytics 24h',metrics.analytics24h],
+   ['Billing events 24h',metrics.billing24h],
+   ['Stripe webhook events',metrics.stripeWebhookEvents]
+  ];
+  return `<div class="card"><h2>Live metrics</h2><div class="grid" style="margin:10px 0 0">${cards.map(([label,value])=>`<div class="card" style="box-shadow:none;padding:14px"><div style="font-size:1.6rem;font-weight:800;color:#2563eb">${escapeHtml(value??0)}</div><div class="muted">${escapeHtml(label)}</div></div>`).join('')}</div></div>`;
+ }
+
+ function escapeHtml(value){
+  return String(value??'').replace(/[&<>"']/g,char=>({
+   '&':'&amp;',
+   '<':'&lt;',
+   '>':'&gt;',
+   '"':'&quot;',
+   "'":'&#39;'
+  })[char]);
  }
 
  async function loadReport(){
@@ -47,24 +73,25 @@
    if(!response.ok)throw new Error(data.error||'Could not load the admin report.');
    host.innerHTML=`
     <div class="hero">
-     <div class="status-pill">${data.status}</div>
+     <div class="status-pill">${escapeHtml(data.status)}</div>
      <h1>What Lang5K did, what is next, and what you can decide</h1>
-     <p>${data.summary}</p>
-     <p class="muted" style="margin-top:12px">Last updated: ${new Date(data.updatedAt).toLocaleString()}</p>
+     <p>${escapeHtml(data.summary)}</p>
+     <p class="muted" style="margin-top:12px">Last updated: ${escapeHtml(new Date(data.updatedAt).toLocaleString())}</p>
      <div class="links">
-      ${(data.links||[]).map(link=>`<a class="btn primary" href="${link.href}">${link.label}</a>`).join('')}
+      ${(data.links||[]).map(link=>`<a class="btn primary" href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`).join('')}
      </div>
     </div>
     <div class="mini">
      <div class="card">
       <h2>What the loop is doing</h2>
-      <p class="muted">The hidden premium loop keeps checking Lang5K, choosing the next safe improvement, and then waiting 15 minutes after each finished run before starting again.</p>
+      <p class="muted">The premium checklist tracks checkout, access, recovery, progress sync, analytics, course QA, and learner-flow quality. Anything still listed below either needs code work or your approval/test.</p>
      </div>
      <div class="card">
       <h2>What you can do</h2>
       ${listHtml(data.suggestedNow||[])}
      </div>
     </div>
+    ${metricsHtml(data.metrics)}
     <div class="grid">
      <div class="card">
       <h2>Done now</h2>

@@ -1,8 +1,15 @@
 const { stripeRequest } = require('./_lib/stripe');
+const { noStore } = require('./_lib/http');
+const { canUsePaidCheckout } = require('./_lib/preview');
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST' && req.method !== 'GET') {
+  noStore(res);
+  if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed.' });
+    return;
+  }
+  if (!canUsePaidCheckout(req)) {
+    res.status(403).json({ error: 'Checkout is currently limited to private preview access.' });
     return;
   }
 
@@ -22,7 +29,14 @@ module.exports = async function handler(req, res) {
       cancel_url: `${siteUrl}/pricing.html?checkout=cancelled`,
       allow_promotion_codes: 'true',
       billing_address_collection: 'auto',
-      'automatic_tax[enabled]': 'false'
+      'automatic_tax[enabled]': 'false',
+      client_reference_id: `lang5k-russian-${Date.now()}`,
+      'metadata[app]': 'lang5k',
+      'metadata[product]': 'russian',
+      'metadata[priceId]': priceId,
+      'payment_intent_data[metadata][app]': 'lang5k',
+      'payment_intent_data[metadata][product]': 'russian',
+      'payment_intent_data[metadata][priceId]': priceId
     });
     res.status(200).json({ url: session.url });
   } catch (error) {

@@ -14,10 +14,12 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#f3f5f8;--card:#fff;--text:#111827;--text2:#4b5563;--text3:#6b7280;--primary:#2563eb;--primary-light:#0ea5e9;--primary-bg:rgba(37,99,235,0.08);--accent:#d97706;--border:#dbe3ee;--shadow:0 1px 3px rgba(15,23,42,0.08);--shadow-lg:0 10px 28px rgba(15,23,42,0.14);--green:#059669;--red:#dc2626;--orange:#ea580c}
 [data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--primary:#818cf8;--primary-light:#a5b4fc;--primary-bg:rgba(129,140,248,0.12);--border:#334155;--shadow:0 1px 3px rgba(0,0,0,0.3);--shadow-lg:0 4px 12px rgba(0,0,0,0.4)}
+[data-theme="dark"] .study-card-label.new{background:rgba(16,185,129,.18);color:#6ee7b7}
+[data-theme="dark"] .study-card-label.review{background:rgba(129,140,248,.18);color:#c4b5fd}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
 .header{position:sticky;top:0;z-index:100;background:var(--card);border-bottom:1px solid var(--border);box-shadow:var(--shadow);padding:16px 24px}
 .header-top{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto;flex-wrap:wrap;gap:12px}
-.header h1{font-size:1.5rem;font-weight:700;color:var(--primary)}
+.header h1{font-size:1.5rem;font-weight:800;color:var(--text);letter-spacing:0}
 .header h1 span{font-weight:300;color:var(--text2);font-size:1rem;display:block}
 .header h1 a{color:var(--text3);text-decoration:none;font-size:.85rem;font-weight:400}
 .header h1 a:hover{color:var(--primary)}
@@ -138,10 +140,14 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .bin-card-actions{display:flex;gap:8px;align-items:center}
 .bin-card .hidden-text{filter:blur(8px);user-select:none;pointer-events:none;transition:filter .3s}
 .bin-card .hidden-text.revealed{filter:none;user-select:auto;pointer-events:auto}
+.bin-rating{display:none;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.bin-rating.active{display:flex}
+.bin-rating button{flex:1 1 108px;justify-content:center;font-weight:800}
+.bin-feedback{font-size:.85rem;color:var(--text2);margin-top:10px}
 .reveal-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--text3);font-size:1rem}
 .reveal-btn:hover{background:var(--primary-bg);color:var(--primary);border-color:var(--primary)}
 .reveal-btn.revealed{background:var(--primary);color:#fff;border-color:var(--primary)}
-.remove-bin-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--green);font-size:1.1rem}
+.remove-bin-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;color:var(--green);font-size:1rem}
 .remove-bin-btn:hover{background:var(--green);color:#fff;border-color:var(--green)}
 .bin-card .target-lang{font-size:1.3rem;font-weight:700;margin-bottom:6px;cursor:pointer}
 .bin-card .translit{font-size:.95rem;margin-bottom:4px}
@@ -183,6 +189,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-start-btn{padding:14px 40px;font-size:1.1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;box-shadow:0 4px 15px rgba(67,56,202,0.3);transition:all .2s}
 .study-start-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(67,56,202,0.4)}
 .study-time-est{font-size:.8rem;color:var(--text3);margin-top:10px}
+.study-access-line{margin:0 0 18px;padding:10px 12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:12px;font-size:.88rem}
+.study-access-line a{font-weight:800;color:#2563eb;text-decoration:none;margin-left:8px}
 .study-protocol{margin:0 auto 22px;text-align:left;background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:14px}
 .study-protocol-title{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px}
 .study-protocol ol{margin-left:18px;color:var(--text2);font-size:.88rem}
@@ -191,16 +199,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-next-action strong{display:block;color:var(--text);margin-bottom:5px}
 .study-next-action p{font-size:.9rem;color:var(--text2);margin-bottom:12px}
 
-.study-card{max-width:600px;margin:20px auto;padding:32px 28px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);animation:fadeIn .3s ease}
+.study-card{max-width:600px;margin:20px auto;padding:32px 28px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);animation:fadeIn .3s ease;color:var(--text)}
 .study-card-label{display:inline-block;padding:3px 12px;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase;margin-bottom:16px;letter-spacing:.5px}
-.study-card-label.new{background:rgba(16,185,129,.15);color:var(--green)}
-.study-card-label.review{background:var(--primary-bg);color:var(--primary)}
+.study-card-label.new{background:#dcfce7;color:#047857}
+.study-card-label.review{background:#dbeafe;color:#1d4ed8}
 .study-card .study-english{font-size:1.3rem;color:var(--text);font-weight:600;margin-bottom:16px;line-height:1.4}
-.study-card .study-prompt{font-size:.9rem;color:var(--text3);margin-bottom:12px}
+.study-card .study-prompt{font-size:.9rem;color:var(--text2);margin-bottom:12px}
 .study-instruction{background:var(--primary-bg);border:1px solid rgba(37,99,235,.18);border-radius:12px;padding:12px 14px;margin:12px 0;color:var(--text2);font-size:.95rem;text-align:left}
 .study-instruction strong{display:block;color:var(--text);font-size:1rem;margin-bottom:4px}
 .study-instruction ul{margin-left:18px}
 .study-instruction li{margin:4px 0}
+.audio-instructions-btn{margin:8px auto 14px;padding:8px 12px;font-size:.82rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:10px}
+.study-instruction .audio-instructions-btn,.practice-hint .audio-instructions-btn{margin:10px 0 0;display:flex;width:max-content;max-width:100%}
 .study-type-input{width:100%;padding:14px 18px;border:2px solid var(--border);border-radius:12px;font-size:1.1rem;background:var(--bg);color:var(--text);outline:none;transition:border .2s;font-family:inherit}
 .study-type-input:focus{border-color:var(--primary)}
 .study-type-input::placeholder{color:var(--text3)}
@@ -210,7 +220,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .study-answer-section{margin-top:20px;padding-top:20px;border-top:2px solid var(--border)}
 .study-target{font-size:1.6rem;font-weight:800;color:var(--text);margin-bottom:4px;cursor:pointer}
 .study-target:hover{color:var(--primary)}
-.study-translit{font-size:1rem;color:var(--text3);font-style:italic;margin-bottom:4px}
+.study-translit{font-size:1rem;color:var(--text2);font-style:italic;margin-bottom:4px}
 .study-english-answer{font-size:.95rem;color:var(--text2);margin-bottom:12px}
 .study-typed-answer{padding:10px 14px;border-radius:8px;font-size:.95rem;margin-bottom:14px}
 .study-typed-answer.correct{background:rgba(16,185,129,.1);border:1px solid var(--green);color:var(--green)}
@@ -221,13 +231,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .pattern-note{margin-top:14px;padding:12px 14px;border-radius:12px;border:1px solid rgba(37,99,235,.18);background:var(--primary-bg);text-align:left}
 .pattern-note strong{display:block;color:var(--text);margin-bottom:4px}
 .pattern-note span{display:block;font-size:.9rem;color:var(--text2)}
-.study-rating{display:flex;gap:12px;justify-content:center}
-.study-rating button{flex:1;padding:14px;font-size:1rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;transition:all .2s}
+.study-rating{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.study-rating button{flex:1 1 128px;min-height:64px;padding:13px 12px;font-size:1rem;font-weight:800;border:none;border-radius:12px;cursor:pointer;transition:all .2s;line-height:1.15;text-align:center}
+.study-rating button small{display:block;margin-top:5px;font-size:.72rem;font-weight:700;color:inherit;opacity:.82}
+.btn:disabled{opacity:.52;cursor:not-allowed}
 .btn-again{background:rgba(239,68,68,.12);color:var(--red)}.btn-again:hover{background:var(--red);color:#fff}
 .btn-hard{background:rgba(249,115,22,.12);color:var(--orange)}.btn-hard:hover{background:var(--orange);color:#fff}
 .btn-good{background:rgba(16,185,129,.12);color:var(--green)}.btn-good:hover{background:var(--green);color:#fff}
 .btn-easy{background:rgba(37,99,235,.12);color:var(--primary)}.btn-easy:hover{background:var(--primary);color:#fff}
 .study-box-info{text-align:center;font-size:.8rem;color:var(--text3);margin-top:10px}
+.shadow-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0 2px}
+.shadow-tools .btn{font-size:.82rem;padding:8px 12px}
+.shadow-note{font-size:.75rem;color:var(--text3);text-align:center;margin-bottom:8px}
 
 .study-summary{max-width:500px;margin:40px auto;padding:40px 30px;background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);text-align:center;animation:fadeIn .4s ease}
 .study-summary h2{font-size:1.5rem;font-weight:800;margin-bottom:4px}
@@ -464,15 +479,23 @@ let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
 let hostedAudioIds=null;
+let hostedAudioById=new Map();
 let audioManifestVersion='';
+let shadowRecorder=null;
+let shadowChunks=[];
+let shadowAudioUrl='';
 
 // SRS Constants (Leitner system)
 const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
 const RATING_DAYS={again:1,hard:2,good:5,easy:14};
+const REVIEW_DAILY_CAP=35;
+const MIN_DELAYED_RECALL_GAP=2;
 const MILESTONES=[10,25,50,100,250,500,1000,2500,5000];
 const AUDIO_BASE_URL='https://audio.lang5k.com';
 const AUDIO_LANG_PREFIX={russian:'ru'}[langKey]||(langCode||'').split('-')[0]||langKey;
 const PREMIUM_RISK_RE=/\b(kill|killed|murder|dead|death|die|dying|suicide|hate|idiot|stupid|liar|war|bomb|drunk|sexy|demon)\b/i;
+const META_ARTIFACT_RE=/\b(translate this sentence|translated this sentence|translation of this sentence|delete this sentence|this sentence doesn't sound natural|whoever translates|tatoeba)\b/i;
+const THIRD_LANGUAGE_RE=/\b(french|german|spanish|italian|portuguese|esperanto|latin|japanese|korean|chinese)\b/i;
 const CURATED_FALLBACK_CATEGORY='Everyday Conversation';
 
 // Study session state
@@ -480,26 +503,35 @@ let studyQueue=[];
 let studyIndex=0;
 let studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
 let studyRepairCounts={};
+let lastSessionIndexes=[];
+let practiceSessionCursor=0;
+let weakPracticeCursor=0;
 let studyRevealed=false;
 let studyRatingLocked=false;
 let practiceRatingLocked=false;
 let dailyNewGoal=10;
 let practiceCarryMessage='';
 let practiceSelectionMeta={kind:'available',reason:''};
+let premiumStudyOrder=[];
 
 function syncDailyGoalFromStats(){
  if(userStats.dailyGoal)dailyNewGoal=userStats.dailyGoal;
 }
 
 // Set page title
-document.getElementById('pageTitle').innerHTML=LANG.flag+' '+LANG.name+' Sentences<span><a href="index.html">&#8592; All Languages</a> &mdash; '+LANG.sentences+' sentences for daily life</span>';
+document.getElementById('pageTitle').innerHTML=escapeHtml(LANG.name)+' Sentence Trainer<span><a href="index.html">&#8592; All Languages</a> &mdash; '+LANG.sentences+' sentences for daily life</span>';
 document.title='Lang5K - Learn '+LANG.name;
 searchInput.placeholder='Search in '+LANG.name+', English, or transliteration...';
 
 speedSlider.addEventListener('input',()=>{speechRate=parseFloat(speedSlider.value);speedVal.textContent=speechRate+'x'});
 
+function sourceAudioIndex(idx){
+ const source=Number(SENTENCES[idx]?.[4]);
+ return Number.isInteger(source)&&source>=0?source:idx;
+}
+
 function sentenceAudioId(idx){
- return AUDIO_LANG_PREFIX+'_'+String(idx+1).padStart(6,'0');
+ return AUDIO_LANG_PREFIX+'_'+String(sourceAudioIndex(idx)+1).padStart(6,'0');
 }
 
 function hostedAudioUrl(idx){
@@ -513,10 +545,12 @@ async function loadHostedAudioManifest(){
   if(!response.ok){hostedAudioIds=new Set();renderAudioStatusNotice();return}
   const data=await response.json();
   audioManifestVersion=data.generatedAt||'';
-  hostedAudioIds=new Set((data.items||[]).map(item=>item.id).filter(Boolean));
+  hostedAudioById=new Map((data.items||[]).filter(item=>item.id).map(item=>[item.id,item]));
+  hostedAudioIds=new Set(hostedAudioById.keys());
   renderAudioStatusNotice();
  }catch(_){
   hostedAudioIds=new Set();
+  hostedAudioById=new Map();
   renderAudioStatusNotice();
  }
 }
@@ -534,18 +568,46 @@ function stopPlayback(){
  window.speechSynthesis.cancel();
 }
 
-function playBrowserVoice(text,{onend,onerror}={}){
+function speakWithBrowserVoice(text,{lang=langCode,rate=speechRate,onend,onerror}={}){
+ if(!window.speechSynthesis||typeof SpeechSynthesisUtterance==='undefined'){
+  if(onerror)onerror();
+  else if(onend)onend();
+  return;
+ }
  window.speechSynthesis.cancel();
  const u=new SpeechSynthesisUtterance(text);
- u.lang=langCode;u.rate=speechRate;
+ u.lang=lang;
+ u.rate=rate;
  u.onend=()=>{if(onend)onend()};
  u.onerror=()=>{if(onerror)onerror();else if(onend)onend()};
  window.speechSynthesis.speak(u);
 }
 
+function playBrowserVoice(text,{onend,onerror}={}){
+ speakWithBrowserVoice(text,{lang:langCode,rate:speechRate,onend,onerror});
+}
+
+function speakInstruction(text){
+ stopPlayback();
+ trackAnalytics('instruction_audio',{section:document.body.dataset.mode||'study'});
+ speakWithBrowserVoice(text,{lang:'en-US',rate:.95});
+}
+
+function instructionButtonHTML(text){
+ return `<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakInstruction('${escapeForHandler(text)}')">&#128266; Hear Audio Instructions</button>`;
+}
+
 function playAudio(text,idx,{onend,onerror}={}){
  stopPlayback();
- if(typeof idx!=='number'||idx<0||!hostedAudioIds||!hostedAudioIds.has(sentenceAudioId(idx))){
+ const audioId=typeof idx==='number'&&idx>=0?sentenceAudioId(idx):'';
+ const manifestItem=audioId?hostedAudioById.get(audioId):null;
+ if(typeof idx!=='number'||idx<0||!hostedAudioIds||!hostedAudioIds.has(audioId)){
+  trackAnalytics('audio_fallback',{idx,reason:'missing_hosted_audio'});
+  playBrowserVoice(text,{onend,onerror});
+  return;
+ }
+ if(manifestItem&&manifestItem.target&&manifestItem.target!==text){
+  trackAnalytics('audio_manifest_mismatch',{idx,audioId});
   playBrowserVoice(text,{onend,onerror});
   return;
  }
@@ -554,24 +616,82 @@ function playAudio(text,idx,{onend,onerror}={}){
  audio.preload='auto';
  audio.playbackRate=speechRate;
  audio.onended=()=>{if(currentAudio===audio)currentAudio=null;if(onend)onend()};
- audio.onerror=()=>{
+audio.onerror=()=>{
   if(currentAudio===audio)currentAudio=null;
+  trackAnalytics('audio_fallback',{idx,reason:'hosted_audio_error'});
   playBrowserVoice(text,{onend,onerror});
  };
  audio.play().catch(()=>{
   if(currentAudio===audio)currentAudio=null;
+  trackAnalytics('audio_fallback',{idx,reason:'browser_blocked_audio'});
   playBrowserVoice(text,{onend,onerror});
  });
+}
+
+async function startShadowRecord(){
+ if(!navigator.mediaDevices||!window.MediaRecorder){
+  alert('Recording is not supported in this browser. You can still shadow out loud without recording.');
+  return;
+ }
+ if(shadowRecorder&&shadowRecorder.state==='recording')return;
+ try{
+  if(shadowAudioUrl){
+   URL.revokeObjectURL(shadowAudioUrl);
+   shadowAudioUrl='';
+  }
+  const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  shadowChunks=[];
+  shadowRecorder=new MediaRecorder(stream);
+  shadowRecorder.ondataavailable=event=>{if(event.data&&event.data.size)shadowChunks.push(event.data)};
+  shadowRecorder.onstop=()=>{
+   stream.getTracks().forEach(track=>track.stop());
+   const blob=new Blob(shadowChunks,{type:shadowRecorder.mimeType||'audio/webm'});
+   shadowAudioUrl=URL.createObjectURL(blob);
+   const playBtn=document.getElementById('shadowPlayBtn');
+   if(playBtn)playBtn.disabled=false;
+  };
+  shadowRecorder.start();
+  const recordBtn=document.getElementById('shadowRecordBtn');
+  if(recordBtn)recordBtn.textContent='Stop recording';
+ }catch(error){
+  alert('Microphone permission was not available. Shadow out loud, then rate honestly.');
+ }
+}
+
+function toggleShadowRecord(){
+ if(shadowRecorder&&shadowRecorder.state==='recording'){
+  shadowRecorder.stop();
+  const recordBtn=document.getElementById('shadowRecordBtn');
+  if(recordBtn)recordBtn.textContent='Record shadow';
+  return;
+ }
+ startShadowRecord();
+}
+
+function playShadowRecording(){
+ if(!shadowAudioUrl){
+  alert('Record your shadowing first.');
+  return;
+ }
+ new Audio(shadowAudioUrl).play().catch(()=>alert('Recording playback failed in this browser.'));
+}
+
+function shadowToolsHTML(){
+ return `<div class="shadow-tools">
+  <button class="btn btn-secondary" id="shadowRecordBtn" onclick="toggleShadowRecord()">Record shadow</button>
+  <button class="btn btn-secondary" id="shadowPlayBtn" onclick="playShadowRecording()" disabled>Play mine</button>
+ </div>
+ <div class="shadow-note">Optional: microphone stays in this browser. Lang5K does not upload or score your recording.</div>`;
 }
 
 async function loadLanguageData(){
  try{
   const token=localStorage.getItem('lang5k_access_token')||'';
-  const wantsFull=Boolean(token)&&!demoRequested;
+  const wantsFull=!demoRequested;
   const query=new URLSearchParams({lang:langKey,mode:wantsFull?'full':'demo'});
   const response=await fetch('/api/course?'+query.toString(),{
    cache:'no-store',
-   headers:wantsFull?{Authorization:'Bearer '+token}:{}
+   headers:wantsFull&&token?{Authorization:'Bearer '+token}:{}
   });
   const data=await response.json().catch(()=>({error:'Unable to read course response.'}));
   if(!response.ok){
@@ -585,17 +705,37 @@ async function loadLanguageData(){
    app.innerHTML='<div class="empty-state">No data loaded for this language yet.</div>';
    return;
   }
+  setLearnerShellVisible(true);
   renderAudioStatusNotice();
+  premiumStudyOrder=buildPremiumStudyOrder();
+  await syncCloudProgress('load');
   populateCategoryFilter();
   render();
   renderAccessNotice(data);
   updateBinBadge();
   updateStreakDisplay();
   updateDueBadge();
+  trackAnalytics('app_start',{sentences:SENTENCES.length});
   maybeStartGuidedLesson();
  }catch(e){
   app.innerHTML='<div class="empty-state">Error loading language data: '+escapeHtml(e.message||'Unknown error')+'</div>';
  }
+}
+
+function setLearnerShellVisible(visible){
+ const display=visible?'':'none';
+ ['dashboard','modeTabs','filtersBar'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)el.style.display=display;
+ });
+ const coach=document.querySelector('.learning-coach');
+ if(coach)coach.style.display=display;
+ const progress=document.querySelector('.progress-wrap');
+ if(progress)progress.style.display=display;
+ const studyBtn=document.getElementById('studyBtn');
+ if(studyBtn)studyBtn.style.display=visible?'inline-flex':'none';
+ const tools=document.getElementById('advancedTools');
+ if(tools)tools.style.display=visible?'flex':'none';
 }
 
 function renderAccessNotice(data){
@@ -608,12 +748,14 @@ function renderAccessNotice(data){
 }
 
 function renderAccessRequired(message){
+ setLearnerShellVisible(false);
  if(accessNotice)accessNotice.innerHTML='';
  app.innerHTML=`<div class="access-required">
   <h2>Paid access required</h2>
   <p>${escapeHtml(message)}</p>
   <a class="btn btn-primary" href="checkout.html">Start secure checkout</a>
   <a class="btn btn-secondary" href="app.html?lang=${langKey}&demo=1">Use demo mode</a>
+  <a class="btn btn-secondary" href="access.html">Recover access</a>
  </div>`;
 }
 
@@ -659,11 +801,15 @@ function curatedSentenceScore(idx){
  const socialBonus=/friend|family|house|home|food|work|buy|help|go|come|think|need|want|where|how|what|кто|что|где|как|дом|друг|работ|куп|хочу|нужно/.test(text)?-1.1:0;
  const abstractPenalty=/\b(all this time|in return|supposed to|guess|force|anyone else|exactly|liar)\b/i.test(en)?2.2:0;
  const quotePenalty=/["“”]/.test(en)?1.3:0;
- const riskPenalty=PREMIUM_RISK_RE.test(en)?25:0;
- return lengthScore+dailyBonus+politeBonus+questionBonus+socialBonus+abstractPenalty+quotePenalty+riskPenalty+(idx*0.0001);
+ const riskPenalty=PREMIUM_RISK_RE.test(en)?50:0;
+ const artifactPenalty=META_ARTIFACT_RE.test(en)?75:0;
+ const thirdLanguagePenalty=THIRD_LANGUAGE_RE.test(en)?10:0;
+ return lengthScore+dailyBonus+politeBonus+questionBonus+socialBonus+abstractPenalty+quotePenalty+riskPenalty+artifactPenalty+thirdLanguagePenalty+(idx*0.0001);
 }
 
-const PREMIUM_STUDY_ORDER=SENTENCES.map((_,idx)=>idx).sort((a,b)=>curatedSentenceScore(a)-curatedSentenceScore(b));
+function buildPremiumStudyOrder(){
+ return SENTENCES.map((_,idx)=>idx).sort((a,b)=>curatedSentenceScore(a)-curatedSentenceScore(b));
+}
 
 function getCategories(){
  const cats=new Map();
@@ -701,6 +847,8 @@ function updateCoachModeUI(){
  const coachFirst=isCoachFirstMode();
  const advancedTools=document.getElementById('advancedTools');
  if(advancedTools)advancedTools.style.display=coachFirst?'none':'flex';
+ const modeTabs=document.getElementById('modeTabs');
+ if(modeTabs)modeTabs.style.display=coachFirst?'none':'flex';
  document.querySelectorAll('[data-advanced-mode="true"]').forEach(el=>{
   el.style.display=coachFirst?'none':'';
  });
@@ -711,12 +859,32 @@ function updateCoachModeUI(){
  }
 }
 
+function getEarliestNextReview(){
+ const dates=Object.values(srsData).map(item=>item.nextReview).filter(Boolean).sort();
+ return dates[0]||'';
+}
+
+function formatPlanDate(dateString){
+ if(!dateString)return 'when a review becomes due';
+ const date=new Date(dateString+'T12:00:00');
+ return date.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+}
+
+function plannedNewCount(dueCount,goal){
+ if(dueCount>=REVIEW_DAILY_CAP)return 0;
+ if(dueCount>=20)return Math.min(3,goal);
+ if(dueCount>=10)return Math.min(5,goal);
+ return goal;
+}
+
 function getTodayPlanSummary(){
  const stats=getTodayStats();
  const dueCount=getDueReviews().length;
- const remainingNew=Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0));
- const newPlanned=getNewSentences(remainingNew).length;
+ const remainingGoal=Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0));
+ const cappedNewGoal=plannedNewCount(dueCount,remainingGoal);
+ const newPlanned=getNewSentences(cappedNewGoal).length;
  const weakCount=Object.keys(reviewBin).length;
+ const nextReviewDate=getEarliestNextReview();
  let nextLabel='Start guided lesson';
  let nextAction='startStudyView()';
  if(dueCount>0){
@@ -726,10 +894,10 @@ function getTodayPlanSummary(){
   nextLabel='Repair weak sentences';
   nextAction='toggleBinView()';
  } else if(newPlanned===0){
-  nextLabel='Browse all sentences';
+  nextLabel=dueCount>0?'Continue reviews':'Done for today';
   nextAction='showBrowseView()';
  }
- return {dueCount,newPlanned,weakCount,nextLabel,nextAction};
+ return {dueCount,newPlanned,weakCount,nextLabel,nextAction,nextReviewDate};
 }
 
 function renderTodayPlanHome(){
@@ -744,7 +912,7 @@ function renderTodayPlanHome(){
   <div class="today-plan-card">
    <div class="today-plan-kicker">Today&apos;s plan</div>
    <div class="today-plan-title">${coachFirst?'Follow one guided path first':'Your next best study step is ready'}</div>
-   <div class="today-plan-text">${coachFirst?'Lang5K starts as a coached session. Advanced sentence tools stay out of the way until you finish a real guided lesson.':'Reviews come first, then new sentences, then repair drills when needed.'}</div>
+   <div class="today-plan-text">${coachFirst?'Lang5K starts as a coached session. Advanced sentence tools stay out of the way until you finish a real guided lesson.':'Reviews come first, then new sentences, delayed recall, and repair drills. If review debt is high, new material slows down automatically.'}</div>
    <div class="today-plan-grid">
     <div class="today-plan-stat"><strong>${plan.dueCount}</strong><span>Reviews due now</span></div>
     <div class="today-plan-stat"><strong>${plan.newPlanned}</strong><span>New sentences planned today</span></div>
@@ -755,7 +923,7 @@ function renderTodayPlanHome(){
     <button class="btn btn-primary" onclick="${primaryAction.action}">${primaryAction.label}</button>
     ${coachFirst?'':`<button class="btn btn-secondary" onclick="showBrowseView()">Browse all sentences</button>`}
    </div>
-   <div class="today-plan-note">${coachFirst?'Your first session should stay inside Study. After that, Lang5K unlocks the extra tools on this device.':'If today feels heavy, finish the guided lesson first and leave the extra drills for later.'}</div>
+   <div class="today-plan-note">${plan.dueCount===0&&plan.newPlanned===0?'Done for now. Next review: '+escapeHtml(formatPlanDate(plan.nextReviewDate))+'.':coachFirst?'Your first session should stay inside Study. After that, Lang5K unlocks the extra tools on this device.':'If today feels heavy, finish the guided lesson first and leave the extra drills for later.'}</div>
   </div>`;
 }
 
@@ -959,6 +1127,8 @@ function toggleLearned(idx,btn){
   btn.classList.add('learned');btn.innerHTML='&#10003;';checkMilestone(Object.keys(learned).length)
  }
  localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
+ markLocalProgressChanged();
+ queueCloudProgressSync();
  updateProgress();
  const catEl=btn.closest('.category');
  if(catEl){
@@ -993,16 +1163,16 @@ document.addEventListener('keydown',e=>{
  if(studyViewActive){
   if(e.code==='Space'||e.code==='Enter'){
    e.preventDefault();
-   if(studyRevealed){
+   if(studyRevealed&&!studyRatingLocked){
     rateStudyCard('good');
    } else {
     revealStudyCard();
    }
   }
-  if(e.key==='1'&&studyRevealed){e.preventDefault();rateStudyCard('again')}
-  if(e.key==='2'&&studyRevealed){e.preventDefault();rateStudyCard('hard')}
-  if(e.key==='3'&&studyRevealed){e.preventDefault();rateStudyCard('good')}
-  if(e.key==='4'&&studyRevealed){e.preventDefault();rateStudyCard('easy')}
+  if(e.key==='1'&&studyRevealed&&!studyRatingLocked){e.preventDefault();rateStudyCard('again')}
+  if(e.key==='2'&&studyRevealed&&!studyRatingLocked){e.preventDefault();rateStudyCard('hard')}
+  if(e.key==='3'&&studyRevealed&&!studyRatingLocked){e.preventDefault();rateStudyCard('good')}
+  if(e.key==='4'&&studyRevealed&&!studyRatingLocked){e.preventDefault();rateStudyCard('easy')}
   return;
  }
  if(isCoachFirstMode()&&currentMode==='browse'&&(e.code==='Space'||e.code==='ArrowDown'||e.code==='ArrowUp')){
@@ -1076,6 +1246,8 @@ function toggleBin(idx,btn){
   if(btn){btn.classList.add('in-bin');btn.title='Remove from review bin'}
  }
  localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+ markLocalProgressChanged();
+ queueCloudProgressSync();
  updateBinBadge();
 }
 
@@ -1134,7 +1306,7 @@ function renderBinView(){
   <div class="bin-card" id="bin${idx}">
    <div class="bin-card-top">
     <div class="bin-card-num">#${i+1} of ${total}</div>
-    <div class="bin-card-actions">
+   <div class="bin-card-actions">
      <button class="speak-btn" onclick="speakBin(${idx})" title="Listen">&#128264;</button>
      <button class="reveal-btn" onclick="toggleReveal(${idx},this)" title="Reveal text">&#128065;</button>
      <button class="remove-bin-btn" onclick="removeFromBin(${idx})" title="Remove from weak practice after reveal">&#10003;</button>
@@ -1145,6 +1317,13 @@ function renderBinView(){
     <div class="translit hidden-text" data-reveal="${idx}">${escapeHtml(s[1])}</div>
     <div class="english hidden-text" data-reveal="${idx}">${escapeHtml(s[2])}</div>
    </div>
+   <div class="bin-rating" id="binRating${idx}">
+    <button class="btn btn-secondary" onclick="rateBinCard(${idx},'again')">Again</button>
+    <button class="btn btn-secondary" onclick="rateBinCard(${idx},'hard')">Hard</button>
+    <button class="btn btn-primary" onclick="rateBinCard(${idx},'good')">Good</button>
+    <button class="btn btn-secondary" onclick="rateBinCard(${idx},'easy')">Easy</button>
+   </div>
+   <div class="bin-feedback" id="binFeedback${idx}">Reveal first, recall out loud, then rate. Good or Easy removes it from weak practice.</div>
   </div>`;
  }).join('');
 }
@@ -1178,6 +1357,8 @@ function toggleReveal(idx,btn){
   if(isRevealed){btn.classList.remove('revealed');btn.title='Reveal text'}
   else{btn.classList.add('revealed');btn.title='Hide text'}
  }
+ const rating=document.getElementById('binRating'+idx);
+ if(rating)rating.classList.toggle('active',!isRevealed);
 }
 
 function removeFromBin(idx){
@@ -1201,6 +1382,39 @@ function removeFromBin(idx){
  }
  const btn=document.getElementById('binToggleBtn');
  btn.innerHTML='&#x2190; Back <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
+}
+
+function clearReviewBinItem(idx){
+ if(!reviewBin[idx])return;
+ delete reviewBin[idx];
+ localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+ markLocalProgressChanged();
+ updateBinBadge();
+ queueCloudProgressSync();
+}
+
+function rateBinCard(idx,rating){
+ rating=normalizeRating(rating);
+ const card=document.getElementById('bin'+idx);
+ if(card)card.querySelectorAll('.bin-rating button').forEach(button=>{button.disabled=true});
+ processRating(idx,rating,'bin_repair');
+ trackAnalytics('practice_rating',{rating,practiceMode:'review_bin'});
+ const feedback=document.getElementById('binFeedback'+idx);
+ if(isSuccessfulRating(rating)){
+  clearReviewBinItem(idx);
+  if(feedback)feedback.textContent='Repaired. Removing it from weak practice.';
+  setTimeout(()=>{
+   binOrder=binOrder.filter(i=>i!==idx);
+   renderBinView();
+  },350);
+  return;
+ }
+ if(feedback){
+  feedback.textContent=rating==='hard'
+   ?'Kept in weak practice. It will come back soon.'
+   :'Still weak. It stays in repair and is scheduled close.';
+ }
+ if(card)card.querySelectorAll('.bin-rating button').forEach(button=>{button.disabled=false});
 }
 
 function shuffleBin(){
@@ -1234,11 +1448,13 @@ async function playAllBin(){
 function revealAllBin(){
  document.querySelectorAll('.bin-card .hidden-text').forEach(el=>el.classList.add('revealed'));
  document.querySelectorAll('.bin-card .reveal-btn').forEach(el=>{el.classList.add('revealed');el.title='Hide text'});
+ document.querySelectorAll('.bin-rating').forEach(el=>el.classList.add('active'));
 }
 
 function hideAllBin(){
  document.querySelectorAll('.bin-card .hidden-text').forEach(el=>el.classList.remove('revealed'));
  document.querySelectorAll('.bin-card .reveal-btn').forEach(el=>{el.classList.remove('revealed');el.title='Reveal text'});
+ document.querySelectorAll('.bin-rating').forEach(el=>el.classList.remove('active'));
 }
 
 // ============================================================
@@ -1269,10 +1485,91 @@ function getTodayStats(){
 
 function saveStats(){
  localStorage.setItem(storagePrefix+'stats',JSON.stringify(userStats));
+ markLocalProgressChanged();
+ queueCloudProgressSync();
 }
 
 function saveSRS(){
  localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
+ markLocalProgressChanged();
+ queueCloudProgressSync();
+}
+
+function progressPayload(){
+ return {learned,reviewBin,srsData,userStats,clientUpdatedAt:Number(localStorage.getItem(storagePrefix+'progress_updated_at')||Date.now())};
+}
+
+function markLocalProgressChanged(){
+ localStorage.setItem(storagePrefix+'progress_updated_at',String(Date.now()));
+}
+
+function applyProgressPayload(progress){
+ if(!progress||typeof progress!=='object')return false;
+ learned=progress.learned&&typeof progress.learned==='object'?progress.learned:learned;
+ reviewBin=progress.reviewBin&&typeof progress.reviewBin==='object'?progress.reviewBin:reviewBin;
+ srsData=progress.srsData&&typeof progress.srsData==='object'?progress.srsData:srsData;
+ userStats=progress.userStats&&typeof progress.userStats==='object'?progress.userStats:userStats;
+ localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
+ localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
+ localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
+ localStorage.setItem(storagePrefix+'stats',JSON.stringify(userStats));
+ return true;
+}
+
+let cloudSyncTimer=null;
+
+function queueCloudProgressSync(){
+ if(courseAccessMode!=='full')return;
+ if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
+ cloudSyncTimer=setTimeout(()=>syncCloudProgress('save'),900);
+}
+
+async function syncCloudProgress(direction='save'){
+ if(courseAccessMode!=='full')return;
+ try{
+ if(direction==='load'){
+   const response=await fetch('/api/progress?language='+encodeURIComponent(langKey),{cache:'no-store'});
+   if(response.status===401)return;
+   const data=await response.json().catch(()=>({}));
+   const localUpdatedAt=Number(localStorage.getItem(storagePrefix+'progress_updated_at')||0);
+   const serverUpdatedAt=Date.parse(data.updatedAt||'')||Number(data.progress?.clientUpdatedAt||0);
+   if(response.ok&&data.progress&&serverUpdatedAt>localUpdatedAt&&applyProgressPayload(data.progress)){
+    localStorage.setItem(storagePrefix+'progress_updated_at',String(serverUpdatedAt));
+    updateProgress();
+    updateDueBadge();
+    updateBinBadge();
+    updateStreakDisplay();
+   } else if(response.ok&&localUpdatedAt>serverUpdatedAt){
+    queueCloudProgressSync(false);
+   }
+   return;
+  }
+  await fetch('/api/progress',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({language:langKey,progress:progressPayload()})
+  }).catch(()=>null);
+ }catch{
+  // Cloud sync should never block local study.
+ }
+}
+
+function flushCloudProgress(){
+ if(courseAccessMode!=='full')return;
+ const payload=JSON.stringify({language:langKey,progress:progressPayload()});
+ if(navigator.sendBeacon){
+  navigator.sendBeacon('/api/progress',new Blob([payload],{type:'application/json'}));
+ } else {
+  fetch('/api/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true}).catch(()=>null);
+ }
+}
+
+function trackAnalytics(type,value={}){
+ fetch('/api/analytics',{
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({type,language:langKey,mode:courseAccessMode,value})
+ }).catch(()=>null);
 }
 
 function isBackupDate(value){
@@ -1422,7 +1719,9 @@ function importProgressBackup(event){
    localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
    localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
    localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
-   localStorage.setItem(storagePrefix+'stats',JSON.stringify(userStats));
+  localStorage.setItem(storagePrefix+'stats',JSON.stringify(userStats));
+   markLocalProgressChanged();
+   queueCloudProgressSync();
    updateProgress();
    updateDueBadge();
    updateBinBadge();
@@ -1448,9 +1747,57 @@ function getDueReviews(){
 }
 
 function getNewSentences(limit){
- return PREMIUM_STUDY_ORDER
+ return premiumStudyOrder
   .filter(i=>!srsData[i]&&!learned[i])
   .slice(0,limit);
+}
+
+function buildStudyQueue(due,newCards){
+ const base=[];
+ const dueLimited=due.slice(0,REVIEW_DAILY_CAP);
+ let dueCursor=0;
+ function addReviews(count){
+  for(let i=0;i<count&&dueCursor<dueLimited.length;i++,dueCursor++){
+   base.push({idx:dueLimited[dueCursor],type:'review'});
+  }
+ }
+ addReviews(3);
+ newCards.forEach(idx=>{
+  base.push({idx,type:'new'});
+  addReviews(2);
+ });
+ addReviews(dueLimited.length);
+ const queue=[];
+ const delayedQueue=[];
+ function releaseDelayed(){
+  let released=false;
+  for(let i=0;i<delayedQueue.length;){
+   const pending=delayedQueue[i];
+   const gap=queue.length-pending.sourceIndex-1;
+   if(gap>=MIN_DELAYED_RECALL_GAP){
+    queue.push({idx:pending.idx,type:'review',sessionDelayed:true,sourceIndex:pending.sourceIndex});
+    delayedQueue.splice(i,1);
+    released=true;
+   } else {
+    i++;
+   }
+  }
+  return released;
+ }
+ base.forEach(item=>{
+  queue.push(item);
+  if(item.type==='new')delayedQueue.push({idx:item.idx,sourceIndex:queue.length-1});
+  releaseDelayed();
+ });
+ while(delayedQueue.length&&releaseDelayed()){}
+ if(delayedQueue.length){
+  delayedQueue.forEach(pending=>{
+   if(queue.length-pending.sourceIndex-1>=MIN_DELAYED_RECALL_GAP){
+    queue.push({idx:pending.idx,type:'review',sessionDelayed:true,sourceIndex:pending.sourceIndex});
+   }
+  });
+ }
+ return queue;
 }
 
 function normalizeRating(rating){
@@ -1465,50 +1812,75 @@ function isSuccessfulRating(rating){
 
 function clearRecoveredWeakPractice(idx){
  if(!reviewBin[idx])return false;
- delete reviewBin[idx];
- localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
- updateBinBadge();
+ clearReviewBinItem(idx);
  return true;
 }
 
-function processRating(idx,rating){
+function intervalForRating(data,rating){
+ const previous=Number(data.intervalDays||0);
+ const ease=Number(data.ease||2.3);
+ const reps=Number(data.reps||0);
+ if(rating==='again')return 1;
+ if(rating==='hard')return Math.max(1,Math.round(Math.max(previous,1)*1.25));
+ if(rating==='easy')return reps<=1?7:Math.min(120,Math.round(Math.max(previous,2)*(ease+0.55)));
+ return reps<=1?3:Math.min(90,Math.round(Math.max(previous,2)*ease));
+}
+
+function processRating(idx,rating,mode='recall'){
  rating=normalizeRating(rating);
- const data=srsData[idx]||{box:0,correctStreak:0};
+ const data=srsData[idx]||{box:0,correctStreak:0,ease:2.3,reps:0,lapses:0,lastModes:[]};
  data.lastRating=rating;
+ data.reps=(data.reps||0)+1;
+ data.lastModes=[mode,...(data.lastModes||[]).filter(item=>item!==mode)].slice(0,5);
+ if(mode==='delayed_recall'&&isSuccessfulRating(rating)){
+  data.sessionDelayedPassed=true;
+  data.lastReview=getToday();
+  srsData[idx]=data;
+  saveSRS();
+  return;
+ }
  if(rating==='easy'){
   data.box=Math.min((data.box||0)+2,5);
   data.correctStreak=(data.correctStreak||0)+1;
+  data.ease=Math.min(3.1,(data.ease||2.3)+0.15);
   clearRecoveredWeakPractice(idx);
  } else if(rating==='good'){
   data.box=Math.min((data.box||0)+1,5);
   data.correctStreak=(data.correctStreak||0)+1;
+  data.ease=Math.max(1.7,data.ease||2.3);
   clearRecoveredWeakPractice(idx);
  } else if(rating==='hard'){
   data.box=Math.max(1,data.box||1);
   data.correctStreak=0;
+  data.ease=Math.max(1.4,(data.ease||2.3)-0.15);
   reviewBin[idx]=true;
   localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
   updateBinBadge();
  } else {
   data.box=1;
   data.correctStreak=0;
+  data.ease=Math.max(1.3,(data.ease||2.3)-0.25);
+  data.lapses=(data.lapses||0)+1;
   reviewBin[idx]=true;
   localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
   updateBinBadge();
  }
  const today=new Date();
  data.lastReview=getToday();
- const daysUntilNext=RATING_DAYS[rating]||LEITNER_DAYS[data.box]||1;
- const nextDate=new Date(today);
+ const daysUntilNext=intervalForRating(data,rating);
+ data.intervalDays=daysUntilNext;
+  const nextDate=new Date(today);
  nextDate.setDate(nextDate.getDate()+daysUntilNext);
  data.nextReview=formatLocalDate(nextDate);
  srsData[idx]=data;
  saveSRS();
 
  // Graduate from Box 5 → learned
- if(isSuccessfulRating(rating)&&data.box>=5){
+ if(isSuccessfulRating(rating)&&data.box>=5&&(data.correctStreak||0)>=3&&(data.reps||0)>=5){
   learned[idx]=true;
   localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
+  markLocalProgressChanged();
+  queueCloudProgressSync();
   checkMilestone(Object.keys(learned).length);
  }
 }
@@ -1516,7 +1888,7 @@ function processRating(idx,rating){
 function updateDueBadge(){
  const due=getDueReviews().length;
  const stats=getTodayStats();
- const newAvail=Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0));
+ const newAvail=plannedNewCount(due,Math.max(0,(userStats.dailyGoal||dailyNewGoal)-(stats.todayNew||0)));
  const newSentences=getNewSentences(newAvail);
  const total=due+newSentences.length;
  document.getElementById('dueBadge').textContent=total;
@@ -1611,6 +1983,7 @@ function startStudyView(){
  document.getElementById('mainView').classList.add('hidden');
  document.getElementById('filtersBar').style.display='none';
  document.getElementById('studyView').classList.add('active');
+ trackAnalytics('study_start',{due:getDueReviews().length});
 
  const stats=getTodayStats();
  dailyNewGoal=userStats.dailyGoal||10;
@@ -1621,35 +1994,41 @@ function startStudyView(){
 function showStudyStart(){
  const due=getDueReviews();
  const stats=getTodayStats();
- const remainingNew=Math.max(0,dailyNewGoal-(stats.todayNew||0));
+ const remainingNew=plannedNewCount(due.length,Math.max(0,dailyNewGoal-(stats.todayNew||0)));
  const newAvail=getNewSentences(remainingNew);
  const weakCount=Object.keys(reviewBin).length;
  const coachFirst=isCoachFirstMode();
  const showWeakPracticeAction=weakCount>0&&!coachFirst;
  const doneAction=coachFirst?{label:'Back to guided plan',action:'goToTodayPlan()'}:{label:'Back to Browse',action:'exitStudy()'};
- const totalSession=due.length+newAvail.length;
+ const totalSession=buildStudyQueue(due,newAvail).length;
  const estMinutes=Math.max(1,Math.round(totalSession*0.8));
+ const accessLine=courseAccessMode==='demo'
+  ?`<div class="study-access-line"><strong>Demo:</strong> ${SENTENCES.length} of ${LANG.sentences} sentences. <a href="pricing.html">Unlock full course</a><a href="access.html">Recover access</a></div>`
+  :`<div class="study-access-line"><strong>Full course active.</strong> Progress syncs on this account. <a href="access.html">Account help</a></div>`;
+ const startAction=totalSession>0?`
+    <button class="study-start-btn" onclick="beginStudySession()">Start guided lesson</button>
+    <div class="study-time-est">~${estMinutes} min estimated &middot; includes delayed recall before you leave</div>
+   `:showWeakPracticeAction?`
+    <div style="color:var(--orange);font-weight:600;font-size:1.05rem;margin:20px 0">You still have weak sentences waiting.</div>
+    <button class="study-start-btn" onclick="toggleBinView()" style="background:var(--orange)">Review weak sentences</button>
+    <div class="study-time-est">Keep the text hidden until you recall the sentence.</div>
+   `:`
+    <div style="color:var(--green);font-weight:600;font-size:1.1rem;margin:20px 0">&#10003; All done for today. Next review: ${escapeHtml(formatPlanDate(getEarliestNextReview()))}.</div>
+    <button class="btn btn-secondary" onclick="${doneAction.action}">${doneAction.label}</button>
+   `;
 
  document.getElementById('studyHeaderBar').style.display='none';
  document.getElementById('studyContent').innerHTML=`
   <div class="study-start fade-in">
-   <h2>&#128218; Today's Guided Lesson</h2>
-   <div class="study-subtitle">${escapeHtml(LANG.flag)} ${escapeHtml(LANG.name)} &middot; Listen, recall, reveal, rate. Lang5K schedules the next review automatically.</div>
+   <h2>Today's Guided Lesson</h2>
+   <div class="study-subtitle">${escapeHtml(LANG.name)} &middot; Listen, recall, reveal, rate. Lang5K schedules the next review automatically.</div>
+   ${accessLine}
+   ${startAction}
    <div class="study-stats-row">
     <div class="study-stat"><div class="stat-num orange">${due.length}</div><div class="stat-label">Reviews Due</div></div>
     <div class="study-stat"><div class="stat-num green">${newAvail.length}</div><div class="stat-label">New Sentences</div></div>
     <div class="study-stat"><div class="stat-num">${weakCount}</div><div class="stat-label">Weak Sentences</div></div>
     <div class="study-stat"><div class="stat-num">${Object.keys(learned).length}</div><div class="stat-label">Total Learned</div></div>
-   </div>
-   <div class="study-protocol">
-    <div class="study-protocol-title">Autopilot study order</div>
-   <ol>
-     <li>Reviews due come first, because spaced retrieval protects memory.</li>
-     <li>New sentences come from a curated daily-life path that pushes rougher or harsher sentences later.</li>
-     <li>Each new sentence uses listen, immediate recall, reveal, then rating.</li>
-     <li>Missed sentences are saved into weak practice automatically.</li>
-     <li>After the session, Lang5K chooses the next drill: cloze, dictation, or review bin.</li>
-    </ol>
    </div>
    <div class="study-goal-picker">
     <label>New sentences per day:</label>
@@ -1657,18 +2036,17 @@ function showStudyStart(){
      ${[5,10,15,20].map(n=>`<div class="goal-opt ${dailyNewGoal===n?'active':''}" onclick="setDailyGoal(${n})">${n}</div>`).join('')}
     </div>
    </div>
-   ${totalSession>0?`
-    <button class="study-start-btn" onclick="beginStudySession()">Start guided lesson</button>
-    <div class="study-time-est">~${estMinutes} min estimated</div>
-   `:showWeakPracticeAction?`
-    <div style="color:var(--orange);font-weight:600;font-size:1.05rem;margin:20px 0">You still have weak sentences waiting.</div>
-    <button class="study-start-btn" onclick="toggleBinView()" style="background:var(--orange)">Review weak sentences</button>
-    <div class="study-time-est">Keep the text hidden until you recall the sentence.</div>
-   `:`
-     <div style="color:var(--green);font-weight:600;font-size:1.1rem;margin:20px 0">&#10003; All done for today! Come back tomorrow.</div>
-     <button class="btn btn-secondary" onclick="${doneAction.action}">${doneAction.label}</button>
-    `}
-   </div>`;
+   <div class="study-protocol">
+    <div class="study-protocol-title">Autopilot study order</div>
+   <ol>
+     <li>Reviews due come first, because spaced retrieval protects memory.</li>
+     <li>New sentences come from a curated daily-life path that pushes rougher or harsher sentences later.</li>
+     <li>Each new sentence uses listen, immediate recall, delayed same-session recall, then future spacing.</li>
+     <li>Missed sentences are saved into weak practice automatically.</li>
+     <li>After the session, Lang5K chooses the next drill: cloze, dictation, or review bin.</li>
+   </ol>
+  </div>
+ </div>`;
 }
 
 function setDailyGoal(n){
@@ -1679,15 +2057,12 @@ function setDailyGoal(n){
 }
 
 function beginStudySession(){
- // Build queue: reviews first, then new
  const stats=getTodayStats();
  const due=getDueReviews();
- const remainingNew=Math.max(0,dailyNewGoal-(stats.todayNew||0));
+ const remainingNew=plannedNewCount(due.length,Math.max(0,dailyNewGoal-(stats.todayNew||0)));
  const newCards=getNewSentences(remainingNew);
 
- studyQueue=[];
- due.forEach(idx=>studyQueue.push({idx,type:'review'}));
- newCards.forEach(idx=>studyQueue.push({idx,type:'new'}));
+ studyQueue=buildStudyQueue(due,newCards);
 
  if(!studyQueue.length){
   showStudyStart();
@@ -1697,6 +2072,8 @@ function beginStudySession(){
  studyIndex=0;
  studySessionStats={newCount:0,reviewCount:0,againCount:0,hardCount:0,goodCount:0,easyCount:0};
  studyRepairCounts={};
+ lastSessionIndexes=[];
+ practiceSessionCursor=0;
  studyRevealed=false;
  studyRatingLocked=false;
 
@@ -1713,13 +2090,14 @@ function showStudyCard(){
  const item=studyQueue[studyIndex];
  const s=SENTENCES[item.idx];
  const isNew=item.type==='new';
+ const isDelayed=Boolean(item.sessionDelayed);
  studyRevealed=false;
  studyRatingLocked=false;
 
  // Update progress bar
  const pct=Math.round(studyIndex/studyQueue.length*100);
  document.getElementById('studyProgressFill').style.width=pct+'%';
- document.getElementById('studyProgressLabel').textContent=(studyIndex+1)+' / '+studyQueue.length+(isNew?' (new)':' (review)');
+ document.getElementById('studyProgressLabel').textContent=(studyIndex+1)+' / '+studyQueue.length+(isNew?' (new)':isDelayed?' (delayed recall)':' (review)');
 
  const srsInfo=srsData[item.idx];
  const boxLabel=srsInfo?'Box '+srsInfo.box:'New';
@@ -1727,10 +2105,12 @@ function showStudyCard(){
  if(isNew){
   // New card: introduce the sentence with audio and a short shadowing action.
   const patternNote=buildPatternNote(s[0],s[2]);
+  const instruction='Step one: read the English meaning. Step two: play the Russian audio. Step three: say the Russian sentence once. Then continue to the memory test.';
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
     <span class="study-card-label new">NEW SENTENCE</span>
     <div class="study-prompt">Step 1: read the meaning. Step 2: play the audio. Step 3: say the Russian sentence once. Then continue to the memory test.</div>
+    ${instructionButtonHTML(instruction)}
     <div class="study-english" style="font-size:1.1rem;color:var(--text2);margin-bottom:12px">${escapeHtml(s[2])}</div>
     <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="margin-bottom:6px">${escapeHtml(s[0])}</div>
     <div class="translit" style="font-size:1rem;margin-bottom:4px">${escapeHtml(s[1])}</div>
@@ -1743,22 +2123,26 @@ function showStudyCard(){
   speakText(s[0],item.idx);
  } else {
   // Review card: active recall comes before hearing or seeing the answer.
+  const instruction=isDelayed
+   ? 'Delayed recall. Read the English meaning. Try to remember the Russian sentence you studied earlier. Say it quietly or type Russian or transliteration, then reveal and self-check.'
+   : 'Review. Read the English meaning. Try to remember the Russian translation before hearing it. Say it quietly or type Russian or transliteration, then reveal and self-check.';
   document.getElementById('studyContent').innerHTML=`
    <div class="study-card fade-in">
-    <span class="study-card-label review">REVIEW &middot; ${boxLabel}</span>
+    <span class="study-card-label review">${isDelayed?'DELAYED RECALL':'REVIEW'} &middot; ${boxLabel}</span>
     <div class="study-english">${escapeHtml(s[2])}</div>
     <div class="study-instruction">
      <strong>Your task</strong>
      <ul>
       <li>This is English. Try to remember the Russian translation.</li>
-      <li>Say it quietly to yourself, or type any Russian words you remember.</li>
+      <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
       <li>The app does not use a microphone. You self-check after reveal.</li>
     </ul>
+    ${instructionButtonHTML(instruction)}
    </div>
-   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type Russian or transliteration" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
     <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most, Easy = knew it cleanly.</div>
-    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">Why first? This sentence is due for spaced review today.</div>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">${isDelayed?'Why this now? You studied this earlier in the session, so the app is checking delayed recall before you leave.':'Why first? This sentence is due for spaced review today.'}</div>
    </div>`;
   // Focus the input (slight delay for animation)
   setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
@@ -1768,7 +2152,9 @@ function showStudyCard(){
 function showNewRecallCard(){
  const item=studyQueue[studyIndex];
  const s=SENTENCES[item.idx];
+ const instruction='New recall. Read the English meaning. Try to remember the Russian sentence you just heard. Say it quietly or type Russian or transliteration, then reveal and self-check.';
  studyRevealed=false;
+ studyRatingLocked=false;
  document.getElementById('studyContent').innerHTML=`
   <div class="study-card fade-in">
    <span class="study-card-label new">NEW RECALL</span>
@@ -1777,11 +2163,12 @@ function showNewRecallCard(){
     <strong>Your task</strong>
     <ul>
      <li>This is English. Try to remember the Russian translation you just heard.</li>
-     <li>Say it quietly to yourself, or type any Russian words you remember.</li>
+     <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
      <li>The app does not use a microphone. You self-check after reveal.</li>
    </ul>
+   ${instructionButtonHTML(instruction)}
   </div>
-  <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type any Russian you remember" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+  <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type Russian or transliteration" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
   <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most. Good is the highest first-pass rating so the sentence stays close.</div>
   </div>`;
@@ -1796,15 +2183,19 @@ function revealStudyCard(){
  const item=studyQueue[studyIndex];
  const s=SENTENCES[item.idx];
  const isNew=item.type==='new';
+ const isDelayed=Boolean(item.sessionDelayed);
  const srsInfo=srsData[item.idx]||{box:isNew?0:1};
  const typedAnswer=(document.getElementById('studyInput')||{}).value||'';
- const analysis=analyzeAttempt(typedAnswer,s[0]);
- if(isNew && analysis.rating==='easy'){
+ const analysis=analyzeAttempt(typedAnswer,s[0],s[1]);
+ if(isNew && analysis && analysis.rating==='easy'){
   analysis.rating='good';
   analysis.summary='Strong first recall. Count it as Good so the sentence stays close.';
  }
  const patternNote=buildPatternNote(s[0],s[2]);
  const allowEasy=!isNew;
+ const instruction=isNew
+  ? 'Compare your recall with the Russian answer. Listen again. Choose Again if you missed it, Hard if you barely got it, or Good if you got most of it.'
+  : 'Compare your recall with the Russian answer. Listen again. Choose Again if you missed it, Hard if you barely got it, Good if you got most of it, or Easy only if you knew it quickly and cleanly.';
 
  // Compare typed answer
  let typedHTML='';
@@ -1813,13 +2204,15 @@ function revealStudyCard(){
 
  document.getElementById('studyContent').innerHTML=`
   <div class="study-card fade-in">
-   <span class="study-card-label ${isNew?'new':'review'}">${isNew?'NEW RECALL':'REVIEW &middot; Box '+srsInfo.box}</span>
-   <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text3)">${escapeHtml(s[2])}</div>
+   <span class="study-card-label ${isNew?'new':'review'}">${isNew?'NEW RECALL':isDelayed?'DELAYED RECALL &middot; Box '+srsInfo.box:'REVIEW &middot; Box '+srsInfo.box}</span>
+   <div class="study-english" style="margin-bottom:4px;font-size:1rem;color:var(--text2)">${escapeHtml(s[2])}</div>
    <div class="study-answer-section">
     <div class="study-prompt">${isNew?'Step 3: compare your recall, listen again, then rate it.':'Step 2: listen, compare, then rate your memory.'}</div>
+    ${instructionButtonHTML(instruction)}
     <div class="study-target" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})">${escapeHtml(s[0])}</div>
     <div class="study-translit">${escapeHtml(s[1])}</div>
     <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${item.idx})" style="width:42px;height:42px;font-size:1.2rem;margin:10px auto;display:flex">&#128264;</button>
+    ${shadowToolsHTML()}
     ${typedHTML}
     <div class="study-rating">
      <button class="btn-again" onclick="rateStudyCard('again')">Again<br><small>I missed it</small></button>
@@ -1840,16 +2233,20 @@ function rateStudyCard(rating){
  const item=studyQueue[studyIndex];
  if(!studyRevealed||!item||studyRatingLocked)return;
  studyRatingLocked=true;
+ document.querySelectorAll('.study-rating button').forEach(button=>{button.disabled=true});
  rating=normalizeRating(rating);
  const isNew=item.type==='new';
  if(isNew && rating==='easy')rating='good';
  const oldBox=(srsData[item.idx]||{box:1}).box||1;
 
- processRating(item.idx,rating);
+ processRating(item.idx,rating,item.sessionDelayed?'delayed_recall':item.type==='new'?'new_recall':'review');
+ if(isSuccessfulRating(rating))clearReviewBinItem(item.idx);
+ if(!lastSessionIndexes.includes(item.idx))lastSessionIndexes.push(item.idx);
  scheduleStudyRepair(item.idx,rating);
 
  const newBox=srsData[item.idx].box;
- const nextDays=RATING_DAYS[rating]||LEITNER_DAYS[newBox]||1;
+ const nextDays=srsData[item.idx].intervalDays||RATING_DAYS[rating]||LEITNER_DAYS[newBox]||1;
+ trackAnalytics('study_rating',{rating,type:item.type});
 
  // Update stats
  if(isNew){
@@ -1963,7 +2360,7 @@ function showStudySummary(){
    <h2>&#10003; Today's Guided Lesson Saved</h2>
    <div class="summary-sub">Lang5K saved your ratings and picked the next best drill.</div>
    <div class="summary-stats">
-    <div class="summary-stat"><div class="s-num" style="color:var(--green)">${studySessionStats.newCount}</div><div class="s-label">New Learned</div></div>
+    <div class="summary-stat"><div class="s-num" style="color:var(--green)">${studySessionStats.newCount}</div><div class="s-label">New Practiced</div></div>
     <div class="summary-stat"><div class="s-num" style="color:var(--primary)">${studySessionStats.reviewCount}</div><div class="s-label">Reviewed</div></div>
     <div class="summary-stat"><div class="s-num" style="color:${accuracy>=80?'var(--green)':'var(--orange)'}"> ${accuracy}%</div><div class="s-label">Accuracy</div></div>
     <div class="summary-stat"><div class="s-num" style="color:var(--orange)">${userStats.currentStreak||0}</div><div class="s-label">Day Streak</div></div>
@@ -2007,11 +2404,23 @@ function pickPracticeIndex(){
  }
  const weak=Object.keys(reviewBin).map(Number).filter(i=>Number.isInteger(i)&&SENTENCES[i]);
  if(weak.length){
+  const idx=weak[weakPracticeCursor%weak.length];
+  weakPracticeCursor++;
   practiceSelectionMeta={
    kind:'weak',
    reason:'No spaced reviews are due right now, so the app is giving a weak sentence extra repair work before it fades.'
   };
-  return weak[0];
+  return idx;
+ }
+ const recent=lastSessionIndexes.filter(i=>Number.isInteger(i)&&SENTENCES[i]&&!learned[i]);
+ if(recent.length){
+  const idx=recent[practiceSessionCursor%recent.length];
+  practiceSessionCursor++;
+  practiceSelectionMeta={
+   kind:'session',
+   reason:'You just studied this sentence, so the app is checking delayed recall before introducing anything new.'
+  };
+  return idx;
  }
  const newOnes=getNewSentences(1);
  if(newOnes.length){
@@ -2064,45 +2473,90 @@ function normalizeAnswer(text){
   .trim();
 }
 
+function normalizeLatinRecall(text){
+ return String(text||'')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'')
+  .replace(/[^a-z0-9\s]/g,' ')
+  .replace(/\s+/g,' ')
+  .trim();
+}
+
+function hasCyrillic(text){
+ return /[а-яё]/i.test(String(text||''));
+}
+
 function answerTokens(text){
  return normalizeAnswer(text).split(/\s+/).filter(Boolean);
 }
 
-function analyzeAttempt(typed,target){
+function latinTokens(text){
+ return normalizeLatinRecall(text).split(/\s+/).filter(Boolean);
+}
+
+function tokenMatches(typedToken,targetToken){
+ if(typedToken===targetToken)return true;
+ if(typedToken.length<4||targetToken.length<4)return false;
+ if(targetToken.startsWith(typedToken)&&typedToken.length>=Math.min(4,targetToken.length-1))return true;
+ if(typedToken.startsWith(targetToken)&&targetToken.length>=4)return true;
+ return false;
+}
+
+function compareTokenRecall(typedTokens,targetTokens){
+ const used=new Set();
+ const shared=[];
+ typedTokens.forEach(token=>{
+  const matchIndex=targetTokens.findIndex((targetToken,index)=>!used.has(index)&&tokenMatches(token,targetToken));
+  if(matchIndex>=0){
+   used.add(matchIndex);
+   shared.push(targetTokens[matchIndex]);
+  }
+ });
+ const sharedUnique=[...new Set(shared)];
+ const missing=[...new Set(targetTokens.filter((_,index)=>!used.has(index)))];
+ const extra=[...new Set(typedTokens.filter(token=>!targetTokens.some(targetToken=>tokenMatches(token,targetToken))))];
+ const overlap=targetTokens.length?sharedUnique.length/targetTokens.length:0;
+ return {sharedUnique,missing,extra,overlap};
+}
+
+function analyzeAttempt(typed,target,translit=''){
  const typedRaw=String(typed||'').trim();
  if(!typedRaw)return null;
- const targetTokens=answerTokens(target);
- const typedTokens=answerTokens(typedRaw);
- const targetSet=new Set(targetTokens);
- const shared=typedTokens.filter(token=>targetSet.has(token));
- const sharedUnique=[...new Set(shared)];
- const missing=[...new Set(targetTokens.filter(token=>!typedTokens.includes(token)))];
- const extra=[...new Set(typedTokens.filter(token=>!targetSet.has(token)))];
- const overlap=targetTokens.length?sharedUnique.length/targetTokens.length:0;
- const exact=normalizeAnswer(typedRaw)===normalizeAnswer(target);
+ const useTranslit=!hasCyrillic(typedRaw)&&translit;
+ const targetTokens=useTranslit?latinTokens(translit):answerTokens(target);
+ const typedTokens=useTranslit?latinTokens(typedRaw):answerTokens(typedRaw);
+ const comparison=compareTokenRecall(typedTokens,targetTokens);
+ const exact=useTranslit
+  ? normalizeLatinRecall(typedRaw)===normalizeLatinRecall(translit)
+  : normalizeAnswer(typedRaw)===normalizeAnswer(target);
+ const overlap=comparison.overlap;
+ const missing=comparison.missing;
+ const extra=comparison.extra;
  let rating='again';
  let state='wrong';
  let summary='Different enough that it should come back soon.';
  if(exact){
   rating=typedTokens.length<=4?'easy':'good';
   state='correct';
-  summary='Exact match. This is strong recall.';
+  summary=useTranslit?'Exact transliteration match. This is strong recall.':'Exact match. This is strong recall.';
  }else if(overlap>=0.85&&extra.length<=1){
   rating='good';
   state='correct';
-  summary='Mostly correct. Small gaps only.';
+  summary=useTranslit?'Mostly correct transliteration. Small gaps only.':'Mostly correct. Small gaps only.';
  }else if(overlap>=0.45){
   rating='hard';
   state='partial';
   summary='Partial recall. Close enough to keep nearby.';
  }
- return { exact, overlap, missing, extra, rating, state, summary };
+ return { exact, overlap, missing, extra, rating, state, summary, checkedAs:useTranslit?'transliteration':'Russian' };
 }
 
 function attemptFeedbackHTML(typedText,analysis){
  if(!analysis)return '';
  const detail=[];
  detail.push(`<strong>Auto-check</strong> ${escapeHtml(analysis.summary)}`);
+ detail.push(`Checked as: ${escapeHtml(analysis.checkedAs)}`);
  if(analysis.missing.length)detail.push(`Missing: ${escapeHtml(analysis.missing.slice(0,4).join(', '))}`);
  if(analysis.extra.length)detail.push(`Extra or off-target: ${escapeHtml(analysis.extra.slice(0,4).join(', '))}`);
  detail.push(`Suggested rating: ${escapeHtml(analysis.rating.charAt(0).toUpperCase()+analysis.rating.slice(1))}`);
@@ -2237,6 +2691,7 @@ function renderClozeCard(){
   clozeCurrent={idx,answer:cloze.answer,revealed:false};
  const reasonText=practiceSelectionMeta.reason||'The app picked this drill to keep recall active.';
  const carryHTML=practiceCarryMessage?`<div class="practice-feedback"><strong>Saved</strong> ${escapeHtml(practiceCarryMessage)}</div>`:'';
+ const instruction='Cloze recall. Use the English meaning and sentence pattern. Think of the missing Russian word, type it if you can, or say it quietly before showing the answer.';
  practiceCarryMessage='';
  document.getElementById('clozeContent').innerHTML=`
   <div class="practice-card fade-in">
@@ -2245,7 +2700,7 @@ function renderClozeCard(){
    <p>Use the English meaning and the sentence pattern. This trains retrieval better than passive reading.</p>
    ${carryHTML}
    <div class="practice-hint"><strong>Why this now</strong>${escapeHtml(reasonText)} Cloze narrows the task to one missing word before the full sentence.</div>
-   <div class="practice-hint"><strong>Your task</strong>Think of the missing Russian word. Type it if you can, or say it to yourself and use Show answer to self-check.</div>
+   <div class="practice-hint"><strong>Your task</strong>Think of the missing Russian word. Type it if you can, or say it to yourself and use Show answer to self-check.${instructionButtonHTML(instruction)}</div>
    <div class="practice-english">${escapeHtml(s[2])}</div>
    <div class="practice-target">${cloze.prompt}</div>
    <input class="practice-input" id="clozeInput" placeholder="Optional: type the missing Russian word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
@@ -2298,6 +2753,7 @@ function renderDictationCard(){
  dictationCurrent={idx,revealed:false};
  const reasonText=practiceSelectionMeta.reason||'The app picked this drill to keep recall active.';
  const carryHTML=practiceCarryMessage?`<div class="practice-feedback"><strong>Saved</strong> ${escapeHtml(practiceCarryMessage)}</div>`:'';
+ const instruction='Dictation. Listen first. Try to catch the Russian sentence. Type the Russian if you can, or repeat what you hear quietly, then reveal and self-check.';
  practiceCarryMessage='';
  document.getElementById('dictationContent').innerHTML=`
   <div class="practice-card fade-in">
@@ -2306,7 +2762,7 @@ function renderDictationCard(){
    <p>Listen first, try to catch the Russian sentence, then reveal and rate it.</p>
    ${carryHTML}
    <div class="practice-hint"><strong>Why this now</strong>${escapeHtml(reasonText)} Dictation turns that sentence into a stricter listening-and-recall check.</div>
-   <div class="practice-hint"><strong>Your task</strong>Type the Russian if you can. If you do not have a Cyrillic keyboard yet, repeat what you hear quietly, then use Show answer to self-check.</div>
+   <div class="practice-hint"><strong>Your task</strong>Type the Russian if you can. If you do not have a Cyrillic keyboard yet, repeat what you hear quietly, then use Show answer to self-check.${instructionButtonHTML(instruction)}</div>
    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${idx})" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
    <input class="practice-input" id="dictationInput" placeholder="Optional: type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
    <div class="practice-actions">
@@ -2343,15 +2799,17 @@ function ratePractice(rating,mode){
  practiceRatingLocked=true;
  rating=normalizeRating(rating);
  const wasWeak=Boolean(reviewBin[current.idx]);
- processRating(current.idx,rating);
+ processRating(current.idx,rating,mode);
  updateStreak();
  updateStreakDisplay();
- const nextDays=RATING_DAYS[rating]||LEITNER_DAYS[(srsData[current.idx]||{}).box]||1;
+ if(isSuccessfulRating(rating))clearReviewBinItem(current.idx);
+ const nextDays=(srsData[current.idx]||{}).intervalDays||RATING_DAYS[rating]||LEITNER_DAYS[(srsData[current.idx]||{}).box]||1;
  if(wasWeak&&isSuccessfulRating(rating)){
   practiceCarryMessage=`Recovered. Removed from weak practice. This one will return in ${nextDays} days.`;
  }else{
   practiceCarryMessage=practiceCarryMessageForRating(rating,nextDays);
  }
+ trackAnalytics('practice_rating',{rating,practiceMode:mode});
  updateProgress();
  updateDueBadge();
  if(mode==='cloze')renderClozeCard();
@@ -2368,6 +2826,7 @@ function ratePractice(rating,mode){
 
  loadHostedAudioManifest();
  loadLanguageData();
+ window.addEventListener('pagehide',flushCloudProgress);
  if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
  }

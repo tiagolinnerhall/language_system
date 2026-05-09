@@ -31,13 +31,16 @@ mustExist('access.html');
 
 mustInclude('app.html', '/api/course');
 mustInclude('app.html', 'lang5k_access_token');
+mustInclude('api/create-checkout-session.js', "req.method !== 'POST'");
 mustInclude('api/course.js', 'retrieveCheckoutSession');
 mustInclude('api/course.js', 'isCheckoutSessionPaid');
 mustInclude('api/verify-access-token.js', 'retrieveCheckoutSession');
 mustInclude('checkout.html', '/api/create-checkout-session');
 mustInclude('access.html', '/api/verify-checkout-session');
 mustInclude('access.html', '/api/restore-access');
+mustInclude('access.html', 'Access recovery');
 mustInclude('sw.js', 'lang5k-static-v5');
-mustInclude('privacy.html', 'paid-access tokens');
+mustInclude('privacy.html', 'secure HttpOnly cookies');
+mustInclude('privacy.html', 'syncs progress to a server-side account record');
 
 console.log('Lang5K paid access flow validation passed.');

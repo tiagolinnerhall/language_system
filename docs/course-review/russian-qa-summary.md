@@ -1,6 +1,6 @@
 # Russian Course QA Summary
 
-Generated: 2026-04-30T18:16:18.644Z
+Generated: 2026-05-04T14:23:48.132Z
 
 - Total rows: 5000
 - Flagged rows: 0

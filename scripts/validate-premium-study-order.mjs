@@ -1,9 +1,13 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import vm from 'node:vm';
 
 const ROOT = process.cwd();
 const PREMIUM_RISK_RE = /\b(kill|killed|murder|dead|death|die|dying|suicide|hate|idiot|stupid|liar|war|bomb|drunk|sexy|demon)\b/i;
+const META_ARTIFACT_RE = /\b(translate this sentence|translated this sentence|translation of this sentence|delete this sentence|this sentence doesn't sound natural|whoever translates|tatoeba)\b/i;
+const require = createRequire(import.meta.url);
+const { scoreRussianRow } = require('../api/_lib/course-data.js');
 
 function loadRows() {
   const rows = [];
@@ -19,38 +23,9 @@ function loadRows() {
   return rows;
 }
 
-function normalize(text) {
-  return String(text || '')
-    .toLowerCase()
-    .replace(/[ё]/g, 'е')
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function tokens(text) {
-  return normalize(text).split(/\s+/).filter(Boolean);
-}
-
-function scoreRow(row, idx) {
-  const [ru, , en] = row;
-  const ruWords = tokens(ru);
-  const enWords = tokens(en);
-  const text = `${ru} ${en}`.toLowerCase();
-  const lengthScore = Math.abs(ruWords.length - 5) + Math.abs(enWords.length - 6) * 0.45;
-  const dailyBonus = /\b(i|you|we|this|here|there|today|tomorrow|now|want|need|can|have|go|come|buy|eat|drink|help|understand)\b/i.test(en) ? -1.8 : 0;
-  const politeBonus = /\b(please|thank|sorry|excuse me|hello)\b/i.test(en) ? -1.4 : 0;
-  const questionBonus = /[?]$/.test(ru) ? -0.35 : 0;
-  const socialBonus = /friend|family|house|home|food|work|buy|help|go|come|think|need|want|where|how|what|кто|что|где|как|дом|друг|работ|куп|хочу|нужно/.test(text) ? -1.1 : 0;
-  const abstractPenalty = /\b(all this time|in return|supposed to|guess|force|anyone else|exactly|liar)\b/i.test(en) ? 2.2 : 0;
-  const quotePenalty = /["“”]/.test(en) ? 1.3 : 0;
-  const riskPenalty = PREMIUM_RISK_RE.test(en) ? 25 : 0;
-  return lengthScore + dailyBonus + politeBonus + questionBonus + socialBonus + abstractPenalty + quotePenalty + riskPenalty + idx * 0.0001;
-}
-
 const rows = loadRows();
 const curated = rows
-  .map((row, idx) => ({ idx, row, score: scoreRow(row, idx) }))
+  .map((row, idx) => ({ idx, row, score: scoreRussianRow(row, idx) }))
   .sort((a, b) => a.score - b.score);
 
 const first1000 = curated.slice(0, 1000);
@@ -59,9 +34,26 @@ if (earlyRisk.length) {
   throw new Error(`Premium study order still contains risky English in first 1000 rows:\n${earlyRisk.slice(0, 12).map(item => `${item.idx + 1}: ${item.row[2]}`).join('\n')}`);
 }
 
+const earlyArtifacts = first1000.slice(0, 250).filter(item => META_ARTIFACT_RE.test(item.row[2]));
+if (earlyArtifacts.length) {
+  throw new Error(`Premium study order still contains corpus/meta artifacts in first 250 rows:\n${earlyArtifacts.slice(0, 12).map(item => `${item.idx + 1}: ${item.row[2]}`).join('\n')}`);
+}
+
 const first30 = first1000.slice(0, 30).map(item => item.row[2]);
 if (first30.some(line => PREMIUM_RISK_RE.test(line))) {
   throw new Error(`Premium study order still has harsh content in the first 30 guided rows.`);
+}
+
+const appHtml = readFileSync(join(ROOT, 'app.html'), 'utf8');
+if (appHtml.includes('const PREMIUM_STUDY_ORDER=SENTENCES.map')) {
+  throw new Error('app.html computes PREMIUM_STUDY_ORDER before async course data loads, so fresh guided lessons can be empty.');
+}
+if (!appHtml.includes('premiumStudyOrder=buildPremiumStudyOrder();')) {
+  throw new Error('app.html must rebuild premiumStudyOrder immediately after loading course data.');
+}
+const courseApi = readFileSync(join(ROOT, 'api', 'course.js'), 'utf8');
+if (!courseApi.includes('loadCuratedRussianCourse')) {
+  throw new Error('api/course.js must serve the curated course order, not raw corpus order.');
 }
 
 console.log(`Premium study order validation passed: ${first1000.length} early rows screened, ${earlyRisk.length} risky rows in first 1000.`);

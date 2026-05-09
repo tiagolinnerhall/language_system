@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const { getAdminMetrics } = require('./_lib/store');
 
 const SESSION_COOKIE = 'lang5k_preview_session';
-const SESSION_TOKEN = process.env.LANG5K_PREVIEW_SESSION || 'lang5k_preview_session_v1_2026_locked';
+const SESSION_TOKEN = (process.env.LANG5K_PREVIEW_SESSION || '').trim();
 
 function hasPreviewSession(req) {
   const rawCookie = String(req.headers.cookie || '');
@@ -20,6 +21,11 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  if (!SESSION_TOKEN) {
+    res.status(503).json({ error: 'Preview access is not configured.' });
+    return;
+  }
+
   if (!hasPreviewSession(req)) {
     res.status(401).json({ error: 'Preview login required.' });
     return;
@@ -29,6 +35,14 @@ module.exports = async function handler(req, res) {
     const reportPath = path.join(process.cwd(), 'admin-status.json');
     const raw = fs.readFileSync(reportPath, 'utf8');
     const data = JSON.parse(raw);
+    try {
+      data.metrics = await getAdminMetrics();
+    } catch (metricsError) {
+      data.metrics = {
+        configured: false,
+        error: metricsError.message || 'Live metrics could not be loaded.'
+      };
+    }
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json(data);
   } catch (error) {

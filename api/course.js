@@ -1,6 +1,8 @@
-const { bearerToken, verifyAccessToken } = require('./_lib/access');
-const { loadRussianCourse } = require('./_lib/course-data');
-const { isCheckoutSessionPaid, retrieveCheckoutSession } = require('./_lib/stripe');
+const { verifyAccessToken } = require('./_lib/access');
+const { loadCuratedRussianCourse } = require('./_lib/course-data');
+const { noStore, tokenFromRequest } = require('./_lib/http');
+const { getEntitlement } = require('./_lib/store');
+const { isCheckoutSessionPaid, retrieveCheckoutSession, validateLang5KCheckoutSession } = require('./_lib/stripe');
 
 const DEMO_LIMIT = 80;
 
@@ -12,7 +14,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const rows = loadRussianCourse();
+  const rows = loadCuratedRussianCourse();
   if (mode !== 'full') {
     res.status(200).json({
       language: 'russian',
@@ -25,7 +27,8 @@ module.exports = async function handler(req, res) {
   }
 
   const secret = (process.env.LANG5K_ACCESS_SECRET || '').trim();
-  const payload = verifyAccessToken(bearerToken(req), secret);
+  const payload = verifyAccessToken(tokenFromRequest(req), secret);
+  noStore(res);
   if (!payload || !Array.isArray(payload.scopes) || !payload.scopes.includes('russian')) {
     res.status(secret ? 401 : 503).json({
       error: secret ? 'Paid access is required.' : 'Paid access is not configured yet.'
@@ -33,21 +36,36 @@ module.exports = async function handler(req, res) {
     return;
   }
   try {
-    const session = await retrieveCheckoutSession(payload.session);
-    if (!isCheckoutSessionPaid(session)) {
-      res.status(402).json({ error: 'Paid access is no longer active.' });
-      return;
+    if (payload.email) {
+      const entitlement = await getEntitlement(payload.email);
+      if (entitlement && entitlement.status === 'active' && entitlement.product === 'russian') {
+        res.status(200).json({
+          language: 'russian',
+          mode: 'full',
+          total: rows.length,
+          limit: rows.length,
+          sentences: rows
+        });
+        return;
+      }
     }
+    if (payload.session) {
+      const session = await retrieveCheckoutSession(payload.session);
+      if (await validateLang5KCheckoutSession(session) && isCheckoutSessionPaid(session)) {
+        res.status(200).json({
+          language: 'russian',
+          mode: 'full',
+          total: rows.length,
+          limit: rows.length,
+          sentences: rows
+        });
+        return;
+      }
+    }
+    res.status(402).json({ error: 'Paid access is no longer active.' });
+    return;
   } catch (error) {
     res.status(error.statusCode || 500).json({ error: error.message || 'Unable to verify paid access.' });
     return;
   }
-
-  res.status(200).json({
-    language: 'russian',
-    mode: 'full',
-    total: rows.length,
-    limit: rows.length,
-    sentences: rows
-  });
 };

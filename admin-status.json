@@ -1,37 +1,40 @@
 {
-  "updatedAt": "2026-04-30T22:20:00Z",
-  "status": "Private preview with continuous premium-improvement loop",
-  "summary": "Lang5K is now hidden behind a preview login and has a simple owner panel. The product is stronger than before, but still not at the finished premium bar. The main remaining gaps are synced accounts, a real member system, deeper course curation, and stronger automation around retention and operations.",
+  "updatedAt": "2026-05-09T02:10:00+04:00",
+  "status": "Private preview with paid-access recovery and live metrics",
+  "summary": "Lang5K now has MongoDB-backed entitlements, Stripe webhook handling with replay protection and idempotency, cloud progress sync, analytics ingestion, live admin metrics, stronger headers, HttpOnly access/account cookies, and email-code access recovery. It still needs an owner live purchase/refund test, Resend sender verification if not already configured, native Russian review, and an explicit decision before opening the public launch gate.",
   "doneNow": [
-    "Protected the site behind a private preview login.",
-    "Added a simple admin page with a readable owner report.",
-    "Started a hidden PC loop that keeps pushing Lang5K toward premium and waits 15 minutes after each finished run before starting again.",
-    "Built a coached first-session path with a real Today's plan card.",
-    "Added same-session repair so Again and Hard cards return later in the same study session.",
-    "Unified guided study, cloze, and dictation around Again / Hard / Good / Easy."
+    "Protected preview/admin access so missing preview environment configuration fails closed.",
+    "Removed hardcoded preview fallback credentials and session values.",
+    "Added server-backed progress sync endpoints for paid checkout sessions.",
+    "Added database-backed account, entitlement, progress, and analytics storage helpers.",
+    "Added Stripe webhook handling for checkout completion, refunds, and disputes.",
+    "Added email-code access recovery so paid access is restored only after inbox proof.",
+    "Added analytics ingestion for checkout, app starts, study starts, and practice ratings.",
+    "Added stronger security headers and HttpOnly access/account cookies.",
+    "Added live admin metrics for active customers, refunds/disputes, progress users, analytics, billing events, and webhook events.",
+    "Updated production environment documentation and validation scripts."
   ],
   "canDoNext": [
-    "Add passwordless accounts and synced progress so learners are no longer tied to one browser.",
-    "Create a proper member model before pricing is finalized.",
-    "Build stronger course-quality QA for the first 1,000 Russian sentences.",
-    "Add event tracking for lesson starts, completions, weak-item repair, and return behavior.",
-    "Add reminder automation and a more detailed owner status page."
+    "Run a real Stripe checkout and webhook test end to end.",
+    "Verify Resend sender/domain so access recovery emails arrive reliably.",
+    "Add reminder/onboarding email automation.",
+    "Complete native Russian review for the first paid learning path."
   ],
   "needsYou": [
-    "Approve cloud accounts and stored learner progress as part of the product.",
-    "Approve the default premium tone: practical and neutral early, heavier/dramatic content later.",
-    "Later, approve the real yearly subscription rollout and final pricing."
+    "Run the first live purchase and refund test with your real Stripe account.",
+    "Verify or approve the email sender/domain used for recovery emails.",
+    "Decide when to set LANG5K_PUBLIC_LAUNCH=1.",
+    "Arrange native Russian review before strong public quality claims."
   ],
   "biggestBlockers": [
-    "No real accounts or synced progress yet.",
-    "Still using access-token style gating instead of a real member lifecycle.",
-    "Russian course is improved but not fully premium-curated yet.",
-    "No reminders, analytics dashboard, or operational monitoring yet."
+    "Live checkout, webhook, refund, recovery email, and progress-sync flows still need owner production testing.",
+    "Native Russian review is still incomplete.",
+    "No reminder automation yet."
   ],
   "suggestedNow": [
-    "Finish private preview mode cleanly, then keep the site hidden until the premium bar is genuinely met.",
-    "Build accounts plus synced progress before returning to pricing.",
-    "Tighten the first 1,000-sentence path so it feels premium from day one."
+    "Run a live low-value/test purchase flow and verify cookies, entitlement storage, recovery email, progress sync, refund revocation, and analytics.",
+    "Send the first 250 paid-path Russian rows to a native reviewer.",
+    "Only after those pass, approve opening the public launch gate."
   ],
   "links": [
     {
@@ -47,8 +50,8 @@
       "href": "/pricing.html"
     },
     {
-      "label": "Open attribution page",
-      "href": "/attribution.html"
+      "label": "Open access page",
+      "href": "/access.html"
     }
   ]
 }

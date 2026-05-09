@@ -1,82 +1,121 @@
-const { createAccessToken } = require('./_lib/access');
-const { isCheckoutSessionPaid, retrieveCheckoutSession, stripeGet } = require('./_lib/stripe');
+const { createAccessToken, hashCode, randomCode, timingSafeTextEqual } = require('./_lib/access');
+const { sendAccessCodeEmail } = require('./_lib/email');
+const {
+  ACCESS_TOKEN_SECONDS,
+  ACCOUNT_TOKEN_SECONDS,
+  clientIp,
+  noStore,
+  readJsonBody,
+  setAccessCookie,
+  setAccountCookie,
+  validEmail
+} = require('./_lib/http');
+const {
+  deleteLoginCode,
+  checkRateLimit,
+  getEntitlement,
+  getLoginCode,
+  recordAnalyticsEvent,
+  saveAccount,
+  saveLoginCode
+} = require('./_lib/store');
 
-async function readJsonBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const raw = Buffer.concat(chunks.map(chunk => Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))).toString('utf8').trim();
-  return raw ? JSON.parse(raw) : {};
+const PURPOSE = 'access_recovery';
+const CODE_TTL_SECONDS = 15 * 60;
+
+function activeEntitlement(entitlement) {
+  return entitlement && entitlement.status === 'active' && entitlement.product === 'russian';
+}
+
+function issueAccess(res, email, entitlement, secret) {
+  const now = Math.floor(Date.now() / 1000);
+  const token = createAccessToken({
+    sub: email,
+    email,
+    session: entitlement.stripeSessionId || '',
+    scopes: ['russian'],
+    iat: now,
+    exp: now + ACCESS_TOKEN_SECONDS
+  }, secret);
+  const accountToken = createAccessToken({
+    sub: email,
+    email,
+    type: 'account',
+    iat: now,
+    exp: now + ACCOUNT_TOKEN_SECONDS
+  }, secret);
+  setAccessCookie(res, token);
+  setAccountCookie(res, accountToken);
+  return { access: true, email, expiresAt: now + ACCESS_TOKEN_SECONDS };
+}
+
+async function requestCode(email, secret) {
+  const entitlement = await getEntitlement(email);
+  if (activeEntitlement(entitlement)) {
+    const code = randomCode();
+    const codeHash = hashCode(email, code, PURPOSE, secret);
+    await saveLoginCode(email, PURPOSE, codeHash, CODE_TTL_SECONDS);
+    await sendAccessCodeEmail(email, code);
+    await recordAnalyticsEvent({ type: 'access.recovery_code_sent', email });
+  } else {
+    await recordAnalyticsEvent({ type: 'access.recovery_request_no_entitlement' });
+  }
+}
+
+async function verifyCode(res, email, code, secret) {
+  const saved = await getLoginCode(email, PURPOSE);
+  const expected = hashCode(email, code, PURPOSE, secret);
+  if (!saved || !timingSafeTextEqual(saved.codeHash, expected)) {
+    const error = new Error('Invalid or expired recovery code.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const entitlement = await getEntitlement(email);
+  if (!activeEntitlement(entitlement)) {
+    const error = new Error('No active Lang5K access was found for this email.');
+    error.statusCode = 403;
+    throw error;
+  }
+  await deleteLoginCode(email, PURPOSE);
+  await saveAccount(email, { email, updatedAt: new Date().toISOString() });
+  await recordAnalyticsEvent({ type: 'access.recovered', email });
+  return issueAccess(res, email, entitlement, secret);
 }
 
 module.exports = async function handler(req, res) {
+  noStore(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed.' });
     return;
   }
-
   const secret = (process.env.LANG5K_ACCESS_SECRET || '').trim();
-  let body = {};
-  try {
-    body = await readJsonBody(req);
-  } catch {
-    res.status(400).json({ error: 'Request body must be valid JSON.' });
-    return;
-  }
-  const email = String(body.email || '').trim().toLowerCase();
   if (!secret) {
     res.status(503).json({ error: 'Access signing is not configured.' });
     return;
   }
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    res.status(400).json({ error: 'Enter the paid email address from your checkout.' });
-    return;
-  }
-
   try {
-    let startingAfter;
-    let match = null;
-    for (let page = 0; page < 5 && !match; page++) {
-      const response = await stripeGet('/checkout/sessions', {
-        limit: 100,
-        ...(startingAfter ? { starting_after: startingAfter } : {})
-      });
-      const rows = Array.isArray(response.data) ? response.data : [];
-      for (const row of rows) {
-        const rowEmail = String(row.customer_details?.email || row.customer_email || '').trim().toLowerCase();
-        if (rowEmail !== email) continue;
-        const full = await retrieveCheckoutSession(row.id);
-        if (isCheckoutSessionPaid(full)) {
-          match = full;
-          break;
-        }
-      }
-      if (!response.has_more || !rows.length) break;
-      startingAfter = rows[rows.length - 1].id;
-    }
-
-    if (!match) {
-      res.status(404).json({ error: 'No paid Lang5K checkout was found for that email yet.' });
+    const body = await readJsonBody(req, 16 * 1024);
+    const email = String(body.email || '').trim().toLowerCase();
+    const code = String(body.code || '').replace(/\D/g, '');
+    if (!validEmail(email)) {
+      res.status(400).json({ error: 'Enter the email used at Stripe checkout.' });
       return;
     }
-
-    const now = Math.floor(Date.now() / 1000);
-    const token = createAccessToken({
-      sub: match.customer_details?.email || match.customer_email || match.customer || match.id,
-      email: match.customer_details?.email || match.customer_email || '',
-      session: match.id,
-      scopes: ['russian'],
-      iat: now,
-      exp: now + 60 * 60 * 24 * 30
-    }, secret);
-
-    res.status(200).json({
-      token,
-      email: match.customer_details?.email || match.customer_email || '',
-      restored: true,
-      expiresAt: now + 60 * 60 * 24 * 30
-    });
+    const ip = clientIp(req);
+    const limitedKey = code ? `recovery_verify:${email}:${ip}` : `recovery_send:${email}:${ip}`;
+    const allowed = await checkRateLimit(limitedKey, code ? 8 : 3, code ? 15 * 60 : 60 * 60);
+    if (!allowed) {
+      res.status(429).json({ error: 'Too many attempts. Please wait and try again.' });
+      return;
+    }
+    if (code) {
+      const result = await verifyCode(res, email, code, secret);
+      res.status(200).json(result);
+      return;
+    }
+    await requestCode(email, secret);
+    res.status(200).json({ ok: true });
   } catch (error) {
-    res.status(error.statusCode || 500).json({ error: error.message || 'Unable to restore access.' });
+    res.status(error.statusCode || 500).json({ error: error.message || 'Access recovery failed.' });
   }
 };

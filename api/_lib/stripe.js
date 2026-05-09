@@ -34,6 +34,29 @@ async function retrieveCheckoutSession(sessionId) {
   });
 }
 
+function expectedPriceId() {
+  return (process.env.STRIPE_PRICE_ID || '').trim();
+}
+
+function lang5kMetadataOk(session) {
+  const metadata = session?.metadata || {};
+  const expectedPrice = expectedPriceId();
+  return metadata.app === 'lang5k' && metadata.product === 'russian' && (!expectedPrice || metadata.priceId === expectedPrice);
+}
+
+async function checkoutSessionHasExpectedPrice(sessionId) {
+  const expectedPrice = expectedPriceId();
+  if (!expectedPrice) return false;
+  const lineItems = await stripeGet(`/checkout/sessions/${encodeURIComponent(sessionId)}/line_items`, { limit: '10' });
+  return (lineItems.data || []).some(item => item.price?.id === expectedPrice);
+}
+
+async function validateLang5KCheckoutSession(session) {
+  if (!session || !session.id) return false;
+  if (!lang5kMetadataOk(session)) return false;
+  return checkoutSessionHasExpectedPrice(session.id);
+}
+
 function isCheckoutSessionPaid(session) {
   if (!session || session.status !== 'complete' || session.payment_status !== 'paid') return false;
   const paymentIntent = session.payment_intent;
@@ -49,4 +72,11 @@ function isCheckoutSessionPaid(session) {
   return true;
 }
 
-module.exports = { isCheckoutSessionPaid, retrieveCheckoutSession, stripeGet, stripeRequest };
+module.exports = {
+  checkoutSessionHasExpectedPrice,
+  isCheckoutSessionPaid,
+  retrieveCheckoutSession,
+  stripeGet,
+  stripeRequest,
+  validateLang5KCheckoutSession
+};

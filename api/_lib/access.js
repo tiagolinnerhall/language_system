@@ -41,4 +41,29 @@ function bearerToken(req) {
   return match ? match[1] : '';
 }
 
-module.exports = { bearerToken, createAccessToken, verifyAccessToken };
+function randomCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function hashCode(email, code, purpose, secret) {
+  return crypto
+    .createHmac('sha256', secret)
+    .update(`${purpose}:${String(email).toLowerCase()}:${code}`)
+    .digest('base64url');
+}
+
+function timingSafeTextEqual(a, b) {
+  const left = Buffer.from(String(a || ''));
+  const right = Buffer.from(String(b || ''));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+module.exports = {
+  bearerToken,
+  createAccessToken,
+  hashCode,
+  randomCode,
+  timingSafeTextEqual,
+  verifyAccessToken
+};

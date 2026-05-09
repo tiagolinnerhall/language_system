@@ -3,4 +3,5 @@
 generated-audio/
 data-sources/
 .vercel/
+.serena/
 audio-generation*.log

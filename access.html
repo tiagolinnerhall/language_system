@@ -7,23 +7,32 @@
 <meta name="description" content="Verify Lang5K checkout and unlock access.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
-body{margin:0;font-family:Inter,Arial,sans-serif;background:#f3f5f8;color:#111827;line-height:1.65}.wrap{max-width:760px;margin:0 auto;padding:40px 24px}.panel{background:#fff;border:1px solid #dbe3ee;border-radius:16px;padding:28px;box-shadow:0 12px 32px rgba(15,23,42,.12)}a{color:#2563eb}.top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:28px}.top a{font-weight:800;text-decoration:none}.status{padding:14px 16px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.error{background:#fef2f2;border-color:#fecaca;color:#991b1b}.btn{display:inline-flex;margin-top:16px;background:#2563eb;color:#fff;border-radius:10px;padding:12px 16px;text-decoration:none;font-weight:800;border:none;cursor:pointer}.muted{color:#4b5563}.recovery{margin-top:22px;padding-top:20px;border-top:1px solid #dbe3ee}.field{display:flex;flex-direction:column;gap:6px;margin-top:12px}.field input{padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}.small{font-size:.9rem;color:#6b7280}
+body{margin:0;font-family:Inter,Arial,sans-serif;background:#f3f5f8;color:#111827;line-height:1.65}.wrap{max-width:760px;margin:0 auto;padding:40px 24px}.panel{background:#fff;border:1px solid #dbe3ee;border-radius:16px;padding:28px;box-shadow:0 12px 32px rgba(15,23,42,.12)}a{color:#2563eb}.top{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:28px}.top a{font-weight:800;text-decoration:none}.status{padding:14px 16px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.error{background:#fef2f2;border-color:#fecaca;color:#991b1b}.success{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}.btn{display:inline-flex;margin-top:16px;background:#2563eb;color:#fff;border-radius:10px;padding:12px 16px;text-decoration:none;font-weight:800;border:none;cursor:pointer}.btn.secondary{background:#fff;color:#2563eb;border:1px solid #bfd0f8}.btn:disabled{opacity:.7;cursor:progress}.muted{color:#4b5563}.recovery{margin-top:22px;padding-top:20px;border-top:1px solid #dbe3ee}.field{display:flex;flex-direction:column;gap:6px;margin-top:12px}.field input{padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}.small{font-size:.9rem;color:#6b7280}.actions{display:flex;gap:10px;flex-wrap:wrap}.code-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}@media(max-width:640px){.code-row{grid-template-columns:1fr}.btn{width:100%;justify-content:center}}
 </style>
 </head>
-<body><div class="wrap"><div class="top"><a href="/">5K Lang5K</a><a href="contact.html">Support</a></div><main class="panel">
-<h1>Unlocking Access</h1>
-<p class="muted">Verifying your Stripe checkout and preparing your full Russian course access.</p>
+<body><div class="wrap"><div class="top"><a href="/">Lang5K</a><a href="contact.html">Support</a></div><main class="panel">
+<h1 id="pageTitle">Lang5K Access</h1>
+<p class="muted" id="pageCopy">Verify Stripe checkout or recover full-course access by email code.</p>
 <div id="status" class="status">Checking payment...</div>
 <a class="btn" id="appBtn" href="app.html?lang=russian" style="display:none">Open Lang5K</a>
 <div class="recovery">
- <h2>Restore access on this browser</h2>
- <p class="small">If you already paid on another browser or earlier session, enter the same email you used at checkout.</p>
+ <h2>Access recovery</h2>
+ <p class="small">Use the email from Stripe checkout. Lang5K sends a short code to that inbox before restoring access, so access is not granted from a direct email lookup.</p>
  <div class="field">
-  <label for="restoreEmail">Paid email address</label>
-  <input id="restoreEmail" type="email" autocomplete="email" placeholder="you@example.com">
+  <label for="recoveryEmail">Checkout email</label>
+  <input id="recoveryEmail" type="email" autocomplete="email" placeholder="you@example.com">
  </div>
- <button class="btn" type="button" onclick="restoreAccess()">Restore paid access</button>
- <div class="small" id="restoreStatus"></div>
+ <div class="actions">
+  <button class="btn secondary" id="sendCodeBtn" type="button" onclick="sendRecoveryCode()">Send recovery code</button>
+ </div>
+ <div class="code-row">
+  <div class="field">
+   <label for="recoveryCode">6-digit code</label>
+   <input id="recoveryCode" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+  </div>
+  <button class="btn" id="verifyCodeBtn" type="button" onclick="verifyRecoveryCode()" disabled>Restore access</button>
+ </div>
+ <div id="recoveryStatus" class="status" style="display:none;margin-top:14px"></div>
 </div>
 </main></div>
 <script>
@@ -33,50 +42,99 @@ async function unlock(){
  const status=document.getElementById('status');
  const appBtn=document.getElementById('appBtn');
  if(!sessionId){
-  status.className='status error';
-  status.textContent='Missing checkout session. Please return to checkout or contact support.';
+  document.getElementById('pageTitle').textContent='Recover Access';
+  document.getElementById('pageCopy').textContent='Enter the email used at Stripe checkout. If it has active access, Lang5K sends a short code to that inbox.';
+  status.className='status';
+  status.textContent='Ready to send a recovery code.';
+  document.getElementById('recoveryEmail').focus();
   return;
  }
  try{
   const response=await fetch('/api/verify-checkout-session?session_id='+encodeURIComponent(sessionId),{cache:'no-store'});
   const data=await response.json().catch(()=>({error:'Unable to read access response.'}));
-  if(!response.ok||!data.token)throw new Error(data.error||'Unable to verify checkout.');
-  localStorage.setItem('lang5k_access_token',data.token);
+  if(!response.ok||!data.access)throw new Error(data.error||'Unable to verify checkout.');
   if(data.email)localStorage.setItem('lang5k_access_email',data.email);
-  status.textContent='Access verified. Opening the full course...';
+ status.textContent='Access verified. Opening the full course...';
   appBtn.style.display='inline-flex';
   window.setTimeout(()=>{window.location.href='app.html?lang=russian'},900);
- }catch(error){
+}catch(error){
   status.className='status error';
-  status.innerHTML='<strong>Access could not be verified.</strong><br>'+error.message+'<br><br>Email billing@lang5k.com with your Stripe receipt if you paid.';
+  status.textContent='Access could not be verified. '+(error.message||'Email billing@lang5k.com with your Stripe receipt if you paid.');
  }
 }
 
-async function restoreAccess(){
- const email=(document.getElementById('restoreEmail').value||'').trim();
- const restoreStatus=document.getElementById('restoreStatus');
- const status=document.getElementById('status');
- const appBtn=document.getElementById('appBtn');
- restoreStatus.textContent='Checking your paid email...';
+function validEmail(value){
+ return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value||'').trim());
+}
+
+function updateRecoveryControls(){
+ const email=document.getElementById('recoveryEmail').value.trim();
+ const code=document.getElementById('recoveryCode').value.replace(/\D/g,'').slice(0,6);
+ document.getElementById('recoveryCode').value=code;
+ document.getElementById('sendCodeBtn').disabled=!validEmail(email);
+ document.getElementById('verifyCodeBtn').disabled=!validEmail(email)||code.length!==6;
+}
+
+function setRecoveryStatus(message,type='info'){
+ const status=document.getElementById('recoveryStatus');
+ status.style.display='block';
+ status.className='status'+(type==='error'?' error':type==='success'?' success':'');
+ status.textContent=message;
+}
+
+async function sendRecoveryCode(){
+ const email=document.getElementById('recoveryEmail').value.trim();
+ const button=document.getElementById('sendCodeBtn');
+ if(!validEmail(email)){
+  setRecoveryStatus('Enter the email used at Stripe checkout.','error');
+  updateRecoveryControls();
+  return;
+ }
+ button.disabled=true;
+ button.textContent='Sending...';
  try{
-  const response=await fetch('/api/restore-access',{
-   method:'POST',
-   headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({email})
-  });
-  const data=await response.json().catch(()=>({error:'Unable to read access response.'}));
-  if(!response.ok||!data.token)throw new Error(data.error||'Unable to restore access.');
-  localStorage.setItem('lang5k_access_token',data.token);
-  if(data.email)localStorage.setItem('lang5k_access_email',data.email);
-  status.className='status';
-  status.textContent='Paid access restored on this browser.';
-  restoreStatus.textContent='Access restored. Opening the full course...';
-  appBtn.style.display='inline-flex';
-  window.setTimeout(()=>{window.location.href='app.html?lang=russian'},900);
+  const response=await fetch('/api/restore-access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+  const data=await response.json().catch(()=>({error:'Unable to read recovery response.'}));
+  if(!response.ok)throw new Error(data.error||'Recovery code could not be sent.');
+  setRecoveryStatus('If that email has active Lang5K access, a code is on the way. Enter it below within 15 minutes.','success');
  }catch(error){
-  restoreStatus.textContent=error.message;
+  setRecoveryStatus(error.message||'Recovery code could not be sent.','error');
+}finally{
+  button.textContent='Send recovery code';
+  updateRecoveryControls();
  }
 }
+
+async function verifyRecoveryCode(){
+ const email=document.getElementById('recoveryEmail').value.trim();
+ const code=document.getElementById('recoveryCode').value.trim();
+ const button=document.getElementById('verifyCodeBtn');
+ if(!validEmail(email)||!/^\d{6}$/.test(code)){
+  setRecoveryStatus('Enter your checkout email and the 6-digit code.','error');
+  updateRecoveryControls();
+  return;
+ }
+ button.disabled=true;
+ button.textContent='Checking...';
+ try{
+  const response=await fetch('/api/restore-access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,code})});
+  const data=await response.json().catch(()=>({error:'Unable to read access response.'}));
+  if(!response.ok||!data.access)throw new Error(data.error||'Access could not be restored.');
+ if(data.email)localStorage.setItem('lang5k_access_email',data.email);
+  setRecoveryStatus('Access restored. Opening Lang5K...','success');
+  document.getElementById('appBtn').style.display='inline-flex';
+  window.setTimeout(()=>{window.location.href='app.html?lang=russian'},700);
+ }catch(error){
+  setRecoveryStatus(error.message||'Access could not be restored.','error');
+}finally{
+  button.textContent='Restore access';
+  updateRecoveryControls();
+ }
+}
+
+document.getElementById('recoveryEmail').addEventListener('input',updateRecoveryControls);
+document.getElementById('recoveryCode').addEventListener('input',updateRecoveryControls);
+updateRecoveryControls();
 unlock();
 </script>
 </body></html>
