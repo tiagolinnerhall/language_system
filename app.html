@@ -1191,6 +1191,61 @@ function teacherAnswerMappedQuestion(text){
  return false;
 }
 
+function teacherCurrentAttemptAnalysis(){
+ const current=teacherCurrentItem();
+ let inputId='';
+ let target='';
+ let translit='';
+ if(current?.kind==='study'){
+  inputId='studyInput';
+  target=current.sentence[0];
+  translit=current.sentence[1];
+ }else if(current?.kind==='cloze'&&clozeCurrent){
+  inputId='clozeInput';
+  target=clozeCurrent.answer||'';
+ }else if(current?.kind==='dictation'&&dictationCurrent){
+  inputId='dictationInput';
+  target=current.sentence[0];
+  translit=current.sentence[1];
+ }
+ const input=inputId?document.getElementById(inputId):null;
+ const value=input&&input.offsetParent!==null?input.value.trim():'';
+ const analysis=value&&target?analyzeAttempt(value,target,translit):null;
+ return {
+  present:Boolean(value),
+  checkedAs:analysis?.checkedAs||'',
+  state:analysis?.state||'',
+  suggestedRating:analysis?.rating||'',
+  overlap:analysis?analysis.overlap:null,
+  missing:analysis?analysis.missing.slice(0,5):[],
+  extra:analysis?analysis.extra.slice(0,5):[]
+ };
+}
+
+function teacherDifficultyProfile(plan,performance,currentPayload,attempt){
+ const reasons=[];
+ const rated=performance.sessionRated||0;
+ const weakRatings=studySessionStats.againCount+studySessionStats.hardCount;
+ const weakRate=rated?Math.round(weakRatings/rated*100):0;
+ if(performance.dueCount>0)reasons.push(`${performance.dueCount} spaced review${performance.dueCount===1?' is':'s are'} due`);
+ if(performance.weakCount>0)reasons.push(`${performance.weakCount} weak sentence${performance.weakCount===1?' needs':'s need'} repair`);
+ if(performance.sessionAccuracy!==null&&performance.sessionAccuracy<70)reasons.push(`session accuracy is ${performance.sessionAccuracy}%`);
+ if(weakRate>=35)reasons.push(`${weakRate}% of this session is weak`);
+ if(performance.lapses>=3)reasons.push(`${performance.lapses} lifetime lapse${performance.lapses===1?'':'s'} recorded`);
+ if(currentPayload?.lapses>=2)reasons.push('this sentence has repeated lapses');
+ if(['again','hard'].includes(currentPayload?.lastRating))reasons.push(`last rating was ${currentPayload.lastRating}`);
+ if(attempt.present&&['wrong','partial'].includes(attempt.state))reasons.push(`current recall attempt is ${attempt.state}`);
+ let level='normal';
+ if(reasons.some(reason=>/accuracy|weak|lapse|wrong|partial|again|hard/i.test(reason)))level='hard';
+ else if(!performance.dueCount&&!performance.weakCount&&performance.sessionAccuracy!==null&&performance.sessionAccuracy>=85)level='easy';
+ const recommendedPace=level==='hard'
+  ? 'slow down: repair weak recall before new sentences'
+  : level==='easy'
+    ? `continue with up to ${plan.newLimit} new sentence${plan.newLimit===1?'':'s'} if recall stays clean`
+    : `follow the plan: ${plan.focus}`;
+ return {level,reasons,recommendedPace,typedAttempt:attempt};
+}
+
 function teacherAiContext(){
  const current=teacherCurrentItem();
  const plan=teacherRecommendedPlan();
@@ -1211,6 +1266,8 @@ function teacherAiContext(){
    lapses:srs.lapses||0
   };
  }
+ const attempt=teacherCurrentAttemptAnalysis();
+ const difficulty=teacherDifficultyProfile(plan,performance,currentPayload,attempt);
  return {
   language:langKey,
   mode:currentMode,
@@ -1220,8 +1277,10 @@ function teacherAiContext(){
   revealed:studyRevealed||Boolean(clozeCurrent?.revealed)||Boolean(dictationCurrent?.revealed),
   recallAttempted:teacherHasRecallAttempt(),
   coachFirst:isCoachFirstMode(),
+  difficulty,
   plan,
   performance,
+  sessionCounts:{...studySessionStats},
   current:currentPayload
  };
 }

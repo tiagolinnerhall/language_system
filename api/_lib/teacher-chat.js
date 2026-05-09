@@ -5,7 +5,8 @@ const { hasPreviewSession, SESSION_COOKIE } = require('./preview');
 const { checkRateLimit, getEntitlement } = require('./store');
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
-const DEFAULT_MODEL = 'gpt-5.2';
+const DEFAULT_FAST_MODEL = 'gpt-5.4-mini';
+const DEFAULT_PREMIUM_MODEL = 'gpt-5.5';
 const ACTIONS = [
   'none',
   'guide',
@@ -97,7 +98,22 @@ function sanitizeContext(value) {
     courseAccess: text(ctx.courseAccess, 40),
     studyActive: bool(ctx.studyActive),
     revealed: bool(ctx.revealed),
+    recallAttempted: bool(ctx.recallAttempted),
     coachFirst: bool(ctx.coachFirst),
+    difficulty: {
+      level: text(ctx.difficulty?.level, 40),
+      reasons: Array.isArray(ctx.difficulty?.reasons) ? ctx.difficulty.reasons.slice(0, 6).map(item => text(item, 90)) : [],
+      recommendedPace: text(ctx.difficulty?.recommendedPace, 80),
+      typedAttempt: {
+        present: bool(ctx.difficulty?.typedAttempt?.present),
+        checkedAs: text(ctx.difficulty?.typedAttempt?.checkedAs, 40),
+        state: text(ctx.difficulty?.typedAttempt?.state, 30),
+        suggestedRating: text(ctx.difficulty?.typedAttempt?.suggestedRating, 20),
+        overlap: ctx.difficulty?.typedAttempt?.overlap === null ? null : int(Math.round(Number(ctx.difficulty?.typedAttempt?.overlap || 0) * 100), 0, 100),
+        missing: Array.isArray(ctx.difficulty?.typedAttempt?.missing) ? ctx.difficulty.typedAttempt.missing.slice(0, 5).map(item => text(item, 60)) : [],
+        extra: Array.isArray(ctx.difficulty?.typedAttempt?.extra) ? ctx.difficulty.typedAttempt.extra.slice(0, 5).map(item => text(item, 60)) : []
+      }
+    },
     plan: {
       focus: text(plan.focus, 120),
       reason: text(plan.reason, 180),
@@ -121,6 +137,8 @@ function sanitizeContext(value) {
       todayNew: int(performance.todayNew, 0, 5000),
       todayReviews: int(performance.todayReviews, 0, 5000),
       streak: int(performance.streak, 0, 5000),
+      completedFirstGuidedSession: bool(performance.completedFirstGuidedSession),
+      lapses: int(performance.lapses, 0, 5000),
       sessionRated: int(performance.sessionRated, 0, 5000),
       sessionAccuracy: performance.sessionAccuracy === null ? null : int(performance.sessionAccuracy, 0, 100),
       lifetimeAccuracy: performance.lifetimeAccuracy === null ? null : int(performance.lifetimeAccuracy, 0, 100),
@@ -149,7 +167,9 @@ function systemPrompt() {
     'Your only job is to help the student learn Russian inside Lang5K as fast as practical.',
     'You know the app map: Home explains the method; Study is the main guided path; Browse is manual search after guided work; Review Bin repairs weak sentences; Cloze drills one missing word; Dictation checks listening; Pricing, Checkout, Access, Contact, Attribution, Terms, Privacy, and Refunds are separate pages.',
     'Method: prioritize due spaced reviews, weak repair, then new sentences. Use active recall before reveal, delayed recall, honest self-rating, cloze, dictation, and daily limits. Never encourage passive browsing as the main path.',
-    'Use the supplied student performance and current screen. Be specific and decisive.',
+    'Use the supplied student performance, typed attempt analysis, due reviews, weak cards, lapses, current screen, and current sentence. Be specific and decisive.',
+    'Sense difficulty. If accuracy is low, weak cards are high, lapses are repeated, or the typed attempt is partial/wrong, slow the pace, repair one sentence, and block extra new material.',
+    'If the student is doing well, keep momentum but still prefer recall quality over speed. The easiest fast path is not more content; it is the right next recall at the right time.',
     'Stay lesson-only. If the user asks unrelated questions, politely refuse and redirect to Russian learning or Lang5K navigation.',
     'Do not claim native-level quality guarantees, medical/legal/financial advice, or abilities the app does not have. Do not say you can grade pronunciation unless the app provides a transcript or visible answer.',
     'Keep replies short enough to be spoken aloud: normally 1 to 3 sentences.',
@@ -173,9 +193,17 @@ function responseSchema() {
       },
       speak: {
         type: 'boolean'
+      },
+      difficulty: {
+        type: 'string',
+        enum: ['easy', 'normal', 'hard']
+      },
+      focus: {
+        type: 'string',
+        enum: ['study', 'review', 'repair', 'cloze', 'dictation', 'navigation', 'access', 'scope']
       }
     },
-    required: ['reply', 'action', 'speak']
+    required: ['reply', 'action', 'speak', 'difficulty', 'focus']
   };
 }
 
@@ -209,7 +237,11 @@ function parseTeacherReply(raw) {
 function normalizeReply(value) {
   const reply = text(value?.reply, 650) || 'I can help with the next Russian lesson step.';
   const action = ACTIONS.includes(value?.action) ? value.action : 'none';
-  return { reply, action, speak: value?.speak !== false };
+  const difficulty = ['easy', 'normal', 'hard'].includes(value?.difficulty) ? value.difficulty : 'normal';
+  const focus = ['study', 'review', 'repair', 'cloze', 'dictation', 'navigation', 'access', 'scope'].includes(value?.focus)
+    ? value.focus
+    : 'study';
+  return { reply, action, speak: value?.speak !== false, difficulty, focus };
 }
 
 async function fetchWithTimeout(url, options, timeoutMs = 12000) {
@@ -222,6 +254,44 @@ async function fetchWithTimeout(url, options, timeoutMs = 12000) {
   }
 }
 
+function hardSignal(message, context) {
+  const textMessage = String(message || '').toLowerCase();
+  const hardWords = /\b(confus|lost|stuck|hard|difficult|wrong|mistake|again|barely|forgot|forget|struggl|do not understand|don't understand|dont understand|why|grammar|case|ending|conjugat|pronunciation|accent|native|explain)\b/.test(textMessage);
+  const plan = context.plan || {};
+  const performance = context.performance || {};
+  const difficulty = context.difficulty || {};
+  const typed = difficulty.typedAttempt || {};
+  const lowAccuracy = value => value !== null && value !== undefined && Number(value) < 70;
+  return Boolean(
+    hardWords ||
+    difficulty.level === 'hard' ||
+    typed.state === 'wrong' ||
+    typed.state === 'partial' ||
+    ['again', 'hard'].includes(typed.suggestedRating) ||
+    lowAccuracy(plan.sessionAccuracy) ||
+    lowAccuracy(performance.sessionAccuracy) ||
+    Number(plan.weakCount) >= 6 ||
+    Number(performance.weakCount) >= 6 ||
+    Number(plan.dueCount) >= 25 ||
+    Number(performance.lapses) >= 3 ||
+    context.current?.lastRating === 'again' ||
+    Number(context.current?.lapses) >= 2
+  );
+}
+
+function teacherModels() {
+  return {
+    fast: String(process.env.LANG5K_TEACHER_FAST_MODEL || process.env.LANG5K_TEACHER_MODEL || DEFAULT_FAST_MODEL).trim(),
+    premium: String(process.env.LANG5K_TEACHER_PREMIUM_MODEL || DEFAULT_PREMIUM_MODEL).trim()
+  };
+}
+
+function chooseTeacherModel(message, context) {
+  const models = teacherModels();
+  if (hardSignal(message, context)) return { model: models.premium, tier: 'premium' };
+  return { model: models.fast, tier: 'fast' };
+}
+
 async function askOpenAi(message, context) {
   const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) {
@@ -229,7 +299,7 @@ async function askOpenAi(message, context) {
     error.statusCode = 503;
     throw error;
   }
-  const model = String(process.env.LANG5K_TEACHER_MODEL || DEFAULT_MODEL).trim();
+  const chosen = chooseTeacherModel(message, context);
   const response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
     method: 'POST',
     headers: {
@@ -237,7 +307,7 @@ async function askOpenAi(message, context) {
       'content-type': 'application/json'
     },
     body: JSON.stringify({
-      model,
+      model: chosen.model,
       instructions: systemPrompt(),
       input: [
         {
@@ -268,7 +338,8 @@ async function askOpenAi(message, context) {
     error.statusCode = response.status === 401 || response.status === 403 || response.status === 429 ? 503 : response.status;
     throw error;
   }
-  return parseTeacherReply(outputText(await response.json()));
+  const answer = parseTeacherReply(outputText(await response.json()));
+  return { ...answer, modelTier: chosen.tier };
 }
 
 module.exports = async function handler(req, res) {
@@ -297,7 +368,8 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: 'Teacher message is required.' });
       return;
     }
-    const answer = await askOpenAi(message, sanitizeContext(body.context));
+    const context = sanitizeContext(body.context);
+    const answer = await askOpenAi(message, context);
     res.status(200).json({ ok: true, ...answer });
   } catch (error) {
     const status = [400, 401, 403, 405, 413, 429].includes(error.statusCode) ? error.statusCode : 503;

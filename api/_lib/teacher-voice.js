@@ -158,7 +158,7 @@ async function elevenLabsSpeech(text) {
   const apiKey = String(process.env.ELEVENLABS_API_KEY || '').trim();
   const voiceId = String(process.env.ELEVENLABS_VOICE_ID || process.env.LANG5K_ELEVENLABS_VOICE_ID || '').trim();
   if (!apiKey || !voiceId) return null;
-  const modelId = String(process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2').trim();
+  const modelId = String(process.env.ELEVENLABS_MODEL_ID || 'eleven_flash_v2_5').trim();
   const response = await fetchWithTimeout(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
     method: 'POST',
     headers: {
