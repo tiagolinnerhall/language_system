@@ -15,22 +15,23 @@ function mustInclude(source, marker, message) {
 }
 
 const toggleLearned = extractFunction('toggleLearned');
+const toggleBin = extractFunction('toggleBin');
 
-mustInclude(toggleLearned, 'delete reviewBin[idx];', 'Marking a sentence learned must remove it from weak practice.');
-mustInclude(toggleLearned, "localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));", 'Weak-practice cleanup must be persisted.');
-mustInclude(toggleLearned, 'updateBinBadge();', 'Weak-practice cleanup must refresh the visible review-bin count.');
-
-const markLearnedIndex = toggleLearned.indexOf('learned[idx]=true;');
-const deleteWeakIndex = toggleLearned.indexOf('delete reviewBin[idx];');
-const persistWeakIndex = toggleLearned.indexOf("localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));");
-const persistLearnedIndex = toggleLearned.indexOf("localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));");
-
-if (markLearnedIndex < 0 || deleteWeakIndex < 0 || persistWeakIndex < 0 || persistLearnedIndex < 0) {
-  throw new Error('Learned weak-practice cleanup validation could not inspect toggleLearned order.');
+if (app.includes('onclick="toggleLearned')) {
+  throw new Error('Browse must not expose a one-click mark-learned shortcut.');
 }
-
-if (!(markLearnedIndex < deleteWeakIndex && deleteWeakIndex < persistWeakIndex && persistWeakIndex < persistLearnedIndex)) {
-  throw new Error('Weak-practice cleanup must happen while marking learned and before learned progress is persisted.');
+if (toggleLearned.includes('learned[idx]=true') || toggleLearned.includes('delete learned[idx]')) {
+  throw new Error('toggleLearned must not mutate learned progress directly.');
 }
+mustInclude(
+  toggleLearned,
+  'Use Study and spaced review ratings to graduate a sentence.',
+  'Browse learned shortcut must direct learners back to the study method.'
+);
 
-console.log('Learned weak-practice cleanup validation passed.');
+if (toggleBin.includes('delete reviewBin[idx]')) {
+  throw new Error('Browse must not remove weak-practice items without successful repair.');
+}
+mustInclude(toggleBin, 'toggleBinView();', 'Clicking an existing weak item from Browse should open repair, not remove it.');
+
+console.log('Browse shortcut guard validation passed.');

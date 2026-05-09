@@ -15,17 +15,24 @@ function mustInclude(source, marker, message) {
 }
 
 mustInclude(app, 'let practiceRatingLocked=false;', 'Standalone practice must track whether the current card has accepted a rating.');
+const teacherTypedRecallAttempt = extractFunction('teacherTypedRecallAttempt');
+mustInclude(teacherTypedRecallAttempt, 'const current=teacherCurrentItem();', 'Teacher recall attempts must be scoped to the current visible card.');
+mustInclude(teacherTypedRecallAttempt, 'input.offsetParent!==null', 'Hidden stale inputs must not satisfy the current recall gate.');
 
 const renderClozeCard = extractFunction('renderClozeCard');
 mustInclude(renderClozeCard, 'practiceRatingLocked=false;', 'Rendering a cloze card must clear the practice rating lock.');
+mustInclude(renderClozeCard, "teacherAttemptedRecallKey='';", 'Rendering a cloze card must require a fresh Teacher recall attempt.');
 
 const renderDictationCard = extractFunction('renderDictationCard');
 mustInclude(renderDictationCard, 'practiceRatingLocked=false;', 'Rendering a dictation card must clear the practice rating lock.');
+mustInclude(renderDictationCard, "teacherAttemptedRecallKey='';", 'Rendering a dictation card must require a fresh Teacher recall attempt.');
 
 const revealCloze = extractFunction('revealCloze');
+mustInclude(revealCloze, 'if(!teacherRequireRecallAttempt())return;', 'Teacher Mode must gate cloze reveal until the learner attempts recall.');
 mustInclude(revealCloze, 'practiceRatingLocked=false;', 'Revealing a cloze card must allow exactly one rating.');
 
 const revealDictation = extractFunction('revealDictation');
+mustInclude(revealDictation, 'if(!teacherRequireRecallAttempt())return;', 'Teacher Mode must gate dictation reveal until the learner attempts recall.');
 mustInclude(revealDictation, 'practiceRatingLocked=false;', 'Revealing a dictation card must allow exactly one rating.');
 
 const ratePractice = extractFunction('ratePractice');
@@ -34,7 +41,7 @@ mustInclude(ratePractice, 'practiceRatingLocked=true;', 'Practice rating lock mu
 
 const guardIndex = ratePractice.indexOf('if(!current||!current.revealed||practiceRatingLocked)return;');
 const lockIndex = ratePractice.indexOf('practiceRatingLocked=true;');
-const processIndex = ratePractice.indexOf('processRating(current.idx,rating);');
+const processIndex = ratePractice.indexOf('processRating(current.idx,rating,mode);');
 const renderIndex = Math.min(
   ...['renderClozeCard();', 'renderDictationCard();']
     .map(marker => ratePractice.indexOf(marker))

@@ -100,6 +100,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .access-notice{margin:16px auto 0;max-width:1200px;padding:14px 18px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a;border-radius:12px;font-size:.95rem;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
 .access-notice strong{color:#111827}.access-notice a{font-weight:800;color:#2563eb;text-decoration:none}
 .access-required{max-width:720px;margin:48px auto;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--shadow-lg);text-align:center}.access-required h2{margin-bottom:8px}.access-required p{color:var(--text2);margin-bottom:16px}.access-required .btn{display:inline-flex;margin:6px}
+body.study-advance-lock .header,body.study-advance-lock .study-view,body.study-advance-lock .teacher-panel{pointer-events:none}
 @media(max-width:768px){
 .header{padding:12px 16px}
 .header h1{font-size:1.2rem}
@@ -315,6 +316,24 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .advanced-tools{display:flex;gap:10px;flex-wrap:wrap}
 .self-check-list{margin:10px 0 0;padding-left:18px;color:var(--text2);font-size:.9rem;text-align:left}
 .self-check-list li{margin:4px 0}
+.teacher-toggle{font-weight:800}
+.teacher-toggle.active{background:var(--green);color:#fff}
+body.teacher-active{padding-bottom:220px}
+.teacher-panel{position:fixed;right:20px;bottom:20px;width:min(390px,calc(100vw - 32px));max-height:min(70vh,520px);overflow:auto;z-index:250;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 40px rgba(15,23,42,.22);padding:16px;display:none;color:var(--text)}
+.teacher-panel.active{display:block}
+.teacher-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.teacher-title{font-weight:900;font-size:1rem}
+.teacher-sub{font-size:.8rem;color:var(--text3);line-height:1.35}
+.teacher-close{border:1px solid var(--border);background:var(--bg);color:var(--text2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:1rem}
+.teacher-message{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text2);font-size:.92rem;line-height:1.45;margin-bottom:12px}
+.teacher-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.teacher-actions .btn{justify-content:center;padding:9px 10px;font-size:.8rem}
+.teacher-transcript{min-height:18px;font-size:.82rem;color:var(--text3);margin-bottom:8px}
+.teacher-voice-status{min-height:16px;font-size:.74rem;color:var(--text3);margin-bottom:6px}
+.teacher-disclosure{font-size:.72rem;color:var(--text3);line-height:1.35}
+.ai-voice-label{display:inline-flex;margin-left:6px;padding:1px 6px;border-radius:999px;border:1px solid var(--border);font-size:.68rem;font-weight:800;letter-spacing:0;color:var(--text3);background:var(--bg)}
+.audio-instructions-btn.voice-loading{opacity:.75;cursor:wait}
+@media(max-width:640px){body.teacher-active{padding-bottom:360px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:54vh}.teacher-actions{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}}
 </style>
 </head>
 <body>
@@ -324,6 +343,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   <div class="header-controls">
    <div class="streak-display inactive" id="streakDisplay"><span class="streak-fire">&#128293;</span> <span id="streakCount">0</span> day streak</div>
    <button class="btn btn-study" id="studyBtn" onclick="startStudyView()">&#9654; Study <span class="due-badge" id="dueBadge">0</span></button>
+   <button class="btn btn-secondary teacher-toggle" id="teacherToggleBtn" onclick="toggleTeacherMode()">Teacher</button>
    <div class="advanced-tools" id="advancedTools">
     <div class="speed-control">
      <label>Speed:</label>
@@ -370,13 +390,13 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
    </div>
    <div class="coach-steps">
     <div class="coach-step"><strong>1. Listen</strong>Hear the sentence first.</div>
-    <div class="coach-step"><strong>2. Recall</strong>Speak to yourself or type it. No microphone is used.</div>
+    <div class="coach-step"><strong>2. Recall</strong>Speak to yourself or type it. The microphone is only used if you press Talk or Record.</div>
     <div class="coach-step"><strong>3. Reveal</strong>Compare with the answer.</div>
     <div class="coach-step"><strong>4. Review</strong>Again, Hard, Good, or Easy schedules the next repetition.</div>
    </div>
    <div class="coach-action">
     <button class="btn btn-primary" onclick="startStudyView()">Start guided lesson</button>
-    ${instructionButtonHTML(METHOD_AUDIO_INSTRUCTIONS,'Hear how Lang5K works')}
+    <button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakMethodGuide(this)">&#128266; Hear how Lang5K works <span class="ai-voice-label">AI voice</span></button>
     <div class="coach-secondary">Best practical path: review due cards first, then add new ones.</div>
    </div>
   </div>
@@ -395,8 +415,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 <div class="bin-view" id="binView">
  <div class="bin-header">
-  <h2>&#128221; Review Bin</h2>
-  <p>Sentences you need to practice. Audio plays first &mdash; text is hidden until you reveal it.</p>
+ <h2>&#128221; Review Bin</h2>
+  <p>Sentences you need to repair. Read the English meaning first, recall the Russian, then reveal before listening.</p>
  </div>
  <div class="bin-progress" id="binProgressWrap">
   <div class="bin-progress-bar"><div class="bin-progress-fill" id="binProgressFill" style="width:0%"></div></div>
@@ -405,8 +425,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
  <div class="bin-actions">
   <button class="btn btn-primary" onclick="shuffleBin()" style="background:var(--accent)">&#128256; Shuffle</button>
   <button class="btn btn-secondary" id="binPlayAllBtn" onclick="playAllBin()">&#9654; Play All (audio only)</button>
-  <button class="btn btn-secondary" onclick="revealAllBin()">&#128065; Reveal All</button>
-  <button class="btn btn-secondary" onclick="hideAllBin()">&#128064; Hide All</button>
+  <button class="btn btn-secondary" onclick="hideAllBin()">&#128064; Hide revealed</button>
  </div>
  <div id="binCards"></div>
 </div>
@@ -435,6 +454,25 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 </div>
 
 <div id="milestoneOverlay"></div>
+
+<div class="teacher-panel" id="teacherPanel" aria-live="polite" aria-label="AI Teacher Mode">
+ <div class="teacher-head">
+  <div>
+   <div class="teacher-title">Teacher Mode</div>
+   <div class="teacher-sub">A lesson-only guide for the fastest study path.</div>
+  </div>
+  <button class="teacher-close" type="button" onclick="toggleTeacherMode(false)" aria-label="Close Teacher Mode">&#10005;</button>
+ </div>
+ <div class="teacher-message" id="teacherMessage">Turn on Teacher Mode when you want me to guide the lesson step by step.</div>
+ <div class="teacher-actions">
+  <button class="btn btn-primary" type="button" onclick="teacherGuide()">Guide me</button>
+  <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Do next</button>
+  <button class="btn btn-secondary" id="teacherTalkBtn" type="button" onclick="teacherListenToggle()">Talk</button>
+ </div>
+ <div class="teacher-transcript" id="teacherTranscript"></div>
+ <div class="teacher-voice-status" id="teacherVoiceStatus"></div>
+ <div class="teacher-disclosure">Teacher Mode only handles this language course. The teacher voice is AI-generated. Voice commands stay in this browser unless your browser service processes speech.</div>
+</div>
 
 <script src="languages/config.js"></script>
 <script>
@@ -481,7 +519,15 @@ let studyViewActive=false;
 let currentMode='browse';
 let currentSpeaking=null;
 let currentAudio=null;
+let premiumTeacherAudio=null;
+let teacherVoiceAbortController=null;
+let teacherVoiceRequestId=0;
+let teacherVoiceSourceButton=null;
 let speechRate=0.85;
+let teacherModeEnabled=localStorage.getItem(storagePrefix+'teacher_mode')==='1';
+let teacherRecognition=null;
+let teacherListening=false;
+let teacherAttemptedRecallKey='';
 let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
@@ -497,6 +543,7 @@ const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
 const RATING_DAYS={again:1,hard:2,good:5,easy:14};
 const REVIEW_DAILY_CAP=35;
 const MIN_DELAYED_RECALL_GAP=2;
+const MIN_NEW_SESSION_FOR_DELAYED_RECALL=MIN_DELAYED_RECALL_GAP+1;
 const MILESTONES=[10,25,50,100,250,500,1000,2500,5000];
 const AUDIO_BASE_URL='https://audio.lang5k.com';
 const AUDIO_LANG_PREFIX={russian:'ru'}[langKey]||(langCode||'').split('-')[0]||langKey;
@@ -517,6 +564,7 @@ let weakPracticeCursor=0;
 let studyRevealed=false;
 let studyRatingLocked=false;
 let practiceRatingLocked=false;
+let studyAdvanceUnlockTimer=null;
 let dailyNewGoal=10;
 let practiceCarryMessage='';
 let practiceSelectionMeta={kind:'available',reason:''};
@@ -571,12 +619,57 @@ function clearCurrentAudio(){
  }
 }
 
+function setTeacherVoiceStatus(message='',sourceButton=null,busy=false){
+ const status=document.getElementById('teacherVoiceStatus');
+ if(status)status.textContent=message;
+ if(sourceButton){
+  if(!sourceButton.dataset.originalHtml)sourceButton.dataset.originalHtml=sourceButton.innerHTML;
+  if(busy)teacherVoiceSourceButton=sourceButton;
+  sourceButton.disabled=busy;
+  sourceButton.classList.toggle('voice-loading',busy);
+  if(busy&&message){
+   if(/browser voice/i.test(message))sourceButton.textContent='Using browser voice...';
+   else if(/playing/i.test(message))sourceButton.textContent='AI voice playing...';
+   else sourceButton.textContent='Preparing AI voice...';
+  }
+  if(!busy){
+   sourceButton.innerHTML=sourceButton.dataset.originalHtml;
+   if(teacherVoiceSourceButton===sourceButton)teacherVoiceSourceButton=null;
+  }
+ }
+}
+
+function clearTeacherVoiceStatus(sourceButton=null){
+ const button=sourceButton||teacherVoiceSourceButton;
+ setTeacherVoiceStatus('',button,false);
+ teacherVoiceSourceButton=null;
+}
+
+function clearPremiumTeacherAudio(){
+ if(teacherVoiceAbortController){
+  teacherVoiceAbortController.abort();
+  teacherVoiceAbortController=null;
+ }
+ if(premiumTeacherAudio){
+  premiumTeacherAudio.pause();
+  premiumTeacherAudio.currentTime=0;
+  if(premiumTeacherAudio.dataset&&premiumTeacherAudio.dataset.objectUrl){
+   URL.revokeObjectURL(premiumTeacherAudio.dataset.objectUrl);
+  }
+  premiumTeacherAudio=null;
+ }
+}
+
 function stopPlayback(){
+ teacherVoiceRequestId++;
  clearCurrentAudio();
- window.speechSynthesis.cancel();
+ clearPremiumTeacherAudio();
+ clearTeacherVoiceStatus();
+ if(window.speechSynthesis)window.speechSynthesis.cancel();
 }
 
 function speakWithBrowserVoice(text,{lang=langCode,rate=speechRate,onend,onerror}={}){
+ clearPremiumTeacherAudio();
  if(!window.speechSynthesis||typeof SpeechSynthesisUtterance==='undefined'){
   if(onerror)onerror();
   else if(onend)onend();
@@ -595,14 +688,745 @@ function playBrowserVoice(text,{onend,onerror}={}){
  speakWithBrowserVoice(text,{lang:langCode,rate:speechRate,onend,onerror});
 }
 
-function speakInstruction(text){
+function teacherVoiceKeyForText(text){
+ const payload=teacherVoicePayloadForText(text);
+ return payload?payload.key:'';
+}
+
+function teacherVoicePayloadForText(text){
+ const clean=String(text||'').replace(/\s+/g,' ').trim();
+ const exact={
+  [METHOD_AUDIO_INSTRUCTIONS]:'method_guide',
+  'Step one: read the English meaning. Step two: play the Russian audio. Step three: say the Russian sentence once. Then continue to the memory test.':'study_new_intro',
+  'New recall. Read the English meaning. Try to remember the Russian sentence you just heard. Say it quietly or type Russian or transliteration, then reveal and self-check.':'study_new_recall',
+  'Review. Read the English meaning. Try to remember the Russian translation before hearing it. Say it quietly or type Russian or transliteration, then reveal and self-check.':'study_review',
+  'Delayed recall. Read the English meaning. Try to remember the Russian sentence you studied earlier. Say it quietly or type Russian or transliteration, then reveal and self-check.':'study_delayed_recall',
+  'Compare your recall with the Russian answer. Listen again. Choose Again if you missed it, Hard if you barely got it, or Good if you got most of it.':'study_compare_new',
+  'Compare your recall with the Russian answer. Listen again. Choose Again if you missed it, Hard if you barely got it, Good if you got most of it, or Easy only if you knew it quickly and cleanly.':'study_compare_review',
+  'Cloze recall. Use the English meaning and sentence pattern. Think of the missing Russian word, type it if you can, or say it quietly before showing the answer.':'practice_cloze',
+  'Dictation. Listen first. Try to catch the Russian sentence. Type the Russian if you can, or repeat what you hear quietly, then reveal and self-check.':'practice_dictation',
+  'Teacher Mode is on. I can guide the next best step, play the target sentence, reveal answers, and help you rate honestly.':'teacher_on',
+  'This first screen is for listening once. Press Next: test my memory before revealing.':'teacher_intro_first',
+  'This is a new sentence. Read the meaning, play or hear the Russian, say it once, then press Next: test my memory.':'teacher_new_intro',
+  'Do not reveal yet. Look at the English, try to recall the Russian, say it quietly or type what you remember.':'teacher_recall_task',
+  'Now compare your answer with the Russian. Choose Again if you missed it, Hard if you barely got it, or Good if you got most of it.':'teacher_compare',
+  'This is cloze recall. Use the English meaning and pattern, guess the missing Russian word, then show the answer and rate.':'teacher_cloze',
+  'This is dictation. Listen first, repeat or type what you hear, then reveal and rate.':'teacher_dictation',
+  'Use this practice only after trying recall first. Reveal after your attempt, then rate honestly.':'teacher_practice',
+  'Choose your rating now. Say or click Again, Hard, Good, or Easy.':'teacher_rate',
+  'Open a lesson card first, then I can play the target sentence.':'teacher_play_open',
+  'Reveal and compare first. Then rate it.':'teacher_reveal_first',
+  'I can only help with this language course and Lang5K navigation. Ask me where to start, what to do next, why this card is here, or how to use the app.':'teacher_scope',
+  'I did not understand that lesson command. Try: guide me, play audio, reveal, next, again, hard, good, or easy.':'teacher_not_understood',
+  'This browser does not support voice commands here. You can still use Guide me and Do next.':'teacher_voice_unsupported',
+  'I could not hear a clear command. Try again or use the buttons.':'teacher_voice_unclear'
+ };
+ if(exact[clean])return {key:exact[clean]};
+ if(clean.startsWith('Try recall first.'))return {key:'teacher_try_recall'};
+ if(clean.startsWith('Start with Study.'))return {key:'teacher_where_start'};
+ if(clean.startsWith('Performance summary:')||clean.startsWith('Your plan:')||clean.includes('Progress syncs for full access.'))return {key:'teacher_performance'};
+ if(clean.startsWith('This is due review')||clean.startsWith('This is delayed recall')||clean.startsWith('This is weak repair')||clean.startsWith('Lang5K selected a new sentence'))return {key:'teacher_why_now'};
+ let match=clean.match(/^Start the guided lesson\. Today I recommend (\d+) new sentence/);
+ if(match)return {key:'teacher_start_plan',vars:{newLimit:Number(match[1])||0}};
+ match=clean.match(/^Session finished\. Based on your performance, next focus is ([^.]+)\./);
+ if(match)return {key:'teacher_session_done',vars:{focus:match[1]}};
+ match=clean.match(/^Press Do next\. Your current best focus is ([^.]+)\./);
+ if(match)return {key:'teacher_next_focus',vars:{focus:match[1]}};
+ return null;
+}
+
+async function playPremiumTeacherVoice(text,{onend,onerror}={}){
+ if(!window.fetch||typeof Audio==='undefined'||!URL||!URL.createObjectURL)throw new Error('Teacher voice playback is not supported.');
+ const payload=teacherVoicePayloadForText(text);
+ if(!payload){
+  const error=new Error('Custom teacher guidance is not a premium voice message.');
+  error.reason='custom_voice_message';
+  throw error;
+ }
+ const controller=new AbortController();
+ teacherVoiceAbortController=controller;
+ let response;
+ try{
+  response=await fetch('/api/teacher-voice',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify(payload),
+   signal:controller.signal
+  });
+ }finally{
+  if(teacherVoiceAbortController===controller)teacherVoiceAbortController=null;
+ }
+ if(!response.ok)throw new Error('Premium teacher voice is unavailable.');
+ const blob=await response.blob();
+ if(!blob.size)throw new Error('Premium teacher voice returned empty audio.');
+ clearPremiumTeacherAudio();
+ const objectUrl=URL.createObjectURL(blob);
+ const audio=new Audio(objectUrl);
+ audio.dataset.objectUrl=objectUrl;
+ premiumTeacherAudio=audio;
+ audio.onended=()=>{
+  if(premiumTeacherAudio===audio)premiumTeacherAudio=null;
+  URL.revokeObjectURL(objectUrl);
+  if(onend)onend();
+ };
+ audio.onerror=()=>{
+  if(premiumTeacherAudio===audio)premiumTeacherAudio=null;
+  URL.revokeObjectURL(objectUrl);
+  if(onerror)onerror();
+ };
+ await audio.play();
+ return true;
+}
+
+function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButton=null}={}){
+ stopPlayback();
+ const requestId=++teacherVoiceRequestId;
+ setTeacherVoiceStatus('Preparing premium AI voice...',sourceButton,true);
+ const done=()=>{
+  if(requestId===teacherVoiceRequestId)clearTeacherVoiceStatus(sourceButton);
+  if(onend)onend();
+ };
+ playPremiumTeacherVoice(text,{onend:done,onerror:done}).then(()=>{
+  if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
+ }).catch(error=>{
+  if(error.name==='AbortError')return;
+  const customVoiceMessage=error.reason==='custom_voice_message';
+  trackAnalytics('audio_fallback',{reason:customVoiceMessage?'custom_teacher_message':'teacher_voice_unavailable'});
+  if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus(customVoiceMessage?'Custom guidance uses browser voice.':'Premium voice unavailable. Using browser voice.',sourceButton,true);
+  speakWithBrowserVoice(text,{lang,rate,onend:done,onerror:()=>{clearTeacherVoiceStatus(sourceButton);if(onerror)onerror()}});
+ });
+}
+
+function speakInstruction(text,button=null){
  stopPlayback();
  trackAnalytics('instruction_audio',{section:document.body.dataset.mode||'study'});
- speakWithBrowserVoice(text,{lang:'en-US',rate:.95});
+ speakTeacherVoice(text,{lang:'en-US',rate:.95,sourceButton:button});
+}
+
+function speakMethodGuide(button=null){
+ speakInstruction(METHOD_AUDIO_INSTRUCTIONS,button);
 }
 
 function instructionButtonHTML(text,label='Hear Audio Instructions'){
- return `<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakInstruction('${escapeForHandler(text)}')">&#128266; ${escapeHtml(label)}</button>`;
+ return `<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakInstruction('${escapeForHandler(text)}',this)">&#128266; ${escapeHtml(label)} <span class="ai-voice-label">AI voice</span></button>`;
+}
+
+function teacherEls(){
+ return {
+  panel:document.getElementById('teacherPanel'),
+  toggle:document.getElementById('teacherToggleBtn'),
+  message:document.getElementById('teacherMessage'),
+  transcript:document.getElementById('teacherTranscript'),
+  talk:document.getElementById('teacherTalkBtn')
+ };
+}
+
+function initializeTeacherMode(){
+ const els=teacherEls();
+ document.body.classList.toggle('teacher-active',teacherModeEnabled);
+ if(els.panel)els.panel.classList.toggle('active',teacherModeEnabled);
+ if(els.toggle){
+  els.toggle.classList.toggle('active',teacherModeEnabled);
+  els.toggle.textContent=teacherModeEnabled?'Teacher On':'Teacher';
+  els.toggle.setAttribute('aria-pressed',teacherModeEnabled?'true':'false');
+ }
+ if(teacherModeEnabled)teacherSay('Teacher Mode is on. I can guide the next best step, play the target sentence, reveal answers, and help you rate honestly.',{speak:false});
+}
+
+function toggleTeacherMode(force){
+ const next=typeof force==='boolean'?force:!teacherModeEnabled;
+ teacherModeEnabled=next;
+ localStorage.setItem(storagePrefix+'teacher_mode',next?'1':'0');
+ const els=teacherEls();
+ document.body.classList.toggle('teacher-active',next);
+ if(els.panel)els.panel.classList.toggle('active',next);
+ if(els.toggle){
+  els.toggle.classList.toggle('active',next);
+  els.toggle.textContent=next?'Teacher On':'Teacher';
+  els.toggle.setAttribute('aria-pressed',next?'true':'false');
+ }
+ if(!next){
+  stopTeacherListening();
+  stopPlayback();
+  teacherSay('Teacher Mode is off. Continue with the cards on your own.',{speak:false});
+  return;
+ }
+ trackAnalytics('teacher_mode',{enabled:true});
+ teacherGuide();
+}
+
+function teacherSay(text,{speak=true}={}){
+ const els=teacherEls();
+ if(els.message)els.message.textContent=text;
+ if(teacherModeEnabled&&speak)speakTeacherVoice(text,{lang:'en-US',rate:.95});
+}
+
+function scheduleTeacherGuide(delay=250){
+ setTimeout(()=>{if(teacherModeEnabled)teacherGuide()},delay);
+}
+
+function teacherCurrentItem(){
+ if(studyViewActive&&studyQueue.length&&studyIndex<studyQueue.length){
+  const item=studyQueue[studyIndex];
+  const sentence=SENTENCES[item.idx];
+  if(sentence)return {kind:'study',item,idx:item.idx,sentence};
+ }
+ if(currentMode==='cloze'&&clozeCurrent){
+  const sentence=SENTENCES[clozeCurrent.idx];
+  if(sentence)return {kind:'cloze',idx:clozeCurrent.idx,sentence};
+ }
+ if(currentMode==='dictation'&&dictationCurrent){
+  const sentence=SENTENCES[dictationCurrent.idx];
+  if(sentence)return {kind:'dictation',idx:dictationCurrent.idx,sentence};
+ }
+ return null;
+}
+
+function teacherAttemptKey(){
+ const current=teacherCurrentItem();
+ const phase=document.querySelector('button[onclick="showNewRecallCard()"]')?'intro':studyRevealed?'revealed':'recall';
+ if(current)return `${current.kind}:${current.idx}:${studyIndex}:${phase}`;
+ return `${currentMode}:none`;
+}
+
+function teacherTypedRecallAttempt(){
+ const current=teacherCurrentItem();
+ const id=current?.kind==='cloze'?'clozeInput':current?.kind==='dictation'?'dictationInput':current?.kind==='study'?'studyInput':'';
+ const input=id?document.getElementById(id):null;
+ if(input&&input.offsetParent!==null&&input.value.trim().length>0)return true;
+ return false;
+}
+
+function teacherHasRecallAttempt(){
+ return teacherTypedRecallAttempt()||teacherAttemptedRecallKey===teacherAttemptKey();
+}
+
+function teacherMarkRecallAttempted(){
+ teacherAttemptedRecallKey=teacherAttemptKey();
+}
+
+function teacherRequireRecallAttempt(){
+ if(!teacherModeEnabled)return true;
+ if(teacherHasRecallAttempt())return true;
+ teacherSay('Try recall first. Say the Russian quietly, type what you remember, or tell me "I tried" before I reveal the answer.');
+ return false;
+}
+
+function teacherPerformanceProfile(){
+ const stats=getTodayStats();
+ const due=getDueReviews();
+ const srsItems=Object.values(srsData||{});
+ const ratings={again:0,hard:0,good:0,easy:0};
+ const boxes={0:0,1:0,2:0,3:0,4:0,5:0};
+ let lapses=0;
+ let active=0;
+ srsItems.forEach(item=>{
+  if(!item||typeof item!=='object')return;
+  active++;
+  const rating=item.lastRating;
+  if(ratings[rating]!==undefined)ratings[rating]++;
+  const box=Math.max(0,Math.min(5,Math.round(Number(item.box)||0)));
+  boxes[box]=(boxes[box]||0)+1;
+  lapses+=Number(item.lapses||0);
+ });
+ const learnedCount=Object.keys(learned).length;
+ const weakCount=Object.keys(reviewBin).length;
+ const dailyGoal=userStats.dailyGoal||dailyNewGoal||10;
+ const remainingGoal=Math.max(0,dailyGoal-(stats.todayNew||0));
+ const plannedByDebt=plannedNewCount(due.length,remainingGoal);
+ const availableNew=getNewSentences(plannedByDebt).length;
+ const sessionRated=studySessionStats.againCount+studySessionStats.hardCount+studySessionStats.goodCount+studySessionStats.easyCount;
+ const sessionStrong=studySessionStats.goodCount+studySessionStats.easyCount;
+ const sessionAccuracy=sessionRated?Math.round(sessionStrong/sessionRated*100):null;
+ const allRated=ratings.again+ratings.hard+ratings.good+ratings.easy;
+ const allStrong=ratings.good+ratings.easy;
+ const lifetimeAccuracy=allRated?Math.round(allStrong/allRated*100):null;
+ return {
+  learnedCount,
+  active,
+  dueCount:due.length,
+  weakCount,
+  dailyGoal,
+  remainingGoal,
+  plannedNewToday:availableNew,
+  todayNew:stats.todayNew||0,
+  todayReviews:stats.todayReviews||0,
+  streak:userStats.currentStreak||0,
+  completedFirstGuidedSession:Boolean(userStats.completedFirstGuidedSession),
+  ratings,
+  boxes,
+  lapses,
+  sessionRated,
+  sessionAccuracy,
+  lifetimeAccuracy
+ };
+}
+
+function teacherRecommendedPlan(){
+ const profile=teacherPerformanceProfile();
+ let newLimit=profile.plannedNewToday;
+ let focus='guided lesson';
+ let reason='reviews first, then new sentences, then delayed recall.';
+ let action='startStudyView()';
+ if(profile.dueCount>0){
+  newLimit=0;
+  focus='due reviews only';
+  reason='due reviews protect older memory, so new material waits until they are clear.';
+  action='startStudyView()';
+ }else if(profile.sessionAccuracy!==null&&profile.sessionAccuracy<70){
+  newLimit=0;
+  focus='repair and slower recall';
+  reason='today accuracy is low, so the best move is to consolidate instead of adding more.';
+  action='toggleBinView()';
+ }else if(profile.weakCount>0&&!isCoachFirstMode()){
+  newLimit=0;
+  focus='weak-sentence repair';
+  reason='known weak cards should be repaired before adding new material.';
+  action='toggleBinView()';
+ }else if(!profile.completedFirstGuidedSession){
+  newLimit=Math.min(10,profile.plannedNewToday);
+  focus=newLimit>0?'first guided lesson':'review-only first guided lesson';
+  reason='the first session teaches the method before extra tools unlock.';
+  action='startStudyView()';
+ }else if(profile.dueCount>0){
+  focus='due reviews';
+  reason='scheduled reviews protect older memory before new material.';
+  action='startStudyView()';
+ }else if(newLimit>0){
+  focus=`${newLimit} new sentence${newLimit===1?'':'s'}`;
+  reason='review debt is controlled, so new material is safe.';
+  action='startStudyView()';
+ }else{
+  focus='finish for today or do a light dictation check';
+  reason='the main memory work is clear for now.';
+  action='showDictationView()';
+ }
+ return {...profile,newLimit,focus,reason,action};
+}
+
+function teacherPerformanceAnswer(){
+ const plan=teacherRecommendedPlan();
+ const accuracyText=plan.sessionAccuracy!==null?`${plan.sessionAccuracy}% this session`:plan.lifetimeAccuracy!==null?`${plan.lifetimeAccuracy}% recent card history`:'not enough ratings yet';
+ return `Your plan: ${plan.focus}. New sentences now: ${plan.newLimit}. Due reviews: ${plan.dueCount}. Weak cards: ${plan.weakCount}. Today completed: ${plan.todayReviews} reviews and ${plan.todayNew} new. Accuracy: ${accuracyText}. Reason: ${plan.reason}`;
+}
+
+function teacherWebsiteMap(){
+ const plan=getTodayPlanSummary();
+ const performance=teacherPerformanceProfile();
+ return {
+  current:{
+   mode:currentMode,
+   courseAccess:courseAccessMode,
+   learned:Object.keys(learned).length,
+   due:plan.dueCount,
+   newPlanned:plan.newPlanned,
+   weak:plan.weakCount,
+   nextLabel:isCoachFirstMode()?'Start guided lesson':plan.nextLabel,
+   performance
+  },
+  pages:[
+   {key:'home',label:'Home',href:'index.html',summary:'Language choice, method overview, demo entry, and full-access entry.'},
+   {key:'app',label:'Study app',href:'app.html?lang='+langKey,summary:'Today plan, guided lesson, cards, reviews, browse, cloze, dictation, weak practice, speed, progress backup, and restore.'},
+   {key:'demo',label:'Russian demo',href:'app.html?lang=russian&demo=1',summary:'Limited public Russian course sample.'},
+   {key:'pricing',label:'Pricing',href:'pricing.html',summary:'Full Russian access details and checkout entry.'},
+   {key:'checkout',label:'Checkout',href:'checkout.html',summary:'Stripe checkout for full Russian course access.'},
+   {key:'access',label:'Access recovery',href:'access.html',summary:'Verify checkout success or recover paid access by email code.'},
+   {key:'contact',label:'Support',href:'contact.html',summary:'Contact Lang5K support.'},
+   {key:'attribution',label:'Attribution',href:'attribution.html',summary:'Course-source and license attribution.'},
+   {key:'terms',label:'Terms',href:'terms.html',summary:'Terms of use.'},
+   {key:'privacy',label:'Privacy',href:'privacy.html',summary:'Privacy and local progress notes.'},
+   {key:'refund',label:'Refunds',href:'refund.html',summary:'Refund policy.'}
+  ],
+  modes:[
+   {key:'study',summary:'Best starting point. It chooses reviews first, then new sentences, delayed recall, and repair.'},
+   {key:'browse',summary:'Manual sentence search and category browsing after the guided start.'},
+   {key:'review',summary:'Weak sentence bin for items rated Again or Hard.'},
+   {key:'cloze',summary:'One missing-word recall drill for sentence patterns.'},
+   {key:'dictation',summary:'Listen-and-write drill for stricter listening recall.'}
+  ]
+ };
+}
+
+function teacherCurrentScreenAnswer(){
+ if(document.querySelector('.study-summary'))return 'You are on the session summary. Lang5K already saved your ratings. The next best action is the recommendation button on this screen.';
+ if(document.querySelector('.study-start'))return 'You are on the guided lesson start screen. This is the right place to begin. Start the guided lesson and follow recall before reveal.';
+ if(document.querySelector('.study-card')){
+  if(studyRevealed)return 'You are on a revealed study card. Compare your recall with the Russian answer, then rate honestly.';
+  return 'You are on a recall card. Try to remember before you reveal. That retrieval step is the core method.';
+ }
+ if(document.querySelector('.practice-card')){
+  if(currentMode==='cloze')return 'You are in cloze practice. Guess the missing Russian word from meaning and pattern, then reveal and rate.';
+  if(currentMode==='dictation')return 'You are in dictation. Listen first, repeat or type what you hear, then reveal and rate.';
+  return 'You are in a practice drill. Attempt recall before revealing.';
+ }
+ if(currentMode==='browse')return 'You are in Browse. This is for searching sentences and categories. For fastest progress, use Study first.';
+ if(currentMode==='bin')return 'You are in the weak sentence bin. These are cards you missed or barely got. Recall first, reveal, then rate.';
+ return 'You are inside the Lang5K learning app.';
+}
+
+function teacherWhyThisNowAnswer(){
+ const current=teacherCurrentItem();
+ if(current&&current.kind==='study'){
+  const item=current.item;
+  if(item.sessionDelayed)return 'This appears now because you studied it earlier in this session. Delayed recall checks whether it survived a short gap.';
+  if(item.sessionRepair)return 'This appears now because you rated it weak in this session. The teacher brings it back soon for repair.';
+  if(item.type==='review')return 'This appears now because its spaced-review date is due. Reviews come before new material to protect memory.';
+  return 'This appears now because the daily plan has cleared higher-priority reviews and selected a new sentence from the curated path.';
+ }
+ if(currentMode==='bin')return 'This is weak repair. You missed or barely got these sentences earlier, so they come back before new material.';
+ if(currentMode==='cloze')return 'Cloze appears now to repair one sentence pattern with a smaller missing-word recall task.';
+ if(currentMode==='dictation')return 'Dictation appears now to test listening and spelling after recall is strong enough.';
+ return 'Lang5K chooses the next step by priority: due reviews first, weak repair second, then new sentences, then extra drills.';
+}
+
+function teacherOpenMode(key){
+ const plan=teacherRecommendedPlan();
+ const reviewKeys=['review','bin','review bin','weak'];
+ if(plan.dueCount>0&&key!=='study'){
+  startStudyView();
+  teacherSay('Due reviews are first. I opened Study so you can clear them before browsing or weak repair.');
+  scheduleTeacherGuide(120);
+  return true;
+ }
+ if(plan.weakCount>0&&!isCoachFirstMode()&&!reviewKeys.includes(key)&&key!=='study'){
+  toggleBinView();
+  teacherSay('Weak repair is the priority before browsing or extra drills. I opened the Review Bin.');
+  scheduleTeacherGuide(120);
+  return true;
+ }
+ if(key==='study'){startStudyView();scheduleTeacherGuide(120);return true}
+ if(key==='browse'){showBrowseView();scheduleTeacherGuide(120);return true}
+ if(reviewKeys.includes(key)){toggleBinView();scheduleTeacherGuide(120);return true}
+ if(key==='cloze'){showClozeView();scheduleTeacherGuide(120);return true}
+ if(key==='dictation'){showDictationView();scheduleTeacherGuide(120);return true}
+ return false;
+}
+
+function teacherAnswerMappedQuestion(text){
+ const map=teacherWebsiteMap();
+ const plan=teacherRecommendedPlan();
+ const wantsOpen=/\b(open|go to|take me|show me|visit)\b/.test(text);
+ const goalMatch=text.match(/\b(?:set|change|make).*(?:goal|new sentences?).*?\b(5|10|15|20)\b|\b(5|10|15|20)\s+new sentences?\b/);
+ if(goalMatch){
+  const nextGoal=Number(goalMatch[1]||goalMatch[2]);
+  setDailyGoal(nextGoal);
+  teacherSay(`Daily new-sentence goal set to ${nextGoal}. I will still slow it down when reviews or weak cards are high.`);
+  return true;
+ }
+ const pageMatch=map.pages.find(page=>new RegExp('\\b'+page.key+'\\b').test(text)||text.includes(page.label.toLowerCase()));
+ if(/\b(where|how).*(start|begin)|\bstart.*where|\bfirst\b/.test(text)){
+  teacherSay(`Start with Study. Your current next step is ${map.current.nextLabel}. Based on performance, I recommend ${plan.newLimit} new sentence${plan.newLimit===1?'':'s'} now. Press Do next and I will take you there.`);
+  return true;
+ }
+ if(/\b(what now|what should|what do i do|should i do now|next step)\b/.test(text)){
+  teacherGuide();
+  return true;
+ }
+ if(/\bwhy this now|why now|why this card|why this sentence|why this drill\b/.test(text)){
+  teacherSay(teacherWhyThisNowAnswer());
+  return true;
+ }
+ if(wantsOpen){
+  if(/\b(review bin|weak|review)\b/.test(text)&&teacherOpenMode('review'))return true;
+  if(/\bbrowse\b/.test(text)&&teacherOpenMode('browse'))return true;
+  if(/\bstudy\b/.test(text)&&teacherOpenMode('study'))return true;
+  if(/\bcloze\b/.test(text)&&teacherOpenMode('cloze'))return true;
+  if(/\bdictation\b/.test(text)&&teacherOpenMode('dictation'))return true;
+ }
+ if(/\b(performance|how am i|how many|how much|daily goal|new sentences|lessons?|schedule|plan for today|today's plan)\b/.test(text)){
+  teacherSay(teacherPerformanceAnswer());
+  return true;
+ }
+ if(/\b(what is this|where am i|this screen|this page)\b/.test(text)){
+  teacherSay(teacherCurrentScreenAnswer());
+  return true;
+ }
+ if(/\b(website map|site map|map|all pages|where everything|website)\b/.test(text)){
+  teacherSay('Website map: Home explains the method. Study app runs the course. Pricing and Checkout unlock full access. Access recovers a paid account. Contact is support. Attribution, Terms, Privacy, and Refunds are the policy pages.');
+  return true;
+ }
+ if(/\b(method|fastest|how does it work|how to use)\b/.test(text)){
+  teacherSay('The fastest practical path here is active recall with spacing: Study first, recall before reveal, rate honestly, then let Lang5K schedule reviews, delayed recall, cloze, dictation, and weak-item repair.');
+  return true;
+ }
+ if(/\b(progress|backup|restore|sync)\b/.test(text)){
+  teacherSay(teacherPerformanceAnswer()+' Progress syncs for full access. Use Backup progress and Restore progress in the tools area if you need a local copy.');
+  return true;
+ }
+ if(/\b(audio|sound|voice)\b/.test(text)&&/\b(written|match|same|sure|verify)\b/.test(text)){
+  teacherSay('Audio is checked against the manifest. If a hosted file is missing or mismatched, Lang5K falls back to browser voice and records the issue. Use the speaker button on the exact sentence you see.');
+  return true;
+ }
+ if(/\b(buy|purchase|pay|full access|premium|unlock)\b/.test(text)){
+  if(wantsOpen){window.location.href='pricing.html';return true}
+  teacherSay('To buy, open Pricing, then Start secure checkout. After Stripe payment, Access verifies the checkout and opens the full Russian course.');
+  return true;
+ }
+ if(/\b(recover|lost access|access code|login|account)\b/.test(text)){
+  if(wantsOpen){window.location.href='access.html';return true}
+  teacherSay('Use Access recovery. Enter the Stripe checkout email, receive the email code, then restore the full-course token in this browser.');
+  return true;
+ }
+ if(/\b(support|contact|help email)\b/.test(text)){
+  if(wantsOpen){window.location.href='contact.html';return true}
+  teacherSay('Support is on the Contact page. In the app, I can help with lesson steps, navigation, audio, ratings, and access location.');
+  return true;
+ }
+ if(pageMatch){
+  if(wantsOpen){window.location.href=pageMatch.href;return true}
+  teacherSay(`${pageMatch.label}: ${pageMatch.summary} Say "open ${pageMatch.key}" if you want to go there.`);
+  return true;
+ }
+ return false;
+}
+
+function teacherGuide(){
+ if(!teacherModeEnabled)toggleTeacherMode(true);
+ const plan=teacherRecommendedPlan();
+ const studyStart=document.querySelector('.study-start');
+ const summary=document.querySelector('.study-summary');
+ const card=document.querySelector('.study-card');
+ const practice=document.querySelector('.practice-card');
+ const spacing=document.querySelector('button[onclick="continueStudySpacing()"]');
+ if(summary){
+  teacherSay(`Session finished. Based on your performance, next focus is ${plan.focus}. ${plan.reason} Press Do next when ready.`);
+  return;
+ }
+ if(spacing){
+  teacherSay('This is a spacing pause. Press Do next to continue to the delayed recall without rehearsing the answer.');
+  return;
+ }
+ if(studyStart){
+  teacherSay(`Start the guided lesson. Today I recommend ${plan.newLimit} new sentence${plan.newLimit===1?'':'s'} with due reviews first. ${plan.reason}`);
+  return;
+ }
+ if(card){
+  const label=(card.querySelector('.study-card-label')?.textContent||'').toLowerCase();
+  if(label.includes('new sentence')){
+   teacherSay('This is a new sentence. Read the meaning, play or hear the Russian, say it once, then press Next: test my memory.');
+   return;
+  }
+  if(!studyRevealed){
+   teacherSay('Do not reveal yet. Look at the English, try to recall the Russian, say it quietly or type what you remember, then reveal.');
+   return;
+  }
+  teacherSay('Now compare your answer with the Russian. Choose Again if you missed it, Hard if you barely got it, Good if you got most, and Easy only if it was quick and clean.');
+  return;
+ }
+ if(practice){
+  if(currentMode==='cloze')teacherSay('This is cloze recall. Use the English meaning and pattern, guess the missing Russian word, then show the answer and rate.');
+  else if(currentMode==='dictation')teacherSay('This is dictation. Listen first, repeat or type what you hear, then reveal and rate.');
+  else teacherSay('Use this practice only after trying recall first. Reveal after your attempt, then rate honestly.');
+  return;
+ }
+ teacherSay(`Press Do next. Your current best focus is ${plan.focus}. ${plan.reason}`);
+}
+
+function teacherDoNext(){
+ if(!teacherModeEnabled)toggleTeacherMode(true);
+ const plan=teacherRecommendedPlan();
+ const summaryAction=document.querySelector('.study-summary .btn-primary,.study-summary .study-start-btn');
+ const spacing=document.querySelector('button[onclick="continueStudySpacing()"]');
+ const newRecall=document.querySelector('button[onclick="showNewRecallCard()"]');
+ const reveal=document.querySelector('button[onclick="revealStudyCard()"]');
+ const start=document.querySelector('button[onclick="beginStudySession()"]');
+ if(currentMode==='cloze'&&clozeCurrent){
+  if(clozeCurrent.revealed){teacherSay('Choose your rating now. Say or click Again, Hard, Good, or Easy.');return}
+  if(!teacherRequireRecallAttempt())return;
+  revealCloze();
+  scheduleTeacherGuide(250);
+  return;
+ }
+ if(currentMode==='dictation'&&dictationCurrent){
+  if(dictationCurrent.revealed){teacherSay('Choose your rating now. Say or click Again, Hard, Good, or Easy.');return}
+  if(!teacherRequireRecallAttempt())return;
+  revealDictation();
+  scheduleTeacherGuide(250);
+  return;
+ }
+ if(currentMode!=='study'||!studyViewActive){
+  if(plan.action==='toggleBinView()'&&!isCoachFirstMode()){
+   toggleBinView();
+   scheduleTeacherGuide(120);
+   return;
+  }
+  if(plan.action==='showDictationView()'&&!isCoachFirstMode()){
+   showDictationView();
+   scheduleTeacherGuide(120);
+   return;
+  }
+  startStudyView();
+  scheduleTeacherGuide(120);
+  return;
+ }
+ if(start&&plan.action==='toggleBinView()'&&!isCoachFirstMode()){
+  toggleBinView();
+  scheduleTeacherGuide(120);
+  return;
+ }
+ if(start){
+  start.click();
+  scheduleTeacherGuide(250);
+  return;
+ }
+ if(spacing){
+  spacing.click();
+  scheduleTeacherGuide(150);
+  return;
+ }
+ if(newRecall){
+  newRecall.click();
+  scheduleTeacherGuide(250);
+  return;
+ }
+ if(reveal&&!studyRevealed){
+  if(!teacherRequireRecallAttempt())return;
+  reveal.click();
+  scheduleTeacherGuide(350);
+  return;
+ }
+ if(summaryAction){
+  summaryAction.click();
+  scheduleTeacherGuide(250);
+  return;
+ }
+ if(studyRevealed){
+  teacherSay('Choose your rating now. Say or click Again, Hard, Good, or Easy.');
+  return;
+ }
+ teacherGuide();
+}
+
+function teacherPlayTarget(){
+ const current=teacherCurrentItem();
+ if(!current){
+  teacherSay('Open a lesson card first, then I can play the target sentence.');
+  return;
+ }
+ if(current.kind==='study'&&!studyRevealed&&!document.querySelector('button[onclick="showNewRecallCard()"]')){
+  teacherSay('Do not play the answer yet. Try recall first, then reveal and listen.');
+  return;
+ }
+ if(current.kind==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){
+  teacherSay('Do not play the full sentence yet. Try the missing word first, then reveal and listen.');
+  return;
+ }
+ speakText(current.sentence[0],current.idx);
+}
+
+function teacherRate(rating){
+ const clean=normalizeRating(rating);
+ if(studyViewActive&&studyRevealed){
+  rateStudyCard(clean);
+  scheduleTeacherGuide(950);
+  return;
+ }
+ if(currentMode==='cloze'&&clozeCurrent&&clozeCurrent.revealed){
+  ratePractice(clean,'cloze');
+  scheduleTeacherGuide(300);
+  return;
+ }
+ if(currentMode==='dictation'&&dictationCurrent&&dictationCurrent.revealed){
+  ratePractice(clean,'dictation');
+  scheduleTeacherGuide(300);
+  return;
+ }
+ teacherSay('Reveal and compare first. Then rate it.');
+}
+
+function teacherCommandHasRating(text,rating){
+ const negated=new RegExp(`\\b(?:not|no|do not|don't|dont|did not|didn't|didnt|was not|wasn't|wasnt|is not|isn't|isnt|do not think|don't think|dont think)\\b(?:\\s+[\\w']+){0,5}\\s+${rating}\\b`).test(text);
+ return !negated&&new RegExp(`\\b${rating}\\b`).test(text);
+}
+
+function teacherCommand(raw){
+ const transcript=String(raw||'').trim();
+ const text=transcript.toLowerCase();
+ const els=teacherEls();
+ if(els.transcript)els.transcript.textContent=transcript?'Voice command received.':'';
+ if(!text){teacherGuide();return}
+ if(teacherAnswerMappedQuestion(text))return;
+ if(/\b(weather|news|politic|recipe|joke|money|stock|medical|doctor|lawyer|movie|music)\b/.test(text)){
+  teacherSay('I can only help with this language course and Lang5K navigation. Ask me where to start, what this screen is, play audio, reveal, next, or rate the card.');
+  return;
+ }
+ if(/\b(help|guide|what now|what should|explain)\b/.test(text)){teacherGuide();return}
+ if(/\b(start|begin|lesson|study)\b/.test(text)){teacherDoNext();return}
+ if(/\b(next|continue|move on)\b/.test(text)){teacherDoNext();return}
+ if(/\b(play|listen|repeat|audio|say it)\b/.test(text)){teacherPlayTarget();return}
+ if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text)){
+  if(studyViewActive&&!studyRevealed){
+   if(document.querySelector('button[onclick="showNewRecallCard()"]')){teacherDoNext();return}
+   teacherMarkRecallAttempted();
+   revealStudyCard();scheduleTeacherGuide(350);return
+  }
+  teacherMarkRecallAttempted();
+  if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return}
+  if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return}
+  teacherGuide();
+  return;
+ }
+ if(/\b(reveal|show answer|answer)\b/.test(text)){
+  if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){
+   if(!teacherRequireRecallAttempt())return;
+   revealCloze();scheduleTeacherGuide(250);return
+  }
+  if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){
+   if(!teacherRequireRecallAttempt())return;
+   revealDictation();scheduleTeacherGuide(250);return
+  }
+  if(studyViewActive&&!studyRevealed){
+   if(document.querySelector('button[onclick="showNewRecallCard()"]')){
+    teacherSay('This first screen is for listening once. Press Next: test my memory before revealing.');
+    return;
+   }
+   if(!teacherRequireRecallAttempt())return;
+   revealStudyCard();scheduleTeacherGuide(350);return
+  }
+  teacherGuide();
+  return;
+ }
+ if(teacherCommandHasRating(text,'again')){teacherRate('again');return}
+ if(teacherCommandHasRating(text,'hard')){teacherRate('hard');return}
+ if(teacherCommandHasRating(text,'good')){teacherRate('good');return}
+ if(teacherCommandHasRating(text,'easy')){teacherRate('easy');return}
+ if(/\bcloze\b/.test(text)){teacherOpenMode('cloze');return}
+ if(/\bdictation\b/.test(text)){teacherOpenMode('dictation');return}
+ teacherSay('I did not understand that lesson command. Try: guide me, play audio, reveal, next, again, hard, good, or easy.');
+}
+
+function stopTeacherListening(){
+ teacherListening=false;
+ const els=teacherEls();
+ if(els.talk)els.talk.textContent='Talk';
+ if(teacherRecognition){
+  try{teacherRecognition.stop()}catch(_){}
+  teacherRecognition=null;
+ }
+}
+
+function teacherListenToggle(){
+ if(!teacherModeEnabled)toggleTeacherMode(true);
+ if(teacherListening){
+  stopTeacherListening();
+  return;
+ }
+ const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SpeechRecognition){
+  teacherSay('This browser does not support voice commands here. You can still use Guide me and Do next.');
+  return;
+ }
+ teacherRecognition=new SpeechRecognition();
+ teacherRecognition.lang='en-US';
+ teacherRecognition.interimResults=false;
+ teacherRecognition.maxAlternatives=1;
+ teacherRecognition.onresult=event=>teacherCommand(event.results?.[0]?.[0]?.transcript||'');
+ teacherRecognition.onerror=()=>teacherSay('I could not hear a clear command. Try again or use the buttons.');
+ teacherRecognition.onend=()=>stopTeacherListening();
+ teacherListening=true;
+ const els=teacherEls();
+ if(els.talk)els.talk.textContent='Listening';
+ teacherRecognition.start();
 }
 
 function playAudio(text,idx,{onend,onerror}={}){
@@ -742,6 +1566,9 @@ function setLearnerShellVisible(visible){
  if(progress)progress.style.display=display;
  const studyBtn=document.getElementById('studyBtn');
  if(studyBtn)studyBtn.style.display=visible?'inline-flex':'none';
+ const teacherBtn=document.getElementById('teacherToggleBtn');
+ if(teacherBtn)teacherBtn.style.display=visible?'inline-flex':'none';
+ if(!visible&&teacherModeEnabled)toggleTeacherMode(false);
  const tools=document.getElementById('advancedTools');
  if(tools)tools.style.display=visible?'flex':'none';
 }
@@ -879,9 +1706,7 @@ function formatPlanDate(dateString){
 }
 
 function plannedNewCount(dueCount,goal){
- if(dueCount>=REVIEW_DAILY_CAP)return 0;
- if(dueCount>=20)return Math.min(3,goal);
- if(dueCount>=10)return Math.min(5,goal);
+ if(dueCount>0)return 0;
  return goal;
 }
 
@@ -898,7 +1723,7 @@ function getTodayPlanSummary(){
  if(dueCount>0){
   nextLabel='Continue due reviews';
   nextAction='startStudyView()';
- } else if(newPlanned===0&&weakCount>0){
+ } else if(weakCount>0&&!isCoachFirstMode()){
   nextLabel='Repair weak sentences';
   nextAction='toggleBinView()';
  } else if(newPlanned===0){
@@ -1066,8 +1891,8 @@ function render(){
       </div>
       <div class="s-actions">
        <button class="speak-btn" onclick="speak(${s.idx})" title="Listen">&#128264;</button>
-       <button class="check-btn ${learned[s.idx]?'learned':''}" onclick="toggleLearned(${s.idx},this)" title="Mark as learned">${learned[s.idx]?'&#10003;':''}</button>
-       <button class="bin-btn ${reviewBin[s.idx]?'in-bin':''}" onclick="toggleBin(${s.idx},this)" title="${reviewBin[s.idx]?'Remove from review bin':'Add to review bin'}">&#128221;</button>
+       ${learned[s.idx]?'<span class="check-btn learned" title="Graduated through reviews">&#10003;</span>':''}
+       <button class="bin-btn ${reviewBin[s.idx]?'in-bin':''}" onclick="toggleBin(${s.idx},this)" title="${reviewBin[s.idx]?'Open review bin to repair':'Add to review bin'}">&#128221;</button>
       </div>
      </div>`;
     }).join('')}
@@ -1126,29 +1951,7 @@ async function playAllInCategory(btn,catName){
 }
 
 function toggleLearned(idx,btn){
- if(learned[idx]){delete learned[idx];btn.classList.remove('learned');btn.innerHTML=''}
- else{
-  learned[idx]=true;
-  if(reviewBin[idx]){
-   delete reviewBin[idx];
-   localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
-   updateBinBadge();
-  }
-  btn.classList.add('learned');btn.innerHTML='&#10003;';checkMilestone(Object.keys(learned).length)
- }
- localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
- markLocalProgressChanged();
- queueCloudProgressSync();
- updateProgress();
- const catEl=btn.closest('.category');
- if(catEl){
-  const catName=displayCategoryName(idx);
-  const cats=getCategories();
-  const catSentences=cats.get(catName)||[];
-  const learnedCount=catSentences.filter(s=>learned[s.idx]).length;
-  const catHeader=catEl.querySelector('.cat-learned');
-  if(catHeader){catHeader.innerHTML=learnedCount?`&#10003; ${learnedCount} learned`:''}
- }
+ alert('Use Study and spaced review ratings to graduate a sentence. Browse cannot mark cards learned directly.');
 }
 
 function filterSentences(){render()}
@@ -1171,10 +1974,14 @@ function toggleTheme(){
 document.addEventListener('keydown',e=>{
  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
  if(studyViewActive){
+  if(!studyQueue.length||studyIndex>=studyQueue.length||!document.querySelector('.study-card'))return;
   if(e.code==='Space'||e.code==='Enter'){
    e.preventDefault();
-   if(studyRevealed&&!studyRatingLocked){
-    rateStudyCard('good');
+   const newRecallButton=document.querySelector('button[onclick="showNewRecallCard()"]');
+   if(newRecallButton){
+    showNewRecallCard();
+   } else if(studyRevealed&&!studyRatingLocked){
+    if(teacherModeEnabled)teacherSay('Choose an explicit rating: Again, Hard, Good, or Easy.');
    } else {
     revealStudyCard();
    }
@@ -1249,11 +2056,15 @@ function exportPDF(){
 // === Review Bin Functions ===
 function toggleBin(idx,btn){
  if(reviewBin[idx]){
-  delete reviewBin[idx];
-  if(btn){btn.classList.remove('in-bin');btn.title='Add to review bin'}
+  toggleBinView();
+  setTimeout(()=>{
+   const card=document.getElementById('bin'+idx);
+   if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+  },120);
+  return;
  } else {
   reviewBin[idx]=true;
-  if(btn){btn.classList.add('in-bin');btn.title='Remove from review bin'}
+  if(btn){btn.classList.add('in-bin');btn.title='Open review bin to repair'}
  }
  localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
  markLocalProgressChanged();
@@ -1315,9 +2126,9 @@ function renderBinView(){
   return `
   <div class="bin-card" id="bin${idx}">
    <div class="bin-card-top">
-    <div class="bin-card-num">#${i+1} of ${total}</div>
+   <div class="bin-card-num">#${i+1} of ${total}</div>
    <div class="bin-card-actions">
-     <button class="speak-btn" onclick="speakBin(${idx})" title="Listen">&#128264;</button>
+     <button class="speak-btn" onclick="speakBin(${idx})" title="Reveal before listening">&#128264;</button>
      <button class="reveal-btn" onclick="toggleReveal(${idx},this)" title="Reveal text">&#128065;</button>
      <button class="remove-bin-btn" onclick="removeFromBin(${idx})" title="Remove from weak practice after reveal">&#10003;</button>
     </div>
@@ -1325,7 +2136,7 @@ function renderBinView(){
    <div class="s-content">
     <div class="target-lang hidden-text" data-reveal="${idx}" onclick="speakBin(${idx})">${escapeHtml(s[0])}</div>
     <div class="translit hidden-text" data-reveal="${idx}">${escapeHtml(s[1])}</div>
-    <div class="english hidden-text" data-reveal="${idx}">${escapeHtml(s[2])}</div>
+    <div class="english">${escapeHtml(s[2])}</div>
    </div>
    <div class="bin-rating" id="binRating${idx}">
     <button class="btn btn-secondary" onclick="rateBinCard(${idx},'again')">Again</button>
@@ -1333,17 +2144,23 @@ function renderBinView(){
     <button class="btn btn-primary" onclick="rateBinCard(${idx},'good')">Good</button>
     <button class="btn btn-secondary" onclick="rateBinCard(${idx},'easy')">Easy</button>
    </div>
-   <div class="bin-feedback" id="binFeedback${idx}">Reveal first, recall out loud, then rate. Good or Easy removes it from weak practice.</div>
+   <div class="bin-feedback" id="binFeedback${idx}">Read the English meaning, try the Russian from memory, then reveal and rate. Good or Easy removes it from weak practice.</div>
   </div>`;
  }).join('');
 }
 
 function speakBin(idx){
+ const el=document.getElementById('bin'+idx);
+ const revealed=Boolean(el&&el.querySelector('[data-reveal="'+idx+'"].revealed'));
+ if(!revealed){
+  const feedback=document.getElementById('binFeedback'+idx);
+  if(feedback)feedback.textContent='Try recall from the English meaning first. Reveal before listening to the Russian answer.';
+  return;
+ }
  stopPlayback();
  document.querySelectorAll('.bin-card.playing').forEach(el=>el.classList.remove('playing'));
  document.querySelectorAll('.bin-card .speak-btn.active').forEach(el=>el.classList.remove('active'));
  const s=SENTENCES[idx];
- const el=document.getElementById('bin'+idx);
  if(el){
   el.classList.add('playing');
   const btn=el.querySelector('.speak-btn');
@@ -1374,24 +2191,13 @@ function toggleReveal(idx,btn){
 function removeFromBin(idx){
  const revealed=document.querySelector('[data-reveal="'+idx+'"].revealed');
  if(!revealed){
-  alert('Reveal the sentence and self-check before removing it from weak practice.');
+  alert('Reveal the sentence and self-check before choosing a rating.');
   return;
  }
- delete reviewBin[idx];
- localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
- updateBinBadge();
- const el=document.getElementById('bin'+idx);
- if(el){
-  el.style.transition='all .3s';
-  el.style.transform='translateX(100px)';
-  el.style.opacity='0';
-  setTimeout(()=>{
-   binOrder=binOrder.filter(i=>i!==idx);
-   renderBinView();
-  },300);
- }
- const btn=document.getElementById('binToggleBtn');
- btn.innerHTML='&#x2190; Back <span class="bin-badge" id="binBadge">'+Object.keys(reviewBin).length+'</span>';
+ const rating=document.getElementById('binRating'+idx);
+ if(rating)rating.scrollIntoView({behavior:'smooth',block:'center'});
+ const feedback=document.getElementById('binFeedback'+idx);
+ if(feedback)feedback.textContent='Choose Again, Hard, Good, or Easy. Good or Easy removes it from weak practice.';
 }
 
 function clearReviewBinItem(idx){
@@ -1434,7 +2240,9 @@ function shuffleBin(){
 
 async function playAllBin(){
  const btn=document.getElementById('binPlayAllBtn');
- const indices=binOrder.length?[...binOrder]:Object.keys(reviewBin).map(Number);
+ if(!btn)return;
+ const indices=(binOrder.length?[...binOrder]:Object.keys(reviewBin).map(Number))
+  .filter(idx=>document.querySelector('[data-reveal="'+idx+'"].revealed'));
  if(!indices.length)return;
  btn.innerHTML='&#9632; Stop';
  let stopped=false;
@@ -1453,12 +2261,6 @@ async function playAllBin(){
  }
  btn.innerHTML='&#9654; Play All (audio only)';
  btn.onclick=()=>playAllBin();
-}
-
-function revealAllBin(){
- document.querySelectorAll('.bin-card .hidden-text').forEach(el=>el.classList.add('revealed'));
- document.querySelectorAll('.bin-card .reveal-btn').forEach(el=>{el.classList.add('revealed');el.title='Hide text'});
- document.querySelectorAll('.bin-rating').forEach(el=>el.classList.add('active'));
 }
 
 function hideAllBin(){
@@ -1801,11 +2603,12 @@ function buildStudyQueue(due,newCards){
  });
  while(delayedQueue.length&&releaseDelayed()){}
  if(delayedQueue.length){
-  delayedQueue.forEach(pending=>{
-   if(queue.length-pending.sourceIndex-1>=MIN_DELAYED_RECALL_GAP){
-    queue.push({idx:pending.idx,type:'review',sessionDelayed:true,sourceIndex:pending.sourceIndex});
-   }
-  });
+  let spacerCount=0;
+  while(delayedQueue.length&&spacerCount<MIN_DELAYED_RECALL_GAP*2){
+   if(releaseDelayed())continue;
+   queue.push({type:'spacing',spacerId:spacerCount++});
+  }
+  releaseDelayed();
  }
  return queue;
 }
@@ -1818,6 +2621,12 @@ function normalizeRating(rating){
 
 function isSuccessfulRating(rating){
  return rating==='good'||rating==='easy';
+}
+
+function lockStudyAdvanceClicks(){
+ document.body.classList.add('study-advance-lock');
+ clearTimeout(studyAdvanceUnlockTimer);
+ studyAdvanceUnlockTimer=setTimeout(()=>document.body.classList.remove('study-advance-lock'),1050);
 }
 
 function clearRecoveredWeakPractice(idx){
@@ -2015,7 +2824,11 @@ function showStudyStart(){
  const accessLine=courseAccessMode==='demo'
   ?`<div class="study-access-line"><strong>Demo:</strong> ${SENTENCES.length} of ${LANG.sentences} sentences. <a href="pricing.html">Unlock full course</a><a href="access.html">Recover access</a></div>`
   :`<div class="study-access-line"><strong>Full course active.</strong> Progress syncs on this account. <a href="access.html">Account help</a></div>`;
- const startAction=totalSession>0?`
+ const startAction=showWeakPracticeAction&&due.length===0?`
+    <div style="color:var(--orange);font-weight:600;font-size:1.05rem;margin:20px 0">You have weak sentences waiting. Repair them before adding new material.</div>
+    <button class="study-start-btn" onclick="toggleBinView()" style="background:var(--orange)">Review weak sentences</button>
+    <div class="study-time-est">Keep the text hidden until you recall the sentence.</div>
+   `:totalSession>0?`
     <button class="study-start-btn" onclick="beginStudySession()">Start guided lesson</button>
     <div class="study-time-est">~${estMinutes} min estimated &middot; includes delayed recall before you leave</div>
    `:showWeakPracticeAction?`
@@ -2103,7 +2916,8 @@ function showStudyCard(){
  }
 
  const item=studyQueue[studyIndex];
- const s=SENTENCES[item.idx];
+ const isSpacing=item.type==='spacing';
+ const s=isSpacing?null:SENTENCES[item.idx];
  const isNew=item.type==='new';
  const isDelayed=Boolean(item.sessionDelayed);
  studyRevealed=false;
@@ -2112,7 +2926,24 @@ function showStudyCard(){
  // Update progress bar
  const pct=Math.round(studyIndex/studyQueue.length*100);
  document.getElementById('studyProgressFill').style.width=pct+'%';
- document.getElementById('studyProgressLabel').textContent=(studyIndex+1)+' / '+studyQueue.length+(isNew?' (new)':isDelayed?' (delayed recall)':' (review)');
+ document.getElementById('studyProgressLabel').textContent=(studyIndex+1)+' / '+studyQueue.length+(isSpacing?' (spacing)':isNew?' (new)':isDelayed?' (delayed recall)':' (review)');
+
+ if(isSpacing){
+  document.getElementById('studyContent').innerHTML=`
+   <div class="study-card fade-in">
+    <span class="study-card-label review">SPACING PAUSE</span>
+    <div class="study-english">Take a short pause before the delayed recall.</div>
+    <div class="study-instruction">
+     <strong>Your task</strong>
+     <ul>
+      <li>Do not rehearse the previous Russian answer.</li>
+      <li>Let attention reset so the next card checks memory, not echo.</li>
+     </ul>
+    </div>
+    <button class="study-reveal-btn" onclick="continueStudySpacing()" style="background:var(--primary)">Continue</button>
+   </div>`;
+  return;
+ }
 
  const srsInfo=srsData[item.idx];
  const boxLabel=srsInfo?'Box '+srsInfo.box:'New';
@@ -2150,7 +2981,7 @@ function showStudyCard(){
      <ul>
       <li>This is English. Try to remember the Russian translation.</li>
       <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-      <li>The app does not use a microphone. You self-check after reveal.</li>
+      <li>This recall is self-checked. Teacher Mode voice commands are optional.</li>
     </ul>
     ${instructionButtonHTML(instruction)}
    </div>
@@ -2162,6 +2993,11 @@ function showStudyCard(){
   // Focus the input (slight delay for animation)
   setTimeout(()=>{const inp=document.getElementById('studyInput');if(inp)inp.focus()},300);
  }
+}
+
+function continueStudySpacing(){
+ studyIndex++;
+ showStudyCard();
 }
 
 function showNewRecallCard(){
@@ -2179,7 +3015,7 @@ function showNewRecallCard(){
     <ul>
      <li>This is English. Try to remember the Russian translation you just heard.</li>
      <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-     <li>The app does not use a microphone. You self-check after reveal.</li>
+     <li>This recall is self-checked. Teacher Mode voice commands are optional.</li>
    </ul>
    ${instructionButtonHTML(instruction)}
   </div>
@@ -2192,10 +3028,12 @@ function showNewRecallCard(){
 
 function revealStudyCard(){
  if(studyRevealed)return;
+ const item=studyQueue[studyIndex];
+ if(!item||item.type==='spacing')return;
+ if(teacherModeEnabled&&document.getElementById('studyInput')&&!teacherRequireRecallAttempt())return;
  studyRevealed=true;
  studyRatingLocked=false;
 
- const item=studyQueue[studyIndex];
  const s=SENTENCES[item.idx];
  const isNew=item.type==='new';
  const isDelayed=Boolean(item.sessionDelayed);
@@ -2249,6 +3087,7 @@ function rateStudyCard(rating){
  if(!studyRevealed||!item||studyRatingLocked)return;
  studyRatingLocked=true;
  document.querySelectorAll('.study-rating button').forEach(button=>{button.disabled=true});
+ lockStudyAdvanceClicks();
  rating=normalizeRating(rating);
  const isNew=item.type==='new';
  if(isNew && rating==='easy')rating='good';
@@ -2278,6 +3117,7 @@ function rateStudyCard(rating){
  saveStats();
  updateStreak();
  updateStreakDisplay();
+ const pausedNewCount=adaptStudyQueueAfterPerformance();
 
  // Brief feedback
  const info=document.getElementById('studyBoxInfo');
@@ -2293,12 +3133,36 @@ function rateStudyCard(rating){
    info.style.color='var(--red)';
   }
  }
+ if(info&&pausedNewCount){
+  info.textContent=(info.textContent?info.textContent+' · ':'')+`Teacher paused ${pausedNewCount} future new sentence${pausedNewCount===1?'':'s'} so you repair first.`;
+  info.style.color='var(--orange)';
+ }
 
  // Move to next card after brief delay
  setTimeout(()=>{
   studyIndex++;
   showStudyCard();
  },800);
+}
+
+function adaptStudyQueueAfterPerformance(){
+ const rated=studySessionStats.againCount+studySessionStats.hardCount+studySessionStats.goodCount+studySessionStats.easyCount;
+ const weak=studySessionStats.againCount+studySessionStats.hardCount;
+ const strong=studySessionStats.goodCount+studySessionStats.easyCount;
+ const accuracy=rated?Math.round(strong/rated*100):100;
+ if(weak<2&&!(rated>=4&&accuracy<70))return 0;
+ const removedNewIndexes=new Set();
+ studyQueue.slice(studyIndex+1).forEach(item=>{
+  if(item.type==='new')removedNewIndexes.add(item.idx);
+ });
+ if(!removedNewIndexes.size)return 0;
+ studyQueue=studyQueue.filter((item,index)=>{
+  if(index<=studyIndex)return true;
+  if(removedNewIndexes.has(item.idx)&&(item.type==='new'||item.sessionDelayed))return false;
+  return true;
+ });
+ studySessionStats.newPaused=(studySessionStats.newPaused||0)+removedNewIndexes.size;
+ return removedNewIndexes.size;
 }
 
 function scheduleStudyRepair(idx,rating){
@@ -2336,7 +3200,7 @@ function getAutopilotNextStep(){
  if(studySessionStats.againCount>0||studySessionStats.hardCount>0||weakCount>0){
   return {
    title:'Next: repair weak sentences',
-   text:`${weakCount} sentence${weakCount===1?' is':'s are'} in your weak practice bin. Listen first, keep the text hidden, then reveal only after recall.`,
+   text:`${weakCount} sentence${weakCount===1?' is':'s are'} in your weak practice bin. Read the English meaning first, recall the Russian, then reveal before listening.`,
    button:'Open review bin',
    action:'toggleBinView()'
   };
@@ -2698,6 +3562,7 @@ function renderClozeCard(){
  const idx=pickPracticeIndex();
  const s=SENTENCES[idx];
  practiceRatingLocked=false;
+ teacherAttemptedRecallKey='';
  if(!s){
   document.getElementById('clozeContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
   return;
@@ -2720,7 +3585,6 @@ function renderClozeCard(){
    <div class="practice-target">${cloze.prompt}</div>
    <input class="practice-input" id="clozeInput" placeholder="Optional: type the missing Russian word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
    <div class="practice-actions">
-    <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}',${idx})">&#128264; Listen</button>
     <button class="btn btn-primary" onclick="revealCloze()">Show answer</button>
     <button class="btn btn-secondary" onclick="renderClozeCard()">Skip</button>
    </div>
@@ -2731,6 +3595,7 @@ function renderClozeCard(){
 
 function revealCloze(){
  if(!clozeCurrent||clozeCurrent.revealed)return;
+ if(!teacherRequireRecallAttempt())return;
  clozeCurrent.revealed=true;
  practiceRatingLocked=false;
  const s=SENTENCES[clozeCurrent.idx];
@@ -2740,6 +3605,7 @@ function revealCloze(){
   <div class="practice-feedback">
    <div><strong>Answer:</strong> ${escapeHtml(clozeCurrent.answer)}</div>
    <div><strong>Full sentence:</strong> ${escapeHtml(s[0])}</div>
+   <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}',${clozeCurrent.idx})">&#128264; Listen after reveal</button>
    ${feedback}
    ${buildPracticeRatingButtons('cloze')}
   </div>`;
@@ -2761,6 +3627,7 @@ function renderDictationCard(){
  const idx=pickPracticeIndex();
  const s=SENTENCES[idx];
  practiceRatingLocked=false;
+ teacherAttemptedRecallKey='';
  if(!s){
   document.getElementById('dictationContent').innerHTML='<div class="practice-card"><h2>No sentences loaded</h2><p>Go back and reload the course.</p><button class="btn btn-secondary" onclick="showBrowseView()">Back</button></div>';
   return;
@@ -2793,6 +3660,7 @@ function renderDictationCard(){
 
 function revealDictation(){
  if(!dictationCurrent||dictationCurrent.revealed)return;
+ if(!teacherRequireRecallAttempt())return;
  dictationCurrent.revealed=true;
  practiceRatingLocked=false;
  const s=SENTENCES[dictationCurrent.idx];
@@ -2838,6 +3706,7 @@ function ratePractice(rating,mode){
 
  // Load saved daily goal
  syncDailyGoalFromStats();
+ initializeTeacherMode();
 
  loadHostedAudioManifest();
  loadLanguageData();

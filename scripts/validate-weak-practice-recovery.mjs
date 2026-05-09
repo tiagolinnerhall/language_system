@@ -23,7 +23,7 @@ if (!/rating==='easy'[\s\S]*clearRecoveredWeakPractice\(idx\)/.test(processRatin
 if (!/rating==='good'[\s\S]*clearRecoveredWeakPractice\(idx\)/.test(processRating)) {
   throw new Error('Good ratings must clear recovered sentences from weak practice.');
 }
-if (!/delete reviewBin\[idx\]/.test(clearRecoveredWeakPractice)) {
+if (!/clearReviewBinItem\(idx\)/.test(clearRecoveredWeakPractice)) {
   throw new Error('Successful ratings must clear recovered sentences from weak practice.');
 }
 

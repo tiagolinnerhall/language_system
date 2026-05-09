@@ -4,6 +4,7 @@
     "node": "20.x"
   },
   "dependencies": {
-    "mongodb": "^6.15.0"
+    "mongodb": "^6.15.0",
+    "playwright": "^1.59.1"
   }
 }

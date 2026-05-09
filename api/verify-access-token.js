@@ -1,7 +1,7 @@
 const { verifyAccessToken } = require('./_lib/access');
 const { noStore, tokenFromRequest } = require('./_lib/http');
 const { getEntitlement } = require('./_lib/store');
-const { isCheckoutSessionPaid, retrieveCheckoutSession } = require('./_lib/stripe');
+const { isCheckoutSessionPaid, retrieveCheckoutSession, validateLang5KCheckoutSession } = require('./_lib/stripe');
 
 module.exports = async function handler(req, res) {
   noStore(res);
@@ -16,6 +16,10 @@ module.exports = async function handler(req, res) {
     return;
   }
   try {
+    if (!Array.isArray(payload.scopes) || !payload.scopes.includes('russian')) {
+      res.status(401).json({ active: false, error: 'Invalid access scope.' });
+      return;
+    }
     if (payload.email) {
       const entitlement = await getEntitlement(payload.email);
       if (entitlement && entitlement.status === 'active' && entitlement.product === 'russian') {
@@ -25,7 +29,7 @@ module.exports = async function handler(req, res) {
     }
     if (payload.session) {
       const session = await retrieveCheckoutSession(payload.session);
-      if (isCheckoutSessionPaid(session)) {
+      if (await validateLang5KCheckoutSession(session) && isCheckoutSessionPaid(session)) {
         res.status(200).json({ active: true, email: payload.email || '', scopes: payload.scopes || [], expiresAt: payload.exp });
         return;
       }

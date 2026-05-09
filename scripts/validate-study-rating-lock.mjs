@@ -31,7 +31,7 @@ mustInclude(rateStudyCard, 'studyRatingLocked=true;', 'Rating a study card must 
 
 const duplicateGuard = rateStudyCard.indexOf('studyRatingLocked)return;');
 const lockSet = rateStudyCard.indexOf('studyRatingLocked=true;');
-const processRatingCall = rateStudyCard.indexOf('processRating(item.idx,rating);');
+const processRatingCall = rateStudyCard.indexOf('processRating(item.idx,rating,item.sessionDelayed?');
 const statsUpdate = rateStudyCard.indexOf('studySessionStats.');
 if (duplicateGuard < 0 || lockSet < 0 || processRatingCall < 0 || statsUpdate < 0) {
   throw new Error('Study rating lock validation could not inspect rateStudyCard order.');

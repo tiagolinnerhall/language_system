@@ -79,10 +79,27 @@ try {
 
   async function completeCurrentCard() {
     await page.waitForSelector('.study-card');
+    const spacingButton = page.getByRole('button', { name: 'Continue' });
+    if (await spacingButton.count()) {
+      await spacingButton.click();
+      await page.waitForTimeout(200);
+      return;
+    }
     const nextButton = page.getByRole('button', { name: 'Next: test my memory' });
     if (await nextButton.count()) await nextButton.click();
     await page.getByRole('button', { name: 'Show Russian answer and play audio' }).click();
-    await page.waitForSelector('.study-rating');
+    try {
+      await page.waitForSelector('.study-rating', { timeout: 5000 });
+    } catch (error) {
+      const state = await page.evaluate(() => ({
+        teacherModeEnabled: eval('teacherModeEnabled'),
+        studyIndex: eval('studyIndex'),
+        studyRevealed: eval('studyRevealed'),
+        message: document.getElementById('teacherMessage')?.textContent || '',
+        card: document.querySelector('.study-card')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) || ''
+      }));
+      throw new Error(`Study card did not reveal rating controls: ${JSON.stringify(state)}`);
+    }
     await page.getByRole('button', { name: /Good/i }).click();
     await page.waitForTimeout(900);
   }
@@ -95,11 +112,142 @@ try {
   if (/All done for today/i.test(text)) {
     throw new Error('Fresh guided lesson incorrectly says all done.');
   }
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(150);
+  if (pageErrors.length) {
+    throw new Error(`Study start keyboard shortcut produced browser errors: ${pageErrors.join('; ')}`);
+  }
   if (!/10\s+New Sentences/i.test(text.replace(/\s+/g, ' '))) {
     throw new Error(`Fresh guided lesson did not plan 10 new sentences. Saw: ${text}`);
   }
+  await page.getByRole('button', { name: 'Teacher' }).click();
+  await page.locator('#teacherPanel.active .teacher-title').waitFor();
+  await page.getByRole('button', { name: 'Guide me' }).click();
+  const teacherMessage = await page.locator('#teacherMessage').innerText();
+  if (!/recommend 10 new sentences|first guided lesson|due reviews/i.test(teacherMessage)) {
+    throw new Error(`Teacher mode did not explain the performance-aware plan. Saw: ${teacherMessage}`);
+  }
+  const mappedAnswer = await page.evaluate(() => {
+    eval('teacherCommand("where do I start")');
+    return document.getElementById('teacherMessage')?.textContent || '';
+  });
+  if (!/Start with Study/i.test(mappedAnswer) || !/recommend 10 new sentences/i.test(mappedAnswer)) {
+    throw new Error(`Teacher map did not answer where to start with performance context. Saw: ${mappedAnswer}`);
+  }
+  const modeNavigation = await page.evaluate(() => eval(`(() => {
+    teacherCommand("open browse");
+    const browse = currentMode;
+    teacherCommand("open study");
+    const study = currentMode;
+    return { browse, study };
+  })()`));
+  if (modeNavigation.browse !== 'browse' || modeNavigation.study !== 'study') {
+    throw new Error(`Teacher mode navigation failed: ${JSON.stringify(modeNavigation)}`);
+  }
+  const stressPlan = await page.evaluate(() => eval(`(() => {
+    const today = getToday();
+    for (let i = 0; i < 40; i++) {
+      srsData[i] = { box: 1, nextReview: today, lastReview: today, lastRating: 'again', reps: 1, ease: 2 };
+    }
+    userStats.completedFirstGuidedSession = false;
+    return teacherRecommendedPlan();
+  })()`));
+  if (stressPlan.newLimit !== 0 || !/due reviews/i.test(stressPlan.focus)) {
+    throw new Error(`Teacher recommended new material despite high review debt: ${JSON.stringify(stressPlan)}`);
+  }
+  const priorityNavigation = await page.evaluate(() => eval(`(() => {
+    teacherOpenMode('browse');
+    return currentMode;
+  })()`));
+  if (priorityNavigation !== 'study') {
+    throw new Error(`Teacher allowed browse before due reviews. Current mode: ${priorityNavigation}`);
+  }
+  const ratingCommandCheck = await page.evaluate(() => eval(`(() => ({
+    notGood: teacherCommandHasRating('not good', 'good'),
+    good: teacherCommandHasRating('good', 'good'),
+    notThatGood: teacherCommandHasRating('not that good', 'good'),
+    dontThinkGood: teacherCommandHasRating("i don't think it was good", 'good'),
+    dontThinkItsGood: teacherCommandHasRating("i don't think it's good", 'good'),
+    notEasy: teacherCommandHasRating('not easy', 'easy'),
+    notVeryEasy: teacherCommandHasRating('not very easy', 'easy'),
+    wasntEasy: teacherCommandHasRating("wasn't easy", 'easy'),
+    didntFeelEasy: teacherCommandHasRating("it didn't feel easy", 'easy'),
+    hard: teacherCommandHasRating('hard', 'hard')
+  }))()`));
+  if (ratingCommandCheck.notGood || !ratingCommandCheck.good || ratingCommandCheck.notThatGood || ratingCommandCheck.dontThinkGood || ratingCommandCheck.dontThinkItsGood || ratingCommandCheck.notEasy || ratingCommandCheck.notVeryEasy || ratingCommandCheck.wasntEasy || ratingCommandCheck.didntFeelEasy || !ratingCommandCheck.hard) {
+    throw new Error(`Teacher rating command negation check failed: ${JSON.stringify(ratingCommandCheck)}`);
+  }
+  const directDrillNavigation = await page.evaluate(() => eval(`(() => {
+    teacherCommand('cloze');
+    return currentMode;
+  })()`));
+  if (directDrillNavigation !== 'study') {
+    throw new Error(`Teacher direct drill command bypassed due-review priority. Current mode: ${directDrillNavigation}`);
+  }
+  const spacingTeacherNext = await page.evaluate(() => eval(`(() => {
+    studyQueue = buildStudyQueue([], [0]);
+    studyIndex = 1;
+    showStudyCard();
+    toggleTeacherMode(true);
+    teacherDoNext();
+    return { studyIndex, hasSpacing: Boolean(document.querySelector('button[onclick="continueStudySpacing()"]')) };
+  })()`));
+  if (spacingTeacherNext.studyIndex !== 2 || !spacingTeacherNext.hasSpacing) {
+    throw new Error(`Teacher Do next did not advance spacing pause correctly: ${JSON.stringify(spacingTeacherNext)}`);
+  }
+  const adaptationCheck = await page.evaluate(() => eval(`(() => {
+    studyQueue = [
+      { idx: 0, type: 'new' },
+      { idx: 1, type: 'new' },
+      { idx: 1, type: 'review', sessionDelayed: true },
+      { idx: 2, type: 'new' }
+    ];
+    studyIndex = 0;
+    studySessionStats = { newCount: 0, reviewCount: 0, againCount: 2, hardCount: 0, goodCount: 0, easyCount: 0 };
+    const removed = adaptStudyQueueAfterPerformance();
+    return { removed, hasFutureNew: studyQueue.slice(1).some(item => item.type === 'new'), hasUnseenDelayed: studyQueue.slice(1).some(item => item.sessionDelayed && item.idx === 1) };
+  })()`));
+  if (adaptationCheck.removed !== 2 || adaptationCheck.hasFutureNew || adaptationCheck.hasUnseenDelayed) {
+    throw new Error(`Teacher did not pause future new cards after weak performance: ${JSON.stringify(adaptationCheck)}`);
+  }
+  const shortDelayed = await page.evaluate(() => eval(`(() => {
+    const queue = buildStudyQueue([], [0]);
+    const delayedGaps = queue.map((item,index)=>item.sessionDelayed ? index - item.sourceIndex - 1 : null).filter(value => value !== null);
+    return { queueLength: queue.length, delayedGaps };
+  })()`));
+  if (!shortDelayed.delayedGaps.length || shortDelayed.delayedGaps.some(gap => gap < 2)) {
+    throw new Error(`Short guided sessions must create true delayed recall with spacing. Saw: ${JSON.stringify(shortDelayed)}`);
+  }
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.study-start');
   await page.getByRole('button', { name: 'Hear lesson guide' }).click();
   await page.waitForTimeout(250);
+  await page.getByRole('button', { name: 'Start guided lesson' }).click();
+  await page.waitForSelector('.study-card');
+  await page.keyboard.press('Space');
+  const keyboardIntroState = await page.evaluate(() => ({
+    hasRecallInput: Boolean(document.getElementById('studyInput')),
+    hasRating: Boolean(document.querySelector('.study-rating')),
+    card: document.querySelector('.study-card')?.textContent || ''
+  }));
+  if (!keyboardIntroState.hasRecallInput || keyboardIntroState.hasRating || !/NEW RECALL/i.test(keyboardIntroState.card)) {
+    throw new Error(`Keyboard shortcut skipped the new-card recall screen: ${JSON.stringify(keyboardIntroState)}`);
+  }
+  await page.locator('#studyInput').fill('test');
+  await page.getByRole('button', { name: 'Show Russian answer and play audio' }).click();
+  await page.waitForSelector('.study-rating');
+  const beforeKeyboardRating = await page.evaluate(() => ({ studyIndex: eval('studyIndex'), goodCount: eval('studySessionStats.goodCount') }));
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(250);
+  const afterKeyboardRating = await page.evaluate(() => ({ studyIndex: eval('studyIndex'), goodCount: eval('studySessionStats.goodCount') }));
+  if (afterKeyboardRating.studyIndex !== beforeKeyboardRating.studyIndex || afterKeyboardRating.goodCount !== beforeKeyboardRating.goodCount) {
+    throw new Error(`Space/Enter auto-rated after reveal: before ${JSON.stringify(beforeKeyboardRating)}, after ${JSON.stringify(afterKeyboardRating)}`);
+  }
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.study-start');
   const translitCheck = await page.evaluate(() => {
     const analysis = eval('analyzeAttempt(SENTENCES[0][1], SENTENCES[0][0], SENTENCES[0][1])');
     return { rating: analysis?.rating, checkedAs: analysis?.checkedAs, state: analysis?.state };
@@ -110,9 +258,45 @@ try {
   await page.getByRole('button', { name: 'Start guided lesson' }).click();
   await page.getByRole('button', { name: 'Hear Audio Instructions' }).click();
   await page.waitForTimeout(250);
-  await page.getByRole('button', { name: 'Next: test my memory' }).click();
+  await page.getByRole('button', { name: 'Teacher' }).click();
+  await page.evaluate(() => eval('teacherCommand("I tried")'));
   await page.getByRole('button', { name: 'Show Russian answer and play audio' }).click();
+  const introCarryMessage = await page.locator('#teacherMessage').innerText();
+  if (!/Try recall first/i.test(introCarryMessage) || await page.locator('.study-rating').count()) {
+    throw new Error(`Intro "I tried" carried into recall reveal gate. Message: ${introCarryMessage}`);
+  }
+  await page.getByRole('button', { name: 'Do next' }).click();
+  const gatedRevealMessage = await page.locator('#teacherMessage').innerText();
+  if (!/Try recall first/i.test(gatedRevealMessage) || await page.locator('.study-rating').count()) {
+    throw new Error(`Teacher revealed before recall attempt or did not explain the gate. Message: ${gatedRevealMessage}`);
+  }
+  await page.getByRole('button', { name: 'Show Russian answer and play audio' }).click();
+  const directRevealMessage = await page.locator('#teacherMessage').innerText();
+  if (!/Try recall first/i.test(directRevealMessage) || await page.locator('.study-rating').count()) {
+    throw new Error(`Direct reveal bypassed Teacher recall gate. Message: ${directRevealMessage}`);
+  }
+  const currentHelp = await page.evaluate(() => {
+    eval('teacherCommand("what should I do")');
+    return document.getElementById('teacherMessage')?.textContent || '';
+  });
+  if (!/Do not reveal yet|Try recall/i.test(currentHelp)) {
+    throw new Error(`Teacher did not answer current-card help. Saw: ${currentHelp}`);
+  }
+  const whyNow = await page.evaluate(() => {
+    eval('teacherCommand("why this now")');
+    return document.getElementById('teacherMessage')?.textContent || '';
+  });
+  if (!/selected a new sentence|review|delayed|weak/i.test(whyNow)) {
+    throw new Error(`Teacher did not answer why-this-now from current state. Saw: ${whyNow}`);
+  }
+  await page.evaluate(() => eval('teacherCommand("I tried")'));
   await page.waitForSelector('.study-rating');
+  await page.getByRole('button', { name: 'Teacher On' }).click();
+  await page.evaluate(() => eval('toggleTeacherMode(false)'));
+  const teacherOffState = await page.evaluate(() => eval('teacherModeEnabled'));
+  if (teacherOffState) {
+    throw new Error('Teacher Mode did not turn off before normal study completion.');
+  }
   if (pageErrors.length) {
     throw new Error(`Guided lesson produced browser errors: ${pageErrors.join('; ')}`);
   }
@@ -122,6 +306,10 @@ try {
   }
   await page.getByRole('button', { name: /Good/i }).dblclick();
   await page.waitForTimeout(900);
+  const teacherAfterFirstRating = await page.evaluate(() => eval('teacherModeEnabled'));
+  if (teacherAfterFirstRating) {
+    throw new Error('Teacher Mode turned on during the rating double-click guard test.');
+  }
   const firstClickState = await page.evaluate(() => ({
     studyIndex: eval('studyIndex'),
     goodCount: eval('studySessionStats.goodCount')
@@ -152,6 +340,23 @@ try {
   }
   await page.getByRole('button', { name: /Start dictation|Start cloze drill/i }).click();
   await page.waitForSelector('.practice-card');
+  await page.evaluate(() => eval('toggleTeacherMode(true)'));
+  await page.getByRole('button', { name: 'Show answer' }).click();
+  const practiceGateMessage = await page.locator('#teacherMessage').innerText();
+  const revealedPracticeFeedback = await page.locator('#clozeFeedback .practice-feedback, #dictationFeedback .practice-feedback').count();
+  if (!/Try recall first/i.test(practiceGateMessage) || revealedPracticeFeedback) {
+    throw new Error(`Practice reveal bypassed Teacher recall gate. Message: ${practiceGateMessage}`);
+  }
+  await page.evaluate(() => eval('teacherCommand("I tried")'));
+  await page.waitForSelector('#clozeFeedback .practice-feedback, #dictationFeedback .practice-feedback');
+  const practiceNextMessage = await page.evaluate(() => {
+    eval('teacherCommand("next")');
+    return document.getElementById('teacherMessage')?.textContent || '';
+  });
+  if (!/Choose your rating/i.test(practiceNextMessage)) {
+    throw new Error(`Teacher next skipped practice rating after reveal. Message: ${practiceNextMessage}`);
+  }
+  await page.evaluate(() => eval('toggleTeacherMode(false)'));
   const practiceState = await page.evaluate(() => ({
     picked: eval('dictationCurrent?.idx ?? clozeCurrent?.idx ?? null'),
     session: eval('studyQueue.map(item => item.idx)')

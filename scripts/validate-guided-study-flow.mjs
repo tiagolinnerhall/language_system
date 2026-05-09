@@ -24,15 +24,15 @@ if (dueBranch < 0 || weakBranch < 0) {
 if (dueBranch > weakBranch) {
   throw new Error('Today plan must prioritize due reviews before weak repair.');
 }
-if (newCompleteBranch < 0 || weakBranch < newCompleteBranch) {
-  throw new Error('Today plan must keep guided new sentences before weak repair.');
+if (newCompleteBranch < 0 || weakBranch > newCompleteBranch) {
+  throw new Error('Today plan must repair weak cards before adding new sentences.');
 }
 
 const studyStart = extractFunction('showStudyStart');
 mustInclude(studyStart, 'const weakCount=Object.keys(reviewBin).length;', 'Study start must count weak sentences.');
 mustInclude(studyStart, "Weak Sentences", 'Study start must show weak sentence count.');
 mustInclude(studyStart, "Review weak sentences", 'Study start must offer weak repair when guided reviews and new cards are done.');
-mustInclude(studyStart, "You still have weak sentences waiting.", 'Study start must not say the day is done while weak repair remains.');
+mustInclude(studyStart, "Repair them before adding new material.", 'Study start must put weak repair before new material.');
 
 const autopilotNext = extractFunction('getAutopilotNextStep');
 const dueNextBranch = autopilotNext.indexOf('dueCount>0');

@@ -25,7 +25,7 @@ mustInclude(rateStudyCard, 'studyRatingLocked=true;', 'Study rating lock must st
 const itemIndex = rateStudyCard.indexOf('const item=studyQueue[studyIndex];');
 const guardIndex = rateStudyCard.indexOf('if(!studyRevealed||!item||studyRatingLocked)return;');
 const lockIndex = rateStudyCard.indexOf('studyRatingLocked=true;');
-const processIndex = rateStudyCard.indexOf('processRating(item.idx,rating);');
+const processIndex = rateStudyCard.indexOf('processRating(item.idx,rating,item.sessionDelayed?');
 
 if (itemIndex < 0 || guardIndex < 0 || lockIndex < 0 || processIndex < 0) {
   throw new Error('Study rating reveal guard validation could not inspect rateStudyCard order.');

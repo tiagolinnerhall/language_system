@@ -16,11 +16,11 @@ function mustInclude(source, marker, message) {
 
 const ratePractice = extractFunction('ratePractice');
 
-mustInclude(ratePractice, 'processRating(current.idx,rating);', 'Practice rating must save SRS progress.');
+mustInclude(ratePractice, 'processRating(current.idx,rating,mode);', 'Practice rating must save SRS progress.');
 mustInclude(ratePractice, 'updateStreak();', 'Practice rating must count toward the study streak after progress is saved.');
 mustInclude(ratePractice, 'updateStreakDisplay();', 'Practice rating must refresh the visible streak after progress is saved.');
 
-const saveIndex = ratePractice.indexOf('processRating(current.idx,rating);');
+const saveIndex = ratePractice.indexOf('processRating(current.idx,rating,mode);');
 const streakIndex = ratePractice.indexOf('updateStreak();');
 const displayIndex = ratePractice.indexOf('updateStreakDisplay();');
 const progressIndex = ratePractice.indexOf('updateProgress();');
