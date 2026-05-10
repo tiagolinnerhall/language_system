@@ -94,6 +94,13 @@ assertIncludes('app.html', app, 'Lang5K saved your ratings and picked the next b
 assertIncludes('app.html', app, 'review_bin');
 assertIncludes('app.html', app, 'Backup progress');
 assertIncludes('app.html', app, 'Restore progress');
+assertIncludes('app.html', app, 'Cloud history');
+assertIncludes('app.html', app, 'cloudHistoryPanel');
+assertIncludes('app.html', app, 'cloud-history-quick');
+assertIncludes('app.html', app, 'showCloudProgressHistory');
+assertIncludes('app.html', app, 'restoreCloudProgressRevision');
+assertIncludes('app.html', app, 'storedCloudProgressRevision');
+assertIncludes('app.html', app, 'local_reset_only');
 assertIncludes('app.html', app, 'This is English. Try to remember the Russian translation');
 assertIncludes('app.html', app, 'Optional: type Russian or transliteration');
 assertIncludes('app.html', app, 'Show Russian answer and play audio');

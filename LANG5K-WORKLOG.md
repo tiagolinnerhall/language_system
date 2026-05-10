@@ -1133,3 +1133,42 @@ Verification:
 Remaining Risk:
 - Continuous browser speech recognition still depends on the browser and microphone permission. The app now restarts recognition while Live Teacher is on, but Chrome or the OS can still interrupt microphone access.
 - The app does not send AI requests for silence/filler, but real background speech can still produce transcripts. The teacher remains language/Lang5K scoped server-side.
+
+### Learner Cloud Progress History Restore
+
+Changed:
+- Added a learner-facing Cloud history tool inside the app advanced tools area for full-access users.
+- The panel loads authenticated cloud progress archives, shows the current revision, archived revisions, stale-device conflict copies, and progress summaries.
+- Added restore actions for archived revisions and conflict copies. Restoring applies the selected version locally, refreshes the visible learner state, saves it as the newest cloud progress through `/api/progress`, and tracks `progress_archive_restored`.
+- Synced restored `userStats.dailyGoal` back into the active daily goal so a restored snapshot does not leave the session using the old local goal.
+- Added a persistent Cloud history entry beside the progress bar so recovery remains visible in coach-first mode and after an accidental empty/early overwrite.
+- Tightened progress persistence around server-side revisions: normal saves now require a matching `baseRevision`, stale saves are archived as recoverable conflicts, and restore writes are forced through a dedicated server path instead of the normal stale-save path.
+- Restores now target an exact archive id, while archive metadata responses avoid returning full archived progress bodies.
+- Local reset no longer uploads an empty cloud reset on load or pagehide; it clears this browser only.
+- Updated teacher progress-recovery guidance to point paid learners to Cloud history and access recovery.
+
+Why:
+- Server-side progress archives already existed, but a paying learner had no visible recovery path if a stale tab or wrong device replaced progress. A premium product needs recoverable progress without owner intervention.
+
+Verification:
+- Confirmed `node .\scripts\smoke-test.mjs` and `node .\scripts\validate-sell-readiness.mjs` failed before the app change on the missing `Cloud history` marker.
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node .\scripts\validate-sell-readiness.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node .\scripts\validate-preview-full-access.mjs`.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `node .\scripts\validate-access-flow.mjs`.
+- Ran `node .\scripts\validate-russian-course.mjs`.
+- Ran `node .\scripts\validate-premium-study-order.mjs`.
+- Ran `node .\scripts\validate-audio-manifest-alignment.mjs`.
+- Ran `node --check .\api\_lib\store.js`.
+- Ran `node --check .\api\progress.js`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+- Ran three read-only anti-flaw specialist passes and fixed the reported blockers around reset upload, exact archive targeting, forced restore writes, access recovery links, coach-first visibility, mobile panel bounds, non-technical copy, and teacher recovery guidance.
+- Ran a second read-only anti-flaw loop after fixes; the security and UX passes reported no blockers, and the remaining app pass findings were fixed before the final headless/static verification.
+
+Remaining Risk:
+- Cloud restore still depends on the browser holding a valid full-access session and the Mongo-backed `/api/progress` endpoint being reachable. If the session expires, the learner must log in again before restoring.

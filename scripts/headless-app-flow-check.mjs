@@ -34,6 +34,30 @@ function readModuleData(filePath, variable) {
 
 const rows = loadRows();
 const teacherChatBodies = [];
+const progressArchives = [
+  {
+    archiveId: 'archive-2',
+    revision: 2,
+    reason: 'superseded',
+    archivedAt: '2026-05-10T10:00:00.000Z',
+    originalUpdatedAt: '2026-05-10T09:58:00.000Z',
+    summary: { learnedCount: 4, srsCount: 6, reviewBinCount: 1, dailyGoal: 10, todayNew: 2, todayReviews: 3 }
+  },
+  {
+    archiveId: 'archive-1',
+    revision: 1,
+    reason: 'stale-client-save',
+    archivedAt: '2026-05-10T09:00:00.000Z',
+    originalUpdatedAt: '2026-05-10T08:55:00.000Z',
+    summary: { learnedCount: 2, srsCount: 5, reviewBinCount: 0, dailyGoal: 10, todayNew: 1, todayReviews: 1 },
+    conflictSummary: { learnedCount: 7, srsCount: 9, reviewBinCount: 2, dailyGoal: 15, todayNew: 3, todayReviews: 4 }
+  }
+];
+let progressCurrent = {
+  progress: null,
+  updatedAt: '2026-05-10T10:05:00.000Z',
+  revision: 3
+};
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://127.0.0.1');
@@ -69,7 +93,71 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-  if (url.pathname === '/api/analytics' || url.pathname === '/api/progress') {
+  if (url.pathname === '/api/progress') {
+    if (req.method === 'GET' && url.searchParams.get('history') === '1') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        progress: progressCurrent.progress,
+        updatedAt: progressCurrent.updatedAt,
+        revision: progressCurrent.revision,
+        archives: progressArchives
+      }));
+      return;
+    }
+    if (req.method === 'POST') {
+      let raw = '';
+      req.on('data', chunk => {
+        raw += chunk;
+      });
+      req.on('end', () => {
+        const body = JSON.parse(raw || '{}');
+        if (body.archiveId || body.restoreRevision) {
+          const archive = progressArchives.find(item => item.archiveId === body.archiveId || String(item.revision) === String(body.restoreRevision));
+          const restoredStats = body.restoreConflict && archive?.conflictSummary
+            ? { dailyGoal: archive.conflictSummary.dailyGoal, todayNew: archive.conflictSummary.todayNew, todayReviews: archive.conflictSummary.todayReviews }
+            : { dailyGoal: archive?.summary?.dailyGoal || 10, todayNew: archive?.summary?.todayNew || 0, todayReviews: archive?.summary?.todayReviews || 0 };
+          progressCurrent = {
+            revision: progressCurrent.revision + 1,
+            updatedAt: new Date(Date.parse(progressCurrent.updatedAt) + 60000).toISOString(),
+            progress: {
+              learned: { 0: true },
+              reviewBin: {},
+              srsData: {},
+              userStats: restoredStats,
+              activeSession: { mode: 'study', studyViewActive: false, teacherModeEnabled: false, teacherAutopilotEnabled: false },
+              clientUpdatedAt: Date.now()
+            }
+          };
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            ok: true,
+            restored: true,
+            revision: progressCurrent.revision,
+            updatedAt: progressCurrent.updatedAt,
+            progress: progressCurrent.progress
+          }));
+          return;
+        }
+        if (body.baseRevision !== progressCurrent.revision && progressCurrent.progress) {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ ok: true, conflict: true, revision: progressCurrent.revision, updatedAt: progressCurrent.updatedAt, progress: progressCurrent.progress }));
+          return;
+        }
+        progressCurrent = {
+          revision: progressCurrent.revision + 1,
+          updatedAt: new Date(Date.parse(progressCurrent.updatedAt) + 60000).toISOString(),
+          progress: body.progress || null
+        };
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true, revision: progressCurrent.revision, updatedAt: progressCurrent.updatedAt }));
+      });
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+  if (url.pathname === '/api/analytics') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true }));
     return;
@@ -133,6 +221,7 @@ try {
   });
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
 
   async function completeCurrentCard() {
     await page.waitForSelector('.study-card');
@@ -197,6 +286,43 @@ try {
   }));
   if (resetState.url.includes('resetProgress') || Object.keys(resetState.srs).length || Object.keys(resetState.reviewBin).length || resetState.teacherAutopilot !== null || !/10\s*New Sentences/i.test(resetState.startText.replace(/\s+/g, ' '))) {
     throw new Error(`Fresh-start reset did not clear local progress: ${JSON.stringify(resetState)}`);
+  }
+  const cloudHistoryCheck = await page.evaluate(async () => {
+    eval('courseAccessMode="full"');
+    eval('dailyNewGoal=20; userStats.dailyGoal=20;');
+    await eval('showCloudProgressHistory()');
+    const panelText = document.getElementById('cloudHistoryPanel')?.textContent || '';
+    await eval('restoreCloudProgressRevision("archive-2",false,"2","4 learned, 6 active reviews, 1 weak, goal 10","May 10, 2026, 10:00 AM")');
+    const panelAfterRestore = document.getElementById('cloudHistoryPanel')?.textContent || '';
+    return {
+      panelText,
+      panelAfterRestore,
+      learnedCount: Object.keys(eval('learned')).length,
+      dailyGoal: eval('userStats.dailyGoal'),
+      dailyNewGoal: eval('dailyNewGoal'),
+      cloudRevision: localStorage.getItem('russian_cloud_revision'),
+      updatedAt: localStorage.getItem('russian_progress_updated_at')
+    };
+  });
+  if (!/Cloud progress history/i.test(cloudHistoryCheck.panelText) || !/Older cloud version/i.test(cloudHistoryCheck.panelText) || !/Restore this version/i.test(cloudHistoryCheck.panelText)) {
+    throw new Error(`Cloud history panel did not expose archived progress restore: ${JSON.stringify(cloudHistoryCheck)}`);
+  }
+  if (!/Current cloud version:\s*4/i.test(cloudHistoryCheck.panelAfterRestore)) {
+    throw new Error(`Cloud history restore did not become the current cloud version: ${JSON.stringify(cloudHistoryCheck)}`);
+  }
+  if (cloudHistoryCheck.learnedCount !== 1 || cloudHistoryCheck.dailyGoal !== 10 || cloudHistoryCheck.dailyNewGoal !== 10 || cloudHistoryCheck.cloudRevision !== '4' || !cloudHistoryCheck.updatedAt) {
+    throw new Error(`Cloud history restore did not apply restored progress locally: ${JSON.stringify(cloudHistoryCheck)}`);
+  }
+  const cloudConflictRestoreCheck = await page.evaluate(async () => {
+    await eval('restoreCloudProgressRevision("archive-1",true,"1","7 learned, 9 active reviews, 2 weak, goal 15","May 10, 2026, 9:00 AM")');
+    return {
+      dailyGoal: eval('userStats.dailyGoal'),
+      dailyNewGoal: eval('dailyNewGoal'),
+      cloudRevision: localStorage.getItem('russian_cloud_revision')
+    };
+  });
+  if (cloudConflictRestoreCheck.dailyGoal !== 15 || cloudConflictRestoreCheck.dailyNewGoal !== 15 || cloudConflictRestoreCheck.cloudRevision !== '5') {
+    throw new Error(`Cloud history conflict-copy restore did not apply exact archived copy: ${JSON.stringify(cloudConflictRestoreCheck)}`);
   }
   await page.locator('#teacherToggleBtn').click();
   await page.locator('#teacherPanel.active .teacher-title').waitFor();

@@ -28,6 +28,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .progress-bar{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--green),#34d399);border-radius:3px;transition:width .4s ease}
 .progress-text{font-size:.75rem;color:var(--text3);margin-top:2px}
+.progress-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:3px}
+.cloud-history-quick{padding:4px 9px;font-size:.72rem}
 .filters{max-width:1200px;margin:8px auto 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .filters input,.filters select{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.9rem;outline:none;transition:border .2s}
 .filters input:focus,.filters select:focus{border-color:var(--primary)}
@@ -330,6 +332,20 @@ body.study-advance-lock .header,body.study-advance-lock .study-view,body.study-a
 .today-plan-stat span{font-size:.85rem;color:var(--text3)}
 .today-plan-note{font-size:.84rem;color:var(--text3);margin-top:10px}
 .advanced-tools{display:flex;gap:10px;flex-wrap:wrap}
+.cloud-history-panel[hidden]{display:none}
+.cloud-history-panel{max-width:980px;margin:14px auto 0;padding:18px 20px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);color:var(--text);max-height:min(70vh,620px);overflow:auto}
+.cloud-history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+.cloud-history-title{font-size:1rem;font-weight:900}
+.cloud-history-sub{font-size:.84rem;color:var(--text3);line-height:1.35;margin-top:3px}
+.cloud-history-current{display:flex;gap:10px;flex-wrap:wrap;font-size:.82rem;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.cloud-history-list{display:grid;gap:10px}
+.cloud-history-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--bg)}
+.cloud-history-meta{font-size:.86rem;color:var(--text2);line-height:1.45}
+.cloud-history-meta strong{display:block;color:var(--text);font-size:.92rem;margin-bottom:2px}
+.cloud-history-note{font-size:.82rem;color:var(--text3);margin-top:4px}
+.cloud-history-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.cloud-history-empty{font-size:.9rem;color:var(--text3);background:var(--bg);border:1px dashed var(--border);border-radius:12px;padding:14px}
+.cloud-history-status{font-size:.9rem;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
 .self-check-list{margin:10px 0 0;padding-left:18px;color:var(--text2);font-size:.9rem;text-align:left}
 .self-check-list li{margin:4px 0}
 .teacher-toggle{font-weight:800}
@@ -353,7 +369,7 @@ body.teacher-active{padding-bottom:280px}
 .teacher-disclosure{font-size:.72rem;color:var(--text3);line-height:1.35}
 .ai-voice-label{display:inline-flex;margin-left:6px;padding:1px 6px;border-radius:999px;border:1px solid var(--border);font-size:.68rem;font-weight:800;letter-spacing:0;color:var(--text3);background:var(--bg)}
 .audio-instructions-btn.voice-loading{opacity:.75;cursor:wait}
-@media(max-width:640px){body.teacher-active{padding-bottom:410px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:58vh}.teacher-actions{grid-template-columns:1fr}.teacher-chat{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}.teacher-mode-options{grid-template-columns:1fr}.teacher-live-controls .btn{flex:1 1 100%}}
+@media(max-width:640px){body.teacher-active{padding-bottom:410px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:58vh}.teacher-actions{grid-template-columns:1fr}.teacher-chat{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}.teacher-mode-options{grid-template-columns:1fr}.teacher-live-controls .btn{flex:1 1 100%}.cloud-history-row{grid-template-columns:1fr}.cloud-history-actions{justify-content:flex-start}}
 </style>
 </head>
 <body>
@@ -372,6 +388,7 @@ body.teacher-active{padding-bottom:280px}
    </div>
     <button class="btn btn-secondary" onclick="exportProgressBackup()">Backup progress</button>
     <button class="btn btn-secondary" onclick="document.getElementById('progressRestoreInput').click()">Restore progress</button>
+    <button class="btn btn-secondary" onclick="showCloudProgressHistory()">Cloud history</button>
     <button class="btn btn-secondary" onclick="resetProgressForFreshStart()">Reset progress</button>
     <input type="file" id="progressRestoreInput" accept="application/json" style="display:none" onchange="importProgressBackup(event)">
     <button class="btn btn-primary" onclick="exportPDF()">&#128196; PDF</button>
@@ -382,7 +399,10 @@ body.teacher-active{padding-bottom:280px}
  </div>
  <div class="progress-wrap">
   <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-  <div class="progress-text" id="progressText">0 / 0 learned</div>
+  <div class="progress-row">
+   <div class="progress-text" id="progressText">0 / 0 learned</div>
+   <button class="btn btn-secondary cloud-history-quick" onclick="showCloudProgressHistory()">Cloud history</button>
+  </div>
  </div>
  <div class="mode-tabs" id="modeTabs">
   <button class="mode-tab active" data-mode="browse" data-advanced-mode="true" onclick="showBrowseView()">Browse</button>
@@ -401,6 +421,8 @@ body.teacher-active{padding-bottom:280px}
   <button class="btn btn-secondary" onclick="toggleAll(false)">Collapse All</button>
  </div>
 </div>
+
+<div id="cloudHistoryPanel" class="cloud-history-panel" hidden></div>
 
 <div class="main-view" id="mainView">
  <div class="learning-coach">
@@ -515,8 +537,8 @@ let storagePrefix=langKey+'_';
 let courseAccessMode='demo';
 
 function clearStoredStudyProgress(){
- ['learned','review_bin','srs','stats','teacher_mode','teacher_autopilot'].forEach(suffix=>localStorage.removeItem(storagePrefix+suffix));
- localStorage.setItem(storagePrefix+'progress_updated_at',String(Date.now()));
+ ['learned','review_bin','srs','stats','teacher_mode','teacher_autopilot','cloud_revision','progress_updated_at'].forEach(suffix=>localStorage.removeItem(storagePrefix+suffix));
+ sessionStorage.setItem(storagePrefix+'local_reset_only','1');
 }
 
 if(resetProgressRequested){
@@ -1341,7 +1363,7 @@ function teacherAnswerMappedQuestion(text){
   return true;
  }
  if(/\b(progress|backup|restore|sync)\b/.test(text)){
-  teacherSay(teacherPerformanceAnswer()+' Progress syncs for full access. Use Backup progress and Restore progress in the tools area if you need a local copy.');
+  teacherSay(teacherPerformanceAnswer()+' Progress syncs for full access. Use Cloud history to recover an older cloud version, or Backup progress and Restore progress for a local file copy. If access is missing, open Access to recover the paid login.');
   return true;
  }
  if(/\b(audio|sound|voice)\b/.test(text)&&/\b(written|match|same|sure|verify)\b/.test(text)){
@@ -2106,7 +2128,7 @@ async function loadLanguageData(){
   setLearnerShellVisible(true);
   renderAudioStatusNotice();
   premiumStudyOrder=buildPremiumStudyOrder();
-  await syncCloudProgress(resetProgressRequested?'save':'load');
+  if(!resetProgressRequested)await syncCloudProgress('load');
   populateCategoryFilter();
   render();
   renderAccessNotice(data);
@@ -2898,8 +2920,40 @@ function progressPayload(){
  return {learned,reviewBin,srsData,userStats,activeSession:activeSessionPayload(),clientUpdatedAt:Number(localStorage.getItem(storagePrefix+'progress_updated_at')||Date.now())};
 }
 
+function storedCloudProgressRevision(){
+ const revision=Number(localStorage.getItem(storagePrefix+'cloud_revision')||0);
+ return Number.isInteger(revision)&&revision>=0?revision:0;
+}
+
+function setStoredCloudProgressRevision(revision){
+ const clean=Number(revision||0);
+ if(Number.isInteger(clean)&&clean>=0)localStorage.setItem(storagePrefix+'cloud_revision',String(clean));
+}
+
 function markLocalProgressChanged(){
  localStorage.setItem(storagePrefix+'progress_updated_at',String(Date.now()));
+}
+
+function applyActiveSessionPayload(session){
+ if(!session||typeof session!=='object')return;
+ if(['browse','study','cloze','dictation','bin'].includes(session.mode))currentMode=session.mode;
+ studyViewActive=Boolean(session.studyViewActive);
+ studyIndex=Math.max(0,Number(session.studyIndex||0));
+ if(Array.isArray(session.studyQueue)){
+  studyQueue=session.studyQueue.filter(item=>item&&typeof item==='object').slice(0,120);
+ }
+ studyRevealed=Boolean(session.studyRevealed);
+ if(session.studySessionStats&&typeof session.studySessionStats==='object')studySessionStats={...studySessionStats,...session.studySessionStats};
+ teacherModeEnabled=Boolean(session.teacherModeEnabled);
+ teacherAutopilotEnabled=Boolean(session.teacherAutopilotEnabled);
+ localStorage.setItem(storagePrefix+'teacher_mode',teacherModeEnabled?'1':'0');
+ localStorage.setItem(storagePrefix+'teacher_autopilot',teacherAutopilotEnabled?'1':'0');
+ teacherLiveListening=false;
+ stopTeacherListening({disableLive:true});
+ teacherAttemptedRecallKey=typeof session.teacherAttemptedRecallKey==='string'?session.teacherAttemptedRecallKey:'';
+ if(session.teacherSpokenRecallAttempt&&typeof session.teacherSpokenRecallAttempt==='object')teacherSpokenRecallAttempt={...teacherSpokenRecallAttempt,...session.teacherSpokenRecallAttempt};
+ updateTeacherListeningUI();
+ initializeTeacherMode();
 }
 
 function applyProgressPayload(progress){
@@ -2908,6 +2962,8 @@ function applyProgressPayload(progress){
  reviewBin=progress.reviewBin&&typeof progress.reviewBin==='object'?progress.reviewBin:reviewBin;
  srsData=progress.srsData&&typeof progress.srsData==='object'?progress.srsData:srsData;
  userStats=progress.userStats&&typeof progress.userStats==='object'?progress.userStats:userStats;
+ syncDailyGoalFromStats();
+ applyActiveSessionPayload(progress.activeSession);
  localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));
  localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));
  localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));
@@ -2945,6 +3001,7 @@ async function syncCloudProgress(direction='save'){
     localUpdatedAt=Number(localStorage.getItem(storagePrefix+'progress_updated_at')||Date.now());
    }
    const serverUpdatedAt=Date.parse(data.updatedAt||'')||Number(data.progress?.clientUpdatedAt||0);
+   if(response.ok)setStoredCloudProgressRevision(data.revision||0);
    if(response.ok&&data.progress&&serverUpdatedAt>localUpdatedAt&&applyProgressPayload(data.progress)){
     localStorage.setItem(storagePrefix+'progress_updated_at',String(serverUpdatedAt));
     updateProgress();
@@ -2959,12 +3016,13 @@ async function syncCloudProgress(direction='save'){
   const response=await fetch('/api/progress',{
    method:'POST',
    headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({language:langKey,progress:progressPayload()})
+   body:JSON.stringify({language:langKey,progress:progressPayload(),baseRevision:storedCloudProgressRevision()})
   }).catch(()=>null);
   if(!response)return;
   const data=await response.json().catch(()=>({}));
   if(response.ok&&data.conflict&&data.progress&&applyProgressPayload(data.progress)){
    const serverUpdatedAt=Date.parse(data.updatedAt||'')||Number(data.progress?.clientUpdatedAt||Date.now());
+   setStoredCloudProgressRevision(data.revision||storedCloudProgressRevision());
    localStorage.setItem(storagePrefix+'progress_updated_at',String(serverUpdatedAt));
    updateProgress();
    updateDueBadge();
@@ -2974,6 +3032,7 @@ async function syncCloudProgress(direction='save'){
    return;
   }
   if(response.ok&&data.updatedAt){
+   setStoredCloudProgressRevision(data.revision||storedCloudProgressRevision());
    localStorage.setItem(storagePrefix+'progress_updated_at',String(Date.parse(data.updatedAt)||Date.now()));
   }
  }catch{
@@ -2981,9 +3040,159 @@ async function syncCloudProgress(direction='save'){
  }
 }
 
+function formatCloudHistoryDate(value){
+ const time=Date.parse(value||'');
+ if(!time)return 'unknown time';
+ return new Date(time).toLocaleString([], {dateStyle:'medium',timeStyle:'short'});
+}
+
+function cloudHistoryReasonText(reason){
+ if(reason==='stale-client-save')return 'Other device save';
+ if(reason==='restore')return 'Restore point';
+ if(reason==='superseded')return 'Older cloud version';
+ return reason?String(reason).replace(/[-_]/g,' '):'Older cloud version';
+}
+
+function cloudHistorySummaryText(summary={}){
+ const learnedCount=Number(summary.learnedCount||0);
+ const srsCount=Number(summary.srsCount||0);
+ const reviewBinCount=Number(summary.reviewBinCount||0);
+ const dailyGoal=Number(summary.dailyGoal||0);
+ const todayNew=Number(summary.todayNew||0);
+ const todayReviews=Number(summary.todayReviews||0);
+ const parts=[
+  `${learnedCount} learned`,
+  `${srsCount} active reviews`,
+  `${reviewBinCount} weak`
+ ];
+ if(dailyGoal)parts.push(`goal ${dailyGoal}`);
+ if(todayNew||todayReviews)parts.push(`today ${todayNew} new / ${todayReviews} reviews`);
+ return parts.join(', ');
+}
+
+function cloudHistoryRowHTML(archive){
+ const revision=archive?.revision==null?'':String(archive.revision);
+ const archiveId=archive?.archiveId?String(archive.archiveId):revision;
+ const safeArchiveId=escapeForHandler(archiveId);
+ const safeRevision=escapeForHandler(revision);
+ const summary=cloudHistorySummaryText(archive?.summary||{});
+ const conflictSummary=archive?.conflictSummary?cloudHistorySummaryText(archive.conflictSummary):'';
+ const archivedAt=formatCloudHistoryDate(archive?.archivedAt);
+ const safeSummary=escapeForHandler(summary);
+ const safeConflictSummary=escapeForHandler(conflictSummary);
+ const safeArchivedAt=escapeForHandler(archivedAt);
+ const versionLabel=archivedAt;
+ return `<div class="cloud-history-row">
+  <div class="cloud-history-meta">
+   <strong>${escapeHtml(versionLabel)} - ${escapeHtml(cloudHistoryReasonText(archive?.reason))}</strong>
+   <div>Saved ${archive?.originalUpdatedAt?escapeHtml(formatCloudHistoryDate(archive.originalUpdatedAt)):escapeHtml(archivedAt)}</div>
+   <div>${escapeHtml(summary)}</div>
+   ${conflictSummary?`<div class="cloud-history-note">Other device copy: ${escapeHtml(conflictSummary)}</div>`:''}
+  </div>
+  <div class="cloud-history-actions">
+   <button class="btn btn-secondary" onclick="restoreCloudProgressRevision('${safeArchiveId}',false,'${safeRevision}','${safeSummary}','${safeArchivedAt}')">Restore this version</button>
+   ${conflictSummary?`<button class="btn btn-secondary" onclick="restoreCloudProgressRevision('${safeArchiveId}',true,'${safeRevision}','${safeConflictSummary}','${safeArchivedAt}')">Restore other device copy</button>`:''}
+  </div>
+ </div>`;
+}
+
+function cloudAccessHelpHTML(message){
+ return `<div class="cloud-history-status">${escapeHtml(message)} <a href="access.html">Recover access</a> or <a href="login.html">sign in again</a>.</div>`;
+}
+
+async function showCloudProgressHistory(){
+ const host=document.getElementById('cloudHistoryPanel');
+ if(!host)return;
+ host.hidden=false;
+ if(courseAccessMode!=='full'){
+  host.innerHTML=cloudAccessHelpHTML('Cloud progress history is available after full access login.');
+  return;
+ }
+ host.innerHTML='<div class="cloud-history-status">Loading cloud progress history...</div>';
+ try{
+  const response=await fetch('/api/progress?language='+encodeURIComponent(langKey)+'&history=1&limit=10',{cache:'no-store'});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||'Unable to load cloud progress history.');
+  const archives=Array.isArray(data.archives)?data.archives:[];
+  host.innerHTML=`<div class="cloud-history-head">
+    <div>
+     <div class="cloud-history-title">Cloud progress history</div>
+     <div class="cloud-history-sub">Use this only if progress was overwritten or a device saved the wrong version. Restoring saves the selected version as the new cloud progress.</div>
+    </div>
+    <button class="teacher-close" onclick="hideCloudProgressHistory()" aria-label="Close cloud history">&times;</button>
+   </div>
+   <div class="cloud-history-current">
+    <span><strong>Current cloud version:</strong> ${escapeHtml(data.revision||0)}</span>
+    <span><strong>Updated:</strong> ${escapeHtml(formatCloudHistoryDate(data.updatedAt))}</span>
+   </div>
+   <div class="cloud-history-list">
+    ${archives.length?archives.map(cloudHistoryRowHTML).join(''):'<div class="cloud-history-empty">No older cloud versions yet. Lang5K will add history when cloud progress is replaced or another device tries to save an older copy.</div>'}
+   </div>`;
+ }catch(error){
+  host.innerHTML=cloudAccessHelpHTML(error.message||'Cloud progress history could not be loaded.');
+ }
+}
+
+function hideCloudProgressHistory(){
+ const host=document.getElementById('cloudHistoryPanel');
+ if(!host)return;
+ host.hidden=true;
+ host.innerHTML='';
+}
+
+async function restoreCloudProgressRevision(archiveId,restoreConflict=false,revisionLabel='',summaryText='',archivedAtText=''){
+ const cleanArchiveId=String(archiveId||'').trim();
+ const host=document.getElementById('cloudHistoryPanel');
+ if(courseAccessMode!=='full'){
+  if(host){
+   host.hidden=false;
+   host.innerHTML=cloudAccessHelpHTML('Login with full access before restoring cloud progress.');
+  }
+  return false;
+ }
+ if(!cleanArchiveId)return false;
+ const label=restoreConflict?'the other device copy':'the cloud version saved '+(archivedAtText||revisionLabel||cleanArchiveId);
+ const detail=[summaryText,archivedAtText?('Archived '+archivedAtText):''].filter(Boolean).join('\n');
+ if(!confirm('Restore '+label+'?\n\n'+detail+'\n\nThis becomes the current cloud progress for your account and this browser.'))return false;
+ if(host){
+  host.hidden=false;
+  host.innerHTML='<div class="cloud-history-status">Restoring cloud progress...</div>';
+ }
+ try{
+  const response=await fetch('/api/progress',{
+   method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({language:langKey,archiveId:cleanArchiveId,restoreRevision:revisionLabel||cleanArchiveId,restoreConflict:Boolean(restoreConflict)})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.progress)throw new Error(data.error||'Unable to restore cloud progress.');
+  if(!applyProgressPayload(data.progress))throw new Error('Restored progress was empty.');
+  const serverUpdatedAt=Date.parse(data.updatedAt||'')||Number(data.progress.clientUpdatedAt||Date.now());
+  setStoredCloudProgressRevision(data.revision||storedCloudProgressRevision());
+  localStorage.setItem(storagePrefix+'progress_updated_at',String(serverUpdatedAt));
+  updateProgress();
+  updateDueBadge();
+  updateBinBadge();
+  updateStreakDisplay();
+  render();
+  trackAnalytics('progress_archive_restored',{archiveId:cleanArchiveId,revision:revisionLabel||'',restoreConflict:Boolean(restoreConflict),restoredRevision:data.revision||0});
+  await showCloudProgressHistory();
+  return true;
+ }catch(error){
+  if(host){
+   host.hidden=false;
+   host.innerHTML=cloudAccessHelpHTML(error.message||'Cloud progress could not be restored.');
+  } else {
+   alert(error.message||'Cloud progress could not be restored.');
+  }
+  return false;
+ }
+}
+
 function flushCloudProgress(){
  if(courseAccessMode!=='full')return;
- const payload=JSON.stringify({language:langKey,progress:progressPayload()});
+ if(sessionStorage.getItem(storagePrefix+'local_reset_only')==='1')return;
+ const payload=JSON.stringify({language:langKey,progress:progressPayload(),baseRevision:storedCloudProgressRevision()});
  if(navigator.sendBeacon){
   navigator.sendBeacon('/api/progress',new Blob([payload],{type:'application/json'}));
  } else {
@@ -3166,7 +3375,7 @@ function importProgressBackup(event){
 }
 
 function resetProgressForFreshStart(){
- if(!confirm('Reset local study progress for this language? This keeps your login/access but clears learned cards, reviews, weak cards, and teacher mode on this browser.'))return;
+ if(!confirm('Reset study progress only on this browser? This does not upload an empty reset to your cloud account. If you have full access, Cloud history can recover older cloud versions.'))return;
  const next=new URL(window.location.href);
  next.searchParams.set('lang',langKey);
  if(demoRequested)next.searchParams.set('demo','1');

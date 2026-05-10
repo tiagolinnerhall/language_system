@@ -1,10 +1,21 @@
 const { verifyAccessToken } = require('./_lib/access');
 const { accountTokenFromRequest, noStore, readJsonBody } = require('./_lib/http');
-const { getEntitlement, getProgressArchive, getProgressArchiveList, getProgressSnapshot, saveProgressSnapshot } = require('./_lib/store');
+const { getEntitlement, getProgressArchive, getProgressArchiveList, getProgressSnapshot, restoreProgressSnapshot, saveProgressSnapshot } = require('./_lib/store');
 
 function accountPayload(req) {
   const secret = (process.env.LANG5K_ACCESS_SECRET || '').trim();
   return verifyAccessToken(accountTokenFromRequest(req), secret);
+}
+
+function archiveMetadata(archive) {
+  if (!archive) return null;
+  const {
+    progress,
+    conflictProgress,
+    email,
+    ...metadata
+  } = archive;
+  return metadata;
 }
 
 module.exports = async function handler(req, res) {
@@ -32,7 +43,7 @@ module.exports = async function handler(req, res) {
           res.status(404).json({ error: 'Progress archive not found.' });
           return;
         }
-        res.status(200).json({ archive });
+        res.status(200).json({ archive: archiveMetadata(archive) });
         return;
       }
       const snapshot = await getProgressSnapshot(payload.email, language);
@@ -49,21 +60,21 @@ module.exports = async function handler(req, res) {
     }
     if (req.method === 'POST') {
       const body = await readJsonBody(req, 4 * 1024 * 1024);
-      if (body.restoreRevision) {
-        const archive = await getProgressArchive(payload.email, language, body.restoreRevision);
+      if (body.archiveId || body.restoreArchiveId || body.restoreRevision) {
+        const archiveKey = body.archiveId || body.restoreArchiveId || body.restoreRevision;
+        const archive = await getProgressArchive(payload.email, language, archiveKey);
         const sourceProgress = body.restoreConflict && archive?.conflictProgress ? archive.conflictProgress : archive?.progress;
         if (!sourceProgress) {
           res.status(404).json({ error: 'Progress archive not found.' });
           return;
         }
-        const restoredProgress = { ...sourceProgress, clientUpdatedAt: Date.now() };
-        const snapshot = await saveProgressSnapshot(payload.email, language, restoredProgress);
+        const snapshot = await restoreProgressSnapshot(payload.email, language, sourceProgress);
         res.status(200).json({
           ok: true,
           restored: true,
           updatedAt: snapshot.updatedAt,
           revision: snapshot.revision || 0,
-          progress: restoredProgress
+          progress: snapshot.progress
         });
         return;
       }
@@ -72,7 +83,7 @@ module.exports = async function handler(req, res) {
         res.status(400).json({ error: 'Missing progress payload.' });
         return;
       }
-      const snapshot = await saveProgressSnapshot(payload.email, language, progress);
+      const snapshot = await saveProgressSnapshot(payload.email, language, progress, { baseRevision: body.baseRevision });
       res.status(200).json({
         ok: true,
         updatedAt: snapshot.updatedAt,
