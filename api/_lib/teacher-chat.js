@@ -193,6 +193,7 @@ function systemPrompt() {
     'You know the app map: Home explains the method; Study is the main guided path; Browse is manual search after guided work; Review Bin repairs weak sentences; Cloze drills one missing word; Dictation checks listening; Pricing, Checkout, Access, Contact, Attribution, Terms, Privacy, and Refunds are separate pages.',
     'Answer only a Russian, language, or language-learning question, or a Lang5K navigation/workflow question. Refuse everything else briefly and return focus "scope".',
     'If the student asks any Russian, language-learning, pronunciation, spelling, meaning, grammar, course, or Lang5K doubt, answer naturally even if they do not use app command words.',
+    'If the student greets you, checks whether you can hear them, or asks a simple live-teacher status question, answer briefly like a present human teacher, then invite the next language-learning step. Do not dump the study plan unless they ask what to do next.',
     'Method: prioritize due spaced reviews, weak repair, then new sentences. Use active recall before reveal, delayed recall, honest self-rating, cloze, dictation, and daily limits. Never encourage passive browsing as the main path.',
     'Use the supplied student performance, typed attempt analysis, due reviews, weak cards, lapses, current screen, and current sentence. Be specific and decisive.',
     'If context.teacherMode is self-guided, answer and advise but do not request automatic actions unless the student clearly asks for an action. If context.teacherAutopilotEnabled is true, you may choose the next safe study action.',
@@ -277,14 +278,18 @@ function normalizeReply(value) {
 
 function isLanguageScopeMessage(message) {
   const textMessage = String(message || '').toLowerCase();
-  return /\b(russian|русский|language|languages|word|words|sentence|phrase|grammar|case|ending|conjugat|declension|gender|pronoun|verb|noun|adjective|pronunciation|pronounce|accent|spell|spelling|meaning|translate|translation|translit|cyrillic|vocabulary|lesson|card|review|browse|cloze|dictation|audio|listen|speak|recall|remember|memor|study|learn|fluency|practice|answer|mistake|wrong|correct|lang5k|course|teacher|autopilot|student|navigation|pricing|checkout|access|account|contact|how do i say|what does|what is the meaning|where do i start|what should i study|what now|next step)\b/.test(textMessage);
+  if (/[а-яё]/i.test(textMessage)) return true;
+  return /\b(russian|русский|language|languages|word|words|sentence|phrase|grammar|case|ending|conjugat|declension|gender|pronoun|verb|noun|adjective|pronunciation|pronounce|accent|spell|spelling|meaning|translate|translation|translit|cyrillic|vocabulary|lesson|card|review|browse|cloze|dictation|audio|listen|listening|hear me|heard me|can you hear|mic|microphone|are you there|hello|hi|hey|speak|recall|remember|memor|study|learn|fluency|practice|answer|mistake|wrong|correct|lang5k|course|teacher|autopilot|student|navigation|pricing|checkout|access|account|contact|how do i say|what does|what is the meaning|where do i start|what should i study|what now|next step)\b/.test(textMessage);
 }
 
 function isOutOfScopeMessage(message) {
   const textMessage = String(message || '').toLowerCase();
   const languageIntent = isLanguageScopeMessage(textMessage);
-  const languageOverride = /\b(how do i say|translate|translation|what does|meaning|word for|pronounce|spell|in russian|russian word)\b/.test(textMessage);
+  const languageOverride = /[а-яё]/i.test(textMessage) || /\b(how do i say|translate|translation|what does|meaning|word for|word is|vocabulary|pronounce|pronunciation|spell|spelling|in russian|russian word|russian phrase|russian sentence)\b/.test(textMessage);
   const hardOffTopic = /\b(weather|news|politic|election|recipe|joke|money|stock|crypto|bitcoin|investment|medical|doctor|diagnos|lawyer|legal|lawsuit|movie|music|song|poem|story|dating|sports|shopping|travel booking|code|programming|math|homework|essay|bedtime story|write an email|business plan)\b/.test(textMessage);
+  const broadContentTask = /\b(translate|translation|write|draft|make|create|rewrite|summarize)\b/.test(textMessage);
+  const hardTopicContent = /\b(business plan|essay|email|bedtime story|lawsuit|legal document|investment plan|homework)\b/.test(textMessage);
+  if (broadContentTask && hardTopicContent) return true;
   if (hardOffTopic && !languageOverride) return true;
   return !languageIntent;
 }
@@ -446,4 +451,9 @@ module.exports = async function handler(req, res) {
           : 'AI teacher request was invalid.';
     res.status(status).json({ error: message });
   }
+};
+
+module.exports._test = {
+  isLanguageScopeMessage,
+  isOutOfScopeMessage
 };

@@ -1172,3 +1172,35 @@ Verification:
 
 Remaining Risk:
 - Cloud restore still depends on the browser holding a valid full-access session and the Mongo-backed `/api/progress` endpoint being reachable. If the session expires, the learner must log in again before restoring.
+
+### Live Teacher Human Response And Anti-Flaw Loop
+
+Changed:
+- Made Live Teacher answer simple presence checks like “hi, are you listening?” locally with a direct human-style acknowledgement instead of routing them to the AI planner.
+- Added Russian/Cyrillic listening checks such as “привет” and “ты меня слышишь” so they are not mistaken for recall attempts.
+- Kept real language/course questions AI-backed, but strengthened the teacher prompt so greetings and live-teacher status questions are answered naturally and briefly instead of dumping a fixed study script.
+- Added pause/stop voice commands for Live Teacher and corrected the mic UI so a failed mic start cannot remain displayed as active.
+- Added dynamic speech-recognition language switching: English for general guidance, Russian during new-sentence shadowing, recall, cloze, and dictation.
+- Added protection against the teacher hearing its own spoken reply and treating that audio as the learner’s recall.
+- Added local handling for new-sentence shadowing so spoken repetition is acknowledged as shadowing, not sent to the AI or counted as recall.
+- Queued learner questions spoken while the AI teacher is already thinking, instead of silently dropping them.
+- Broadened server-side teacher scope so Cyrillic Russian questions and translation questions with ordinary words like “weather” are allowed, while unrelated weather/news/etc. questions remain refused.
+
+Why:
+- The teacher must behave like a real language teacher: present, interruptible, able to hear natural questions, and strict about the learning method without feeling like a hardcoded script.
+
+Verification:
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node .\scripts\validate-sell-readiness.mjs`.
+- Ran `node .\scripts\validate-preview-full-access.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+- Ran read-only anti-flaw specialist passes; fixed the reported blockers around mic state, pause/stop, language switching, echo capture, Cyrillic questions, off-topic translation vocabulary, shadowing, and busy-question loss.
+
+Remaining Risk:
+- Browser speech recognition remains browser/OS dependent. Live Teacher now detects failed starts and restarts for language changes, but microphone permission and recognition quality are still controlled by the user’s browser.
