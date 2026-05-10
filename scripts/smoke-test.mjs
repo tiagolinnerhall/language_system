@@ -94,7 +94,7 @@ assertIncludes('app.html', app, 'teacherAutopilotActionBlockedUntil');
 assertIncludes('app.html', app, 'teacherAutopilotActivationActionsToSuppress');
 assertIncludes('app.html', app, 'teacherRussianQuestionSignal');
 assertIncludes('app.html', app, 'function teacherStartServerMic');
-assertIncludes('app.html', app, '/api/teacher-transcribe');
+assertIncludes('app.html', app, '/api/teacher-chat?transcribe=1');
 assertIncludes('app.html', app, 'teacherServerMicActive');
 assertIncludes('app.html', app, 'Premium AI voice unavailable. I will stay text only');
 assertIncludes('app.html', app, 'Hosted Russian audio is unavailable. Continue without robotic audio.');

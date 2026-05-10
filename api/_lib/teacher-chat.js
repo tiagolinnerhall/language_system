@@ -1,12 +1,14 @@
 const crypto = require('crypto');
 const { verifyAccessToken } = require('./access');
-const { accountTokenFromRequest, clientIp, cookieValue, noStore, readJsonBody, tokenFromRequest } = require('./http');
+const { accountTokenFromRequest, clientIp, cookieValue, noStore, readBufferBody, readJsonBody, tokenFromRequest } = require('./http');
 const { hasPreviewSession, SESSION_COOKIE } = require('./preview');
 const { checkRateLimit, getEntitlement } = require('./store');
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
+const OPENAI_TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const DEFAULT_FAST_MODEL = 'gpt-5.4-mini';
 const DEFAULT_PREMIUM_MODEL = 'gpt-5.5';
+const MAX_AUDIO_BYTES = 3 * 1024 * 1024;
 const ACTIONS = [
   'none',
   'guide',
@@ -328,6 +330,71 @@ async function fetchWithTimeout(url, options, timeoutMs = 12000) {
   }
 }
 
+function audioContentType(req) {
+  const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  if (['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg'].includes(contentType)) {
+    return contentType;
+  }
+  return 'audio/webm';
+}
+
+function extensionForType(contentType) {
+  if (contentType.includes('mp4')) return 'm4a';
+  if (contentType.includes('mpeg') || contentType.includes('mp3')) return 'mp3';
+  if (contentType.includes('wav')) return 'wav';
+  if (contentType.includes('ogg')) return 'ogg';
+  return 'webm';
+}
+
+function isTranscriptionRequest(req) {
+  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+  return req.query?.transcribe === '1' || contentType.startsWith('audio/');
+}
+
+async function transcribeAudio(buffer, contentType) {
+  const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
+  if (!apiKey) {
+    const error = new Error('OpenAI transcription is not configured.');
+    error.statusCode = 503;
+    throw error;
+  }
+  const form = new FormData();
+  const model = String(process.env.LANG5K_TRANSCRIBE_MODEL || 'gpt-4o-mini-transcribe').trim();
+  form.append('file', new Blob([buffer], { type: contentType }), `live-teacher.${extensionForType(contentType)}`);
+  form.append('model', model);
+  form.append('response_format', 'json');
+  form.append('prompt', 'Lang5K Russian lesson. The student may ask in English or Russian, say a Russian recall attempt, or ask the teacher what to do next.');
+  const response = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data.error?.message || 'Transcription failed.');
+    error.statusCode = response.status >= 500 ? 503 : response.status;
+    throw error;
+  }
+  return String(data.text || '').trim();
+}
+
+async function handleTranscriptionRequest(req, res, access) {
+  const subjectAllowed = await checkRateLimit(`teacher_transcribe:subject:${access.subject}`, 160, 60 * 60);
+  const dailyAllowed = await checkRateLimit(`teacher_transcribe:day:${access.subject}`, 700, 24 * 60 * 60);
+  if (!subjectAllowed || !dailyAllowed) {
+    res.status(429).json({ error: 'Too many live teacher transcription requests.' });
+    return;
+  }
+  const contentType = audioContentType(req);
+  const buffer = await readBufferBody(req, MAX_AUDIO_BYTES);
+  if (buffer.length < 200) {
+    res.status(200).json({ ok: true, text: '' });
+    return;
+  }
+  const transcript = await transcribeAudio(buffer, contentType);
+  res.status(200).json({ ok: true, text: transcript });
+}
+
 function hardSignal(message, context) {
   const textMessage = String(message || '').toLowerCase();
   const hardWords = /\b(confus|lost|stuck|hard|difficult|wrong|mistake|again|barely|forgot|forget|struggl|do not understand|don't understand|dont understand|why|grammar|case|ending|conjugat|pronunciation|accent|native|explain)\b/.test(textMessage);
@@ -440,6 +507,10 @@ module.exports = async function handler(req, res) {
       res.status(429).json({ error: 'Too many AI teacher requests.' });
       return;
     }
+    if (isTranscriptionRequest(req)) {
+      await handleTranscriptionRequest(req, res, access);
+      return;
+    }
     const body = await readJsonBody(req, 24 * 1024);
     const message = text(body.message, 700);
     if (!message) {
@@ -467,6 +538,9 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports._test = {
+  audioContentType,
+  extensionForType,
   isLanguageScopeMessage,
-  isOutOfScopeMessage
+  isOutOfScopeMessage,
+  isTranscriptionRequest
 };

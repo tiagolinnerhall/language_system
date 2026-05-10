@@ -2070,7 +2070,7 @@ async function teacherSubmitServerMicSegment({force=false}={}){
  if(!force&&blob.size<900)return false;
  teacherServerMicSubmitting=true;
  try{
-  const response=await fetch('/api/teacher-transcribe',{
+  const response=await fetch('/api/teacher-chat?transcribe=1',{
    method:'POST',
    headers:{'Content-Type':type},
    body:blob

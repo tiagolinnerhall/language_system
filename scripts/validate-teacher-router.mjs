@@ -56,7 +56,7 @@ mustInclude('app.html', app, 'teacherAutopilotActionBlockedUntil');
 mustInclude('app.html', app, 'teacherAutopilotActivationActionsToSuppress');
 mustInclude('app.html', app, 'function teacherRussianQuestionSignal(text)');
 mustInclude('app.html', app, 'function teacherStartServerMic');
-mustInclude('app.html', app, '/api/teacher-transcribe');
+mustInclude('app.html', app, '/api/teacher-chat?transcribe=1');
 mustInclude('app.html', app, 'teacherServerMicActive');
 mustInclude('app.html', app, 'raw:value.slice');
 mustInclude('app.html', app, 'activeSession:activeSessionPayload()');
@@ -93,6 +93,9 @@ if (teacherChatModule._test.isOutOfScopeMessage('what is the weather today?')) {
 }
 if (!teacherChatModule._test.isOutOfScopeMessage('write me a business plan about crypto investments')) {
   throw new Error('Clearly unrelated risky content work should still be refocused.');
+}
+if (!teacherChatModule._test.isTranscriptionRequest({ query: { transcribe: '1' }, headers: { 'content-type': 'audio/webm' } })) {
+  throw new Error('Teacher chat route must handle live mic transcription requests.');
 }
 
 console.log('Teacher model router validation passed.');

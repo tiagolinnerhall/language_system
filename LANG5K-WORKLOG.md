@@ -1238,7 +1238,7 @@ Remaining Risk:
 ### Live Teacher Mic, Voice, And Human Scope Repair
 
 Changed:
-- Added `/api/teacher-transcribe` so Live Teacher can send short microphone segments for AI transcription instead of depending only on browser Web Speech recognition.
+- Added a transcription mode on `/api/teacher-chat?transcribe=1` so Live Teacher can send short microphone segments for AI transcription without adding another Vercel serverless function.
 - Live Teacher now starts a server-backed mic recorder when available, keeps browser speech recognition as a supplemental path, and fully resets stale recognizers after terminal mic errors.
 - Fixed the old recognizer `onend` race so language switching cannot detach a newer active listener.
 - Changed mic UI from optimistic “listening” to “starting/requesting” until a real mic path is active, and updated card copy so it does not claim the teacher is listening when the mic is off.
@@ -1261,7 +1261,6 @@ Verification:
 - Ran `node .\scripts\validate-preview-full-access.mjs`.
 - Ran `node .\scripts\headless-app-flow-check.mjs`.
 - Ran `node .\scripts\headless-visual-quality-check.mjs`.
-- Ran `node --check .\api\teacher-transcribe.js`.
 - Ran `node --check .\api\_lib\http.js`.
 - Ran `node --check .\api\_lib\teacher-chat.js`.
 - Ran `node --check .\api\_lib\teacher-voice.js`.

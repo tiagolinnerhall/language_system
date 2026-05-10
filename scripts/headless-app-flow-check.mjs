@@ -69,6 +69,19 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url.pathname === '/api/teacher-chat') {
+    if (url.searchParams.get('transcribe') === '1') {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      req.on('end', () => {
+        teacherTranscribeBodies.push({
+          bytes: Buffer.concat(chunks).length,
+          contentType: req.headers['content-type'] || ''
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true, text: 'what does привет mean' }));
+      });
+      return;
+    }
     let raw = '';
     req.on('data', chunk => {
       raw += chunk;
@@ -103,19 +116,6 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/api/teacher-voice') {
     res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: 'Teacher voice unavailable in test.' }));
-    return;
-  }
-  if (url.pathname === '/api/teacher-transcribe') {
-    const chunks = [];
-    req.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    req.on('end', () => {
-      teacherTranscribeBodies.push({
-        bytes: Buffer.concat(chunks).length,
-        contentType: req.headers['content-type'] || ''
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ ok: true, text: 'what does привет mean' }));
-    });
     return;
   }
   if (url.pathname === '/api/progress') {
