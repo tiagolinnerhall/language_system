@@ -49,6 +49,25 @@ function readRawBody(req, maxBytes = 256 * 1024) {
   });
 }
 
+function readBufferBody(req, maxBytes = 512 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', chunk => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buffer.length;
+      if (size > maxBytes) {
+        reject(Object.assign(new Error('Request body too large.'), { statusCode: 413 }));
+        req.destroy();
+        return;
+      }
+      chunks.push(buffer);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 function cookieValue(req, name) {
   const rawCookie = String(req.headers.cookie || '');
   return rawCookie.split(';').map(part => part.trim()).reduce((found, part) => {
@@ -125,6 +144,7 @@ module.exports = {
   cookieValue,
   emailFromBody,
   noStore,
+  readBufferBody,
   readJsonBody,
   readRawBody,
   setAccessCookie,

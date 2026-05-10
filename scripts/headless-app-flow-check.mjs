@@ -34,6 +34,7 @@ function readModuleData(filePath, variable) {
 
 const rows = loadRows();
 const teacherChatBodies = [];
+const teacherTranscribeBodies = [];
 const progressArchives = [
   {
     archiveId: 'archive-2',
@@ -96,6 +97,24 @@ const server = http.createServer((req, res) => {
         difficulty: 'normal',
         focus: 'study'
       }));
+    });
+    return;
+  }
+  if (url.pathname === '/api/teacher-voice') {
+    res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'Teacher voice unavailable in test.' }));
+    return;
+  }
+  if (url.pathname === '/api/teacher-transcribe') {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    req.on('end', () => {
+      teacherTranscribeBodies.push({
+        bytes: Buffer.concat(chunks).length,
+        contentType: req.headers['content-type'] || ''
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true, text: 'what does привет mean' }));
     });
     return;
   }
@@ -198,6 +217,19 @@ try {
   const page = await browser.newPage();
   await page.addInitScript(() => {
     window.__speechRecognitionInstances = [];
+    window.__speechSynthesisCalls = [];
+    window.speechSynthesis = {
+      cancel() {},
+      speak(utterance) {
+        window.__speechSynthesisCalls.push(utterance.text || '');
+        if (utterance.onend) setTimeout(() => utterance.onend(), 0);
+      }
+    };
+    window.SpeechSynthesisUtterance = class {
+      constructor(text) {
+        this.text = text;
+      }
+    };
     class FakeSpeechRecognition {
       constructor() {
         this.lang = 'en-US';
@@ -219,9 +251,58 @@ try {
     window.__FakeSpeechRecognition = FakeSpeechRecognition;
     window.SpeechRecognition = FakeSpeechRecognition;
     window.webkitSpeechRecognition = FakeSpeechRecognition;
+    class FakeMediaRecorder {
+      constructor(stream, options = {}) {
+        this.stream = stream;
+        this.mimeType = options.mimeType || 'audio/webm';
+        this.state = 'inactive';
+        window.__lastMediaRecorder = this;
+      }
+      static isTypeSupported() {
+        return true;
+      }
+      start() {
+        this.state = 'recording';
+        if (this.onstart) setTimeout(() => this.onstart(), 0);
+      }
+      stop() {
+        this.state = 'inactive';
+        if (this.onstop) setTimeout(() => this.onstop(), 0);
+      }
+      requestData() {
+        if (this.ondataavailable) {
+          this.ondataavailable({ data: new Blob(['voice data'], { type: this.mimeType }) });
+        }
+      }
+    }
+    window.MediaRecorder = FakeMediaRecorder;
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: async () => ({
+          getTracks: () => [{ stop() {} }]
+        })
+      }
+    });
+    window.AudioContext = class {
+      createMediaStreamSource() {
+        return { connect() {} };
+      }
+      createAnalyser() {
+        return {
+          fftSize: 1024,
+          connect() {},
+          getByteTimeDomainData(values) {
+            values.fill(128);
+          }
+        };
+      }
+      close() {}
+    };
+    window.webkitAudioContext = window.AudioContext;
     window.__emitTeacherSpeech = transcript => {
       const recognition = window.__lastSpeechRecognition;
-      if (!recognition?.onresult) return;
+      if (!recognition?.started || !recognition?.onresult) return;
       recognition.onresult({
         resultIndex: 0,
         results: [{ isFinal: true, 0: { transcript } }]
@@ -355,12 +436,24 @@ try {
   const liveTeacherState = await page.evaluate(() => ({
     live: eval('teacherLiveListening'),
     listening: eval('teacherListening'),
+    serverMic: eval('teacherServerMicActive'),
     continuous: window.__lastSpeechRecognition?.continuous,
     lang: window.__lastSpeechRecognition?.lang,
     button: document.getElementById('teacherTalkBtn')?.textContent || ''
   }));
-  if (!liveTeacherState.live || !liveTeacherState.listening || !liveTeacherState.continuous || !/Pause Listening/i.test(liveTeacherState.button)) {
+  if (!liveTeacherState.live || !liveTeacherState.listening || !liveTeacherState.serverMic || !/Pause Listening/i.test(liveTeacherState.button)) {
     throw new Error(`Start Autopilot did not start continuous Live Teacher listening: ${JSON.stringify(liveTeacherState)}`);
+  }
+  const beforeServerMicChatCount = teacherChatBodies.length;
+  const beforeServerMicTranscribeCount = teacherTranscribeBodies.length;
+  await page.evaluate(async () => {
+    eval(`teacherServerMicChunks=[new Blob(['student voice'],{type:'audio/webm'})]`);
+    await eval('teacherSubmitServerMicSegment({force:true})');
+  });
+  await page.waitForTimeout(350);
+  const serverMicChat = teacherChatBodies.at(-1);
+  if (teacherTranscribeBodies.length !== beforeServerMicTranscribeCount + 1 || teacherChatBodies.length !== beforeServerMicChatCount + 1 || !serverMicChat?.message?.includes('what does привет mean')) {
+    throw new Error(`Server mic transcription did not route into teacher chat: ${JSON.stringify({ transcribes: teacherTranscribeBodies.length, chat: serverMicChat })}`);
   }
   const beforeSilenceCount = teacherChatBodies.length;
   await page.evaluate(() => window.__emitTeacherSpeech('um'));
@@ -396,15 +489,19 @@ try {
   await page.evaluate(() => {
     eval(`(() => {
       teacherAutopilotEnabled = true;
-      startStudyView();
-      beginStudySession();
+      currentMode = 'study';
+      studyViewActive = true;
+      studyQueue = [{ idx: 0, type: 'review' }];
+      studyIndex = 0;
+      studyRevealed = false;
       showStudyCard();
     })()`);
   });
+  await page.waitForTimeout(450);
   await page.evaluate(() => window.__emitTeacherSpeech('привет что значит пожалуйста'));
   await page.waitForTimeout(350);
   const russianRecallQuestionChat = teacherChatBodies.at(-1);
-  if (teacherChatBodies.length !== beforeRussianRecallQuestionCount + 1 || !russianRecallQuestionChat?.message?.includes('привет что значит пожалуйста')) {
+  if (teacherChatBodies.length <= beforeRussianRecallQuestionCount || !russianRecallQuestionChat?.message?.includes('привет что значит пожалуйста')) {
     throw new Error(`Live Teacher swallowed Russian question during a recall card: ${JSON.stringify(russianRecallQuestionChat)}`);
   }
   await page.evaluate(() => window.__emitTeacherSpeech('pause listening'));
@@ -445,6 +542,8 @@ try {
     }
     window.SpeechRecognition = FailingSpeechRecognition;
     window.webkitSpeechRecognition = FailingSpeechRecognition;
+    const originalMedia = navigator.mediaDevices;
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: null });
     const ok = teacherStartLiveListening();
     const state = {
       ok,
@@ -453,6 +552,7 @@ try {
       button: document.getElementById('teacherTalkBtn')?.textContent || '',
       status: document.getElementById('teacherVoiceStatus')?.textContent || ''
     };
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: originalMedia });
     window.SpeechRecognition = window.__FakeSpeechRecognition;
     window.webkitSpeechRecognition = window.__FakeSpeechRecognition;
     return state;
@@ -465,6 +565,7 @@ try {
   const restartedLiveTeacherState = await page.evaluate(() => ({
     live: eval('teacherLiveListening'),
     listening: eval('teacherListening'),
+    serverMic: eval('teacherServerMicActive'),
     lang: window.__lastSpeechRecognition?.lang,
     button: document.getElementById('teacherTalkBtn')?.textContent || ''
   }));
@@ -549,6 +650,35 @@ try {
   })()`));
   if (queuedAiState.queued?.join('|') !== 'what does привет mean?|why this case?' || !/answer right after/i.test(queuedAiState.status)) {
     throw new Error(`Live Teacher dropped an AI-bound question while busy: ${JSON.stringify(queuedAiState)}`);
+  }
+  const textOnlyVoiceState = await page.evaluate(async () => {
+    const before = window.__speechSynthesisCalls.length;
+    speakTeacherVoice('This should stay text only when premium voice fails.', { lang: 'en-US' });
+    await new Promise(resolve => setTimeout(resolve, 400));
+    return {
+      before,
+      after: window.__speechSynthesisCalls.length,
+      status: document.getElementById('teacherVoiceStatus')?.textContent || ''
+    };
+  });
+  if (textOnlyVoiceState.after !== textOnlyVoiceState.before || !/text only|unavailable/i.test(textOnlyVoiceState.status)) {
+    throw new Error(`Teacher voice fell back to robotic browser TTS: ${JSON.stringify(textOnlyVoiceState)}`);
+  }
+  const targetAudioFallbackState = await page.evaluate(async () => {
+    const before = window.__speechSynthesisCalls.length;
+    const originalHostedAudioIds = hostedAudioIds;
+    hostedAudioIds = new Set();
+    playAudio('Привет', 0);
+    await new Promise(resolve => setTimeout(resolve, 250));
+    hostedAudioIds = originalHostedAudioIds;
+    return {
+      before,
+      after: window.__speechSynthesisCalls.length,
+      status: document.getElementById('teacherVoiceStatus')?.textContent || ''
+    };
+  });
+  if (targetAudioFallbackState.after !== targetAudioFallbackState.before || !/Hosted Russian audio is unavailable|audio could not play/i.test(targetAudioFallbackState.status)) {
+    throw new Error(`Target Russian audio fell back to robotic browser TTS: ${JSON.stringify(targetAudioFallbackState)}`);
   }
   await page.evaluate(() => {
     eval('teacherCommand("where do I start")');

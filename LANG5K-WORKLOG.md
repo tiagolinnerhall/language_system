@@ -1195,6 +1195,10 @@ Verification:
 - Ran `node .\scripts\validate-teacher-discoverability.mjs`.
 - Ran `node .\scripts\validate-sell-readiness.mjs`.
 - Ran `node .\scripts\validate-preview-full-access.mjs`.
+- Ran `node .\scripts\validate-audio-status-notice.mjs`.
+- Ran `node .\scripts\validate-audio-manifest-alignment.mjs`.
+- Ran `node .\scripts\validate-russian-course.mjs`.
+- Ran `node .\scripts\validate-premium-study-order.mjs`.
 - Ran `node .\scripts\headless-app-flow-check.mjs`.
 - Ran `node .\scripts\headless-visual-quality-check.mjs`.
 - Ran `node --check .\api\_lib\teacher-chat.js`.
@@ -1230,3 +1234,41 @@ Verification:
 
 Remaining Risk:
 - Live listening still depends on browser speech-recognition quality and microphone permission. The app now handles the routing and queueing issues once the browser provides a transcript.
+
+### Live Teacher Mic, Voice, And Human Scope Repair
+
+Changed:
+- Added `/api/teacher-transcribe` so Live Teacher can send short microphone segments for AI transcription instead of depending only on browser Web Speech recognition.
+- Live Teacher now starts a server-backed mic recorder when available, keeps browser speech recognition as a supplemental path, and fully resets stale recognizers after terminal mic errors.
+- Fixed the old recognizer `onend` race so language switching cannot detach a newer active listener.
+- Changed mic UI from optimistic “listening” to “starting/requesting” until a real mic path is active, and updated card copy so it does not claim the teacher is listening when the mic is off.
+- Removed robotic browser TTS fallback for teacher voice. If premium AI voice is unavailable, the teacher stays text-only instead of speaking with a robotic voice.
+- Removed robotic browser TTS fallback for Russian target audio. If hosted/native audio is missing, still loading, mismatched, blocked, or errored, the app shows a controlled unavailable state instead of speaking synthetic Russian.
+- Loosened the teacher scope so normal learner frustration, confusion, small lesson-related conversation, paid-access questions, refund/privacy/support questions, and ordinary off-focus chatter reach the AI teacher for a human-style answer/refocus instead of the old “I can only help” wall.
+- Kept hard protection for risky unrelated content tasks such as business-plan/crypto/legal/medical writing requests.
+- Updated privacy and in-app disclosure to say short audio segments may be sent for transcription and are not stored by Lang5K.
+- Improved teacher voice provider fallback so an OpenAI voice failure can still try ElevenLabs when configured.
+
+Why:
+- A premium “real teacher” experience cannot pretend the mic is active, lose spoken questions, switch to robotic voices, or refuse normal student conversation. Failures now become visible text states, and live listening has an owned transcription path.
+
+Verification:
+- Confirmed `node .\scripts\headless-app-flow-check.mjs` failed before implementation on the missing server mic path.
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node .\scripts\validate-sell-readiness.mjs`.
+- Ran `node .\scripts\validate-preview-full-access.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `node --check .\api\teacher-transcribe.js`.
+- Ran `node --check .\api\_lib\http.js`.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node --check .\api\_lib\teacher-voice.js`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+- Ran three read-only specialist audits for mic recognition, premium audio, and teacher scope; fixed the reported blockers in this pass.
+
+Remaining Risk:
+- Headless tests can prove routing, fallback, and UI states, but they cannot prove real microphone recognition quality for every browser/OS. Real Chrome microphone permission and provider transcription quality still need a manual buyer-style test after deployment.
+- Live Teacher transcription uses the configured OpenAI key. If billing, key permissions, or provider availability fail, the app now shows a text status instead of pretending the mic worked.

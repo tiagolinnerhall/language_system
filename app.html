@@ -518,7 +518,7 @@ body.teacher-active{padding-bottom:280px}
  </form>
  <div class="teacher-transcript" id="teacherTranscript"></div>
  <div class="teacher-voice-status" id="teacherVoiceStatus"></div>
- <div class="teacher-disclosure">Mic is off until you start the live teacher. Audio is not stored by Lang5K. While live listening is on, useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.</div>
+ <div class="teacher-disclosure">Mic is off until you start the live teacher. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.</div>
 </div>
 
 <script src="languages/config.js"></script>
@@ -592,6 +592,12 @@ let teacherListening=false;
 let teacherLiveListening=false;
 let teacherRecognitionStopping=false;
 let teacherRecognitionRestartTimer=null;
+let teacherServerMicRecorder=null;
+let teacherServerMicStream=null;
+let teacherServerMicChunks=[];
+let teacherServerMicActive=false;
+let teacherServerMicSubmitting=false;
+let teacherServerMicFlushTimer=null;
 let teacherLastSpokenText='';
 let teacherLastSpokenAt=0;
 let teacherAiBusy=false;
@@ -708,8 +714,7 @@ function setTeacherVoiceStatus(message='',sourceButton=null,busy=false){
   sourceButton.disabled=busy;
   sourceButton.classList.toggle('voice-loading',busy);
   if(busy&&message){
-   if(/browser voice/i.test(message))sourceButton.textContent='Using browser voice...';
-   else if(/playing/i.test(message))sourceButton.textContent='AI voice playing...';
+   if(/playing/i.test(message))sourceButton.textContent='AI voice playing...';
    else sourceButton.textContent='Preparing AI voice...';
   }
   if(!busy){
@@ -748,26 +753,6 @@ function stopPlayback(){
  if(window.speechSynthesis)window.speechSynthesis.cancel();
 }
 
-function speakWithBrowserVoice(text,{lang=langCode,rate=speechRate,onend,onerror}={}){
- clearPremiumTeacherAudio();
- if(!window.speechSynthesis||typeof SpeechSynthesisUtterance==='undefined'){
-  if(onerror)onerror();
-  else if(onend)onend();
-  return;
- }
- window.speechSynthesis.cancel();
- const u=new SpeechSynthesisUtterance(text);
- u.lang=lang;
- u.rate=rate;
- u.onend=()=>{if(onend)onend()};
- u.onerror=()=>{if(onerror)onerror();else if(onend)onend()};
- window.speechSynthesis.speak(u);
-}
-
-function playBrowserVoice(text,{onend,onerror}={}){
- speakWithBrowserVoice(text,{lang:langCode,rate:speechRate,onend,onerror});
-}
-
 function teacherVoiceKeyForText(text){
  const payload=teacherVoicePayloadForText(text);
  return payload?.key||'';
@@ -796,7 +781,7 @@ function teacherVoicePayloadForText(text,voiceToken=''){
   'Choose your rating now. Say or click Again, Hard, Good, or Easy.':'teacher_rate',
   'Open a lesson card first, then I can play the target sentence.':'teacher_play_open',
   'Reveal and compare first. Then rate it.':'teacher_reveal_first',
-  'I can only help with this language course and Lang5K navigation. Ask me where to start, what to do next, why this card is here, or how to use the app.':'teacher_scope',
+  'Let us keep this useful for your Russian. We can turn that into a Russian phrase, talk about the lesson, or continue this card.':'teacher_scope',
   'I did not understand that lesson command. Try: guide me, play audio, reveal, next, again, hard, good, or easy.':'teacher_not_understood',
   'This browser does not support voice commands here. You can still use Guide me and Do next.':'teacher_voice_unsupported',
   'I could not hear a clear command. Try again or use the buttons.':'teacher_voice_unclear'
@@ -863,15 +848,15 @@ function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButto
   if(requestId===teacherVoiceRequestId)clearTeacherVoiceStatus(sourceButton);
   if(onend)onend();
  };
- playPremiumTeacherVoice(text,{onend:done,onerror:done,voiceToken}).then(()=>{
-  if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
- }).catch(error=>{
-  if(error.name==='AbortError')return;
-  trackAnalytics('audio_fallback',{reason:'teacher_voice_unavailable'});
-  if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium voice unavailable. Using browser voice.',sourceButton,true);
-  speakWithBrowserVoice(text,{lang,rate,onend:done,onerror:()=>{clearTeacherVoiceStatus(sourceButton);if(onerror)onerror()}});
- });
-}
+  playPremiumTeacherVoice(text,{onend:done,onerror:done,voiceToken}).then(()=>{
+   if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
+  }).catch(error=>{
+   if(error.name==='AbortError')return;
+   trackAnalytics('audio_fallback',{reason:'teacher_voice_unavailable'});
+   if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium AI voice unavailable. I will stay text only instead of using a robotic voice.',sourceButton,false);
+   if(onerror)onerror();
+  });
+ }
 
 function speakInstruction(text,button=null){
  stopPlayback();
@@ -908,7 +893,7 @@ function teacherLiveControlsHTML(){
   <button type="button" class="btn btn-secondary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">&#127908; ${teacherLiveListening?'Pause Listening':'Start Live Mic'}</button>
   <button type="button" class="btn btn-secondary" onclick="teacherFocusQuestion()">Ask Teacher</button>
   <div class="teacher-live-state${liveClass}"><span class="teacher-live-dot"></span>${liveText}</div>
-  <div class="teacher-live-note">In Autopilot, the mic stays live until you pause or stop the teacher. Silence is ignored; useful transcripts are handled with this card and your performance.</div>
+  <div class="teacher-live-note">In Autopilot, the mic stays live until you pause or stop the teacher. Short audio segments may be transcribed; useful transcripts are handled with this card and your performance.</div>
  </div>`;
 }
 
@@ -1383,7 +1368,7 @@ function teacherAnswerMappedQuestion(text){
   return true;
  }
  if(/\b(audio|sound|voice)\b/.test(text)&&/\b(written|match|same|sure|verify)\b/.test(text)){
-  teacherSay('Audio is checked against the manifest. If a hosted file is missing or mismatched, Lang5K falls back to browser voice and records the issue. Use the speaker button on the exact sentence you see.');
+  teacherSay('Audio is checked against the manifest. If a hosted file is missing or mismatched, Lang5K does not use robotic browser voice; it records the issue and keeps the written sentence visible.');
   return true;
  }
  if(/\b(buy|purchase|pay|full access|premium|unlock)\b/.test(text)){
@@ -1857,6 +1842,10 @@ function teacherHardOffTopic(text){
  return /\b(weather|news|politic|recipe|joke|money|stock|medical|doctor|lawyer|movie|music)\b/.test(text);
 }
 
+function teacherGentleRefocus(){
+ teacherSay('Let us keep this useful for your Russian. Ask it as a Russian phrase, tell me what feels hard, or continue this card.');
+}
+
 function teacherPauseListeningRequested(text){
  const clean=String(text||'').trim().toLowerCase();
  return /^(stop|pause|mute)\.?$/.test(clean)||/\b(pause listening|pause mic|pause microphone|stop listening|stop mic|stop microphone|mic off|microphone off|mute)\b/.test(clean)||/(пауза|стоп|останови|остановись|останови микрофон|выключи микрофон|не слушай)/i.test(clean);
@@ -1939,10 +1928,7 @@ function teacherCommand(raw){
   return;
  }
  if(teacherIsListeningCheck(text)){teacherAnswerListeningCheck();return}
- if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text)){
-  teacherSay('I can only help with this language course and Lang5K navigation. Ask me where to start, what this screen is, play audio, reveal, next, or rate the card.');
-  return;
- }
+ if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text)){teacherAskAi(transcript,{source:'voice'});return}
  if(teacherShouldAskAiFirst(text)){teacherAskAi(transcript,{source:'voice'});return}
  if(/\b(where|how).*(start|begin)|\bstart.*where|\bfirst\b/.test(text)){
   teacherAnswerMappedQuestion(text);
@@ -2024,19 +2010,20 @@ function teacherCommand(raw){
 
 function updateTeacherListeningUI(){
  const els=teacherEls();
- const liveText=teacherLiveListening?'Live mic on':'Live mic off';
- if(els.sub)els.sub.textContent=teacherLiveListening?'Live mic is on. I listen until you pause or stop Teacher.':'Mic is off until you start Live Teacher.';
+ const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
+ const liveText=micActive?'Live mic on':teacherLiveListening?'Starting mic':'Live mic off';
+ if(els.sub)els.sub.textContent=micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
  if(els.talk){
-  els.talk.textContent=teacherLiveListening?'Pause Listening':'Start Live Mic';
-  els.talk.classList.toggle('active',teacherLiveListening);
+  els.talk.textContent=teacherLiveListening?(micActive?'Pause Listening':'Starting Mic...'):'Start Live Mic';
+  els.talk.classList.toggle('active',micActive);
  }
  document.querySelectorAll('.teacher-live-talk').forEach(button=>{
-  button.innerHTML=teacherLiveListening?'&#9208; Pause Listening':'&#127908; Start Live Mic';
-  button.classList.toggle('active',teacherLiveListening);
+  button.innerHTML=teacherLiveListening?(micActive?'&#9208; Pause Listening':'&#127908; Starting Mic...'):'&#127908; Start Live Mic';
+  button.classList.toggle('active',micActive);
   button.disabled=false;
  });
  document.querySelectorAll('.teacher-live-state').forEach(node=>{
-  node.classList.toggle('active',teacherLiveListening);
+  node.classList.toggle('active',micActive);
   node.innerHTML=`<span class="teacher-live-dot"></span>${liveText}`;
  });
 }
@@ -2055,6 +2042,94 @@ function syncTeacherRecognitionLanguage(){
  teacherRecognitionRestartTimer=setTimeout(()=>teacherStartLiveListening({announce:false}),160);
 }
 
+function stopTeacherServerMic(){
+ if(teacherServerMicFlushTimer){
+  clearInterval(teacherServerMicFlushTimer);
+  teacherServerMicFlushTimer=null;
+ }
+ const recorder=teacherServerMicRecorder;
+ teacherServerMicRecorder=null;
+ teacherServerMicActive=false;
+ if(recorder&&recorder.state&&recorder.state!=='inactive'){
+  try{recorder.stop()}catch(_){}
+ }
+ if(teacherServerMicStream){
+  teacherServerMicStream.getTracks().forEach(track=>track.stop());
+  teacherServerMicStream=null;
+ }
+ teacherServerMicChunks=[];
+ updateTeacherListeningUI();
+}
+
+async function teacherSubmitServerMicSegment({force=false}={}){
+ if(teacherServerMicSubmitting)return false;
+ const chunks=teacherServerMicChunks.splice(0);
+ if(!chunks.length)return false;
+ const type=(teacherServerMicRecorder&&teacherServerMicRecorder.mimeType)||'audio/webm';
+ const blob=new Blob(chunks,{type});
+ if(!force&&blob.size<900)return false;
+ teacherServerMicSubmitting=true;
+ try{
+  const response=await fetch('/api/teacher-transcribe',{
+   method:'POST',
+   headers:{'Content-Type':type},
+   body:blob
+  });
+  const data=await response.json().catch(()=>({}));
+  if(response.ok&&data.ok&&teacherTranscriptLooksUseful(data.text)){
+   teacherCommand(data.text);
+   return true;
+  }
+  if(!response.ok&&response.status!==429)setTeacherVoiceStatus('Live mic heard audio, but transcription is temporarily unavailable.');
+ }catch(_){
+  setTeacherVoiceStatus('Live mic transcription is temporarily unavailable.');
+ }finally{
+  teacherServerMicSubmitting=false;
+ }
+ return false;
+}
+
+async function teacherStartServerMic({announce=true}={}){
+ if(teacherServerMicActive||teacherServerMicRecorder)return true;
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined')return false;
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  if(!teacherLiveListening||!teacherModeEnabled){
+   stream.getTracks().forEach(track=>track.stop());
+   return false;
+  }
+  teacherServerMicStream=stream;
+  const preferred='audio/webm;codecs=opus';
+  const options=MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(preferred)?{mimeType:preferred}:{mimeType:'audio/webm'};
+  const recorder=new MediaRecorder(stream,options);
+  teacherServerMicRecorder=recorder;
+  teacherServerMicChunks=[];
+  recorder.ondataavailable=event=>{if(event.data&&event.data.size)teacherServerMicChunks.push(event.data)};
+  recorder.onstart=()=>{
+   teacherServerMicActive=true;
+   updateTeacherListeningUI();
+   if(announce)setTeacherVoiceStatus('Live Teacher is listening. Ask naturally; silence is ignored.');
+  };
+  recorder.onerror=()=>{
+   setTeacherVoiceStatus('Live mic had a recorder issue. Press Start Live Mic to retry.');
+   stopTeacherServerMic();
+  };
+  recorder.onstop=()=>{teacherServerMicActive=false;updateTeacherListeningUI()};
+  recorder.start(2500);
+  teacherServerMicFlushTimer=setInterval(()=>{
+   if(teacherServerMicRecorder&&teacherServerMicRecorder.state==='recording'){
+    try{teacherServerMicRecorder.requestData()}catch(_){}
+   }
+   teacherSubmitServerMicSegment();
+  },4500);
+  return true;
+ }catch(_){
+  teacherServerMicActive=false;
+  updateTeacherListeningUI();
+  return false;
+ }
+}
+
 function stopTeacherListening({disableLive=false}={}){
  if(disableLive)teacherLiveListening=false;
  teacherRecognitionStopping=true;
@@ -2069,30 +2144,50 @@ function stopTeacherListening({disableLive=false}={}){
  if(recognition){
   try{recognition.stop()}catch(_){}
  }
+ stopTeacherServerMic();
 }
 
 function teacherStartLiveListening({announce=true}={}){
  if(!teacherModeEnabled)toggleTeacherMode(true);
+ const serverMicSupported=Boolean(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&typeof MediaRecorder!=='undefined');
  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!SpeechRecognition){
+ if(!SpeechRecognition&&!serverMicSupported){
   teacherLiveListening=false;
   updateTeacherListeningUI();
-  teacherSay('This browser does not support live voice commands here. You can still type to the teacher and use Next step.',{speak:false});
+  teacherSay('This browser does not support live voice here. You can still type to the teacher and use Next step.',{speak:false});
   return false;
  }
  teacherLiveListening=true;
  teacherRecognitionStopping=false;
  updateTeacherListeningUI();
+ if(serverMicSupported){
+  setTeacherVoiceStatus('Requesting microphone access...');
+  teacherStartServerMic({announce}).then(ok=>{
+   if(!ok&&!teacherListening&&teacherLiveListening){
+    teacherLiveListening=false;
+    updateTeacherListeningUI();
+    setTeacherVoiceStatus('Microphone could not start. Check browser permission, then press Start Live Mic again.');
+   }
+  });
+ }
+ if(!SpeechRecognition)return true;
  if(teacherListening||teacherRecognition){
   syncTeacherRecognitionLanguage();
   return true;
  }
- teacherRecognition=new SpeechRecognition();
- teacherRecognition.lang=teacherDesiredRecognitionLang();
- teacherRecognition.continuous=true;
- teacherRecognition.interimResults=false;
- teacherRecognition.maxAlternatives=1;
- teacherRecognition.onresult=event=>{
+ const recognition=new SpeechRecognition();
+ teacherRecognition=recognition;
+ recognition.lang=teacherDesiredRecognitionLang();
+ recognition.continuous=true;
+ recognition.interimResults=false;
+ recognition.maxAlternatives=1;
+ recognition.onstart=()=>{
+  if(teacherRecognition!==recognition)return;
+  teacherListening=true;
+  updateTeacherListeningUI();
+  if(announce&&!teacherServerMicActive)setTeacherVoiceStatus('Live mic on. I am listening while you study. Silence is ignored.');
+ };
+ recognition.onresult=event=>{
   for(let i=event.resultIndex||0;i<(event.results?.length||0);i++){
    const result=event.results[i];
    if(!result?.isFinal)continue;
@@ -2100,17 +2195,22 @@ function teacherStartLiveListening({announce=true}={}){
    if(teacherTranscriptLooksUseful(transcript))teacherCommand(transcript);
   }
  };
- teacherRecognition.onerror=event=>{
+ recognition.onerror=event=>{
   const error=String(event?.error||'');
-  if(error==='not-allowed'||error==='service-not-allowed'){
-   teacherLiveListening=false;
+  if(error==='not-allowed'||error==='service-not-allowed'||error==='audio-capture'){
+   if(teacherRecognition===recognition)teacherRecognition=null;
+   teacherListening=false;
+   if(!teacherServerMicActive)teacherLiveListening=false;
+   if(teacherRecognitionRestartTimer){clearTimeout(teacherRecognitionRestartTimer);teacherRecognitionRestartTimer=null}
+   try{recognition.stop()}catch(_){}
    setTeacherVoiceStatus('Microphone permission is blocked. Enable mic access to use Live Teacher.');
    updateTeacherListeningUI();
    return;
   }
   if(error&&error!=='no-speech'&&error!=='aborted')setTeacherVoiceStatus('Live mic had a listening issue. I will reconnect if Live Teacher is still on.');
  };
- teacherRecognition.onend=()=>{
+ recognition.onend=()=>{
+  if(teacherRecognition!==recognition)return;
   teacherListening=false;
   teacherRecognition=null;
   updateTeacherListeningUI();
@@ -2119,18 +2219,18 @@ function teacherStartLiveListening({announce=true}={}){
   }
  };
  try{
-  teacherRecognition.start();
-  teacherListening=true;
-  updateTeacherListeningUI();
-  if(announce)setTeacherVoiceStatus('Live mic on. I am listening while you study. Silence is ignored.');
+  recognition.start();
   return true;
  }catch(_){
-  teacherRecognition=null;
+  if(teacherRecognition===recognition)teacherRecognition=null;
   teacherListening=false;
-  teacherLiveListening=false;
+  if(!teacherServerMicActive&&!serverMicSupported)teacherLiveListening=false;
   updateTeacherListeningUI();
-  setTeacherVoiceStatus('Live mic could not start. Check browser microphone permission, then press Start Live Mic again.');
-  return false;
+  if(!serverMicSupported){
+   setTeacherVoiceStatus('Live mic could not start. Check browser microphone permission, then press Start Live Mic again.');
+   return false;
+  }
+  return true;
  }
 }
 
@@ -2162,14 +2262,23 @@ function playAudio(text,idx,{onend,onerror}={}){
  stopPlayback();
  const audioId=typeof idx==='number'&&idx>=0?sentenceAudioId(idx):'';
  const manifestItem=audioId?hostedAudioById.get(audioId):null;
+ const unavailable=reason=>{
+  trackAnalytics('audio_fallback',{idx,reason});
+  setTeacherVoiceStatus(reason==='manifest_loading'?'Russian audio is still loading. Try again in a moment.':'Hosted Russian audio is unavailable. Continue without robotic audio.');
+  if(onerror)onerror();
+  else if(onend)onend();
+ };
+ if(hostedAudioIds===null){
+  unavailable('manifest_loading');
+  return;
+ }
  if(typeof idx!=='number'||idx<0||!hostedAudioIds||!hostedAudioIds.has(audioId)){
-  trackAnalytics('audio_fallback',{idx,reason:'missing_hosted_audio'});
-  playBrowserVoice(text,{onend,onerror});
+  unavailable('missing_hosted_audio');
   return;
  }
  if(manifestItem&&manifestItem.target&&manifestItem.target!==text){
   trackAnalytics('audio_manifest_mismatch',{idx,audioId});
-  playBrowserVoice(text,{onend,onerror});
+  unavailable('manifest_mismatch');
   return;
  }
  const audio=new Audio(hostedAudioUrl(idx));
@@ -2178,15 +2287,13 @@ function playAudio(text,idx,{onend,onerror}={}){
  audio.playbackRate=speechRate;
  audio.onended=()=>{if(currentAudio===audio)currentAudio=null;if(onend)onend()};
 audio.onerror=()=>{
-  if(currentAudio===audio)currentAudio=null;
-  trackAnalytics('audio_fallback',{idx,reason:'hosted_audio_error'});
-  playBrowserVoice(text,{onend,onerror});
- };
- audio.play().catch(()=>{
-  if(currentAudio===audio)currentAudio=null;
-  trackAnalytics('audio_fallback',{idx,reason:'browser_blocked_audio'});
-  playBrowserVoice(text,{onend,onerror});
- });
+   if(currentAudio===audio)currentAudio=null;
+   unavailable('hosted_audio_error');
+  };
+  audio.play().catch(()=>{
+   if(currentAudio===audio)currentAudio=null;
+   unavailable('browser_blocked_audio');
+  });
 }
 
 async function startShadowRecord(){
@@ -3961,7 +4068,7 @@ function showStudyCard(){
      <ul>
       <li>This is English. Try to remember the Russian translation.</li>
      <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-     <li>${teacherAutopilotEnabled?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
+      <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Mic if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
     </ul>
     ${instructionButtonHTML(instruction)}
     ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
@@ -3997,7 +4104,7 @@ function showNewRecallCard(){
     <ul>
      <li>This is English. Try to remember the Russian translation you just heard.</li>
     <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-    <li>${teacherAutopilotEnabled?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
+     <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Mic if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
    </ul>
    ${instructionButtonHTML(instruction)}
    ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}

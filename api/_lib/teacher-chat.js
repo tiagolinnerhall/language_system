@@ -191,7 +191,8 @@ function systemPrompt() {
     'You are the Lang5K AI Teacher for the Russian course.',
     'Your only job is to help the student learn Russian inside Lang5K as fast as practical.',
     'You know the app map: Home explains the method; Study is the main guided path; Browse is manual search after guided work; Review Bin repairs weak sentences; Cloze drills one missing word; Dictation checks listening; Pricing, Checkout, Access, Contact, Attribution, Terms, Privacy, and Refunds are separate pages.',
-    'Answer only a Russian, language, or language-learning question, or a Lang5K navigation/workflow question. Refuse everything else briefly and return focus "scope".',
+    'Act like a normal human Russian teacher: answer language questions, learner frustration, confidence issues, lesson doubts, customer/access questions, and simple conversation that affects the study session.',
+    'If the student drifts away from learning, acknowledge briefly, then refocus them on Russian or the current Lang5K card. Do not answer unrelated risky tasks.',
     'If the student asks any Russian, language-learning, pronunciation, spelling, meaning, grammar, course, or Lang5K doubt, answer naturally even if they do not use app command words.',
     'If the student greets you, checks whether you can hear them, or asks a simple live-teacher status question, answer briefly like a present human teacher, then invite the next language-learning step. Do not dump the study plan unless they ask what to do next.',
     'Method: prioritize due spaced reviews, weak repair, then new sentences. Use active recall before reveal, delayed recall, honest self-rating, cloze, dictation, and daily limits. Never encourage passive browsing as the main path.',
@@ -202,7 +203,7 @@ function systemPrompt() {
     'Use spokenRecallAttempt when present as the student spoken recall transcript. Treat it as imperfect browser transcription, compare it gently to the current target, and prefer honest recall quality over speed.',
     'Sense difficulty. If accuracy is low, weak cards are high, lapses are repeated, or the typed attempt is partial/wrong, slow the pace, repair one sentence, and block extra new material.',
     'If the student is doing well, keep momentum but still prefer recall quality over speed. The easiest fast path is not more content; it is the right next recall at the right time.',
-    'Stay lesson-only. If the user asks unrelated questions, politely refuse and redirect to Russian learning or Lang5K navigation.',
+    'Stay useful to the lesson. For unrelated chatter, gently refocus instead of saying you are unable to chat.',
     'Do not claim native-level quality guarantees, medical/legal/financial advice, or abilities the app does not have. Do not say you can grade pronunciation unless the app provides a transcript or visible answer.',
     'Keep replies short enough to be spoken aloud: normally 1 to 3 sentences.',
     'Return one action only when it clearly helps. Use reveal/rating actions only after the context says a recall attempt or revealed answer makes that safe.'
@@ -279,24 +280,36 @@ function normalizeReply(value) {
 function isLanguageScopeMessage(message) {
   const textMessage = String(message || '').toLowerCase();
   if (/[а-яё]/i.test(textMessage)) return true;
-  return /\b(russian|русский|language|languages|word|words|sentence|phrase|grammar|case|ending|conjugat|declension|gender|pronoun|verb|noun|adjective|pronunciation|pronounce|accent|spell|spelling|meaning|translate|translation|translit|cyrillic|vocabulary|lesson|card|review|browse|cloze|dictation|audio|listen|listening|hear me|heard me|can you hear|mic|microphone|are you there|hello|hi|hey|speak|recall|remember|memor|study|learn|fluency|practice|answer|mistake|wrong|correct|lang5k|course|teacher|autopilot|student|navigation|pricing|checkout|access|account|contact|how do i say|what does|what is the meaning|where do i start|what should i study|what now|next step)\b/.test(textMessage);
+  return /\b(russian|русский|language|languages|word|words|sentence|phrase|grammar|case|ending|conjugat|declension|gender|pronoun|verb|noun|adjective|pronunciation|pronounce|accent|spell|spelling|meaning|translate|translation|translit|cyrillic|vocabulary|lesson|card|review|browse|cloze|dictation|audio|listen|listening|hear me|heard me|can you hear|mic|microphone|are you there|hello|hi|hey|speak|recall|remember|memor|study|learn|fluency|practice|answer|mistake|wrong|correct|lang5k|course|teacher|autopilot|student|navigation|pricing|checkout|access|account|contact|support|refund|privacy|terms|attribution|paid|payment|checkout|how do i say|what does|what is the meaning|where do i start|what should i study|what now|next step)\b/.test(textMessage);
+}
+
+function learnerConversation(message) {
+  const textMessage = String(message || '').toLowerCase();
+  return /\b(confused|stuck|frustrated|overwhelmed|tired|lost|too hard|difficult|hard for me|slow|bad at|can't remember|cannot remember|need a break|can we talk|talk with you|help me|i need help|i don't understand|i do not understand|this lesson|this card|my progress|my answer|my pronunciation|my memory)\b/.test(textMessage);
+}
+
+function riskyUnrelatedTask(message) {
+  const textMessage = String(message || '').toLowerCase();
+  const broadContentTask = /\b(write|draft|make|create|rewrite|summarize|translate|translation|solve|diagnose|advise)\b/.test(textMessage);
+  const hardTopicContent = /\b(business plan|essay|email|bedtime story|lawsuit|legal document|investment plan|crypto|bitcoin|stock|medical diagnosis|homework)\b/.test(textMessage);
+  return broadContentTask && hardTopicContent;
 }
 
 function isOutOfScopeMessage(message) {
   const textMessage = String(message || '').toLowerCase();
   const languageIntent = isLanguageScopeMessage(textMessage);
-  const languageOverride = /[а-яё]/i.test(textMessage) || /\b(how do i say|translate|translation|what does|meaning|word for|word is|vocabulary|pronounce|pronunciation|spell|spelling|in russian|russian word|russian phrase|russian sentence)\b/.test(textMessage);
+  const learnerIntent = learnerConversation(textMessage);
+  const customerIntent = /\b(lang5k|course|app|site|website|account|access|paid|payment|money|refund|privacy|terms|attribution|support|contact|checkout|subscription|login)\b/.test(textMessage);
   const hardOffTopic = /\b(weather|news|politic|election|recipe|joke|money|stock|crypto|bitcoin|investment|medical|doctor|diagnos|lawyer|legal|lawsuit|movie|music|song|poem|story|dating|sports|shopping|travel booking|code|programming|math|homework|essay|bedtime story|write an email|business plan)\b/.test(textMessage);
-  const broadContentTask = /\b(translate|translation|write|draft|make|create|rewrite|summarize)\b/.test(textMessage);
-  const hardTopicContent = /\b(business plan|essay|email|bedtime story|lawsuit|legal document|investment plan|homework)\b/.test(textMessage);
-  if (broadContentTask && hardTopicContent) return true;
-  if (hardOffTopic && !languageOverride) return true;
-  return !languageIntent;
+  if (riskyUnrelatedTask(textMessage)) return true;
+  if (languageIntent || learnerIntent || customerIntent) return false;
+  if (hardOffTopic) return false;
+  return false;
 }
 
 function scopeReply() {
   return attachTeacherVoiceToken({
-    reply: 'I can only help with Russian, language-learning questions, this lesson, and Lang5K navigation. Ask me about spelling, pronunciation, meaning, grammar, recall, reviews, or what to study next.',
+    reply: 'Let us keep this useful for your Russian. We can turn that into a Russian phrase, talk about this lesson, or continue the current card.',
     action: 'none',
     speak: true,
     difficulty: 'normal',

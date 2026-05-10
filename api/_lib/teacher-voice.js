@@ -29,7 +29,7 @@ const VOICE_MESSAGES = {
   teacher_rate: 'Choose your rating now. Say or click Again, Hard, Good, or Easy.',
   teacher_play_open: 'Open a lesson card first, then I can play the target sentence.',
   teacher_reveal_first: 'Reveal and compare first. Then rate it.',
-  teacher_scope: 'I can only help with this language course and Lang5K navigation. Ask me where to start, what to do next, why this card is here, or how to use the app.',
+  teacher_scope: 'Let us keep this useful for your Russian. We can turn that into a Russian phrase, talk about the lesson, or continue this card.',
   teacher_not_understood: 'I did not understand that lesson command. Try: guide me, play audio, reveal, next, again, hard, good, or easy.',
   teacher_voice_unsupported: 'This browser does not support voice commands here. You can still use Guide me and Do next.',
   teacher_voice_unclear: 'I could not hear a clear command. Try again or use the buttons.',
@@ -249,7 +249,7 @@ async function synthesize(text) {
     } catch (error) {
       configured = true;
       lastError = error;
-      if (!error.transient) break;
+      continue;
     }
   }
   if (lastError) throw lastError;

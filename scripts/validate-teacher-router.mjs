@@ -23,12 +23,13 @@ mustInclude('teacher-chat', chat, 'typedAttempt');
 mustInclude('teacher-chat', chat, 'Sense difficulty.');
 mustInclude('teacher-chat', chat, 'spokenRecallAttempt');
 mustInclude('teacher-chat', chat, 'teacherLiveListening');
-mustInclude('teacher-chat', chat, 'language, or language-learning question');
+mustInclude('teacher-chat', chat, 'normal human Russian teacher');
 mustInclude('teacher-chat', chat, 'present human teacher');
 mustInclude('teacher-chat', chat, 'Do not dump the study plan');
 mustInclude('teacher-chat', chat, '/[а-яё]/i.test(textMessage)');
 mustInclude('teacher-chat', chat, 'function isOutOfScopeMessage(message)');
 mustInclude('teacher-chat', chat, 'hardOffTopic');
+mustInclude('teacher-chat', chat, 'learnerConversation');
 mustInclude('teacher-chat', chat, 'In AI Teacher Autopilot, infer the next best step');
 mustInclude('teacher-chat', chat, 'function createTeacherVoiceToken(textValue)');
 mustInclude('teacher-chat', chat, 'voiceToken');
@@ -54,10 +55,13 @@ mustInclude('app.html', app, 'teacherQueuedAiRequests');
 mustInclude('app.html', app, 'teacherAutopilotActionBlockedUntil');
 mustInclude('app.html', app, 'teacherAutopilotActivationActionsToSuppress');
 mustInclude('app.html', app, 'function teacherRussianQuestionSignal(text)');
+mustInclude('app.html', app, 'function teacherStartServerMic');
+mustInclude('app.html', app, '/api/teacher-transcribe');
+mustInclude('app.html', app, 'teacherServerMicActive');
 mustInclude('app.html', app, 'raw:value.slice');
 mustInclude('app.html', app, 'activeSession:activeSessionPayload()');
 mustInclude('app.html', app, 'let teacherLiveListening=false');
-mustInclude('app.html', app, 'teacherRecognition.continuous=true');
+mustInclude('app.html', app, 'recognition.continuous=true');
 mustInclude('app.html', app, 'function teacherStartLiveListening');
 mustInclude('app.html', app, 'function teacherToggleLiveListening');
 mustInclude('app.html', app, 'function teacherTranscriptLooksUseful');
@@ -78,8 +82,17 @@ if (teacherChatModule._test.isOutOfScopeMessage('how do I say weather in Russian
 if (!teacherChatModule._test.isOutOfScopeMessage('translate this business plan into Russian')) {
   throw new Error('Teacher server scope allowed an unrelated business-plan translation task.');
 }
-if (!teacherChatModule._test.isOutOfScopeMessage('what is the weather today?')) {
-  throw new Error('Teacher server scope allowed an unrelated weather question.');
+if (teacherChatModule._test.isOutOfScopeMessage('I am frustrated and this feels too hard')) {
+  throw new Error('Normal learner frustration must be handled like a human teacher, not refused as out of scope.');
+}
+if (teacherChatModule._test.isOutOfScopeMessage('can I talk with you for a second about this lesson')) {
+  throw new Error('Normal student conversation about the lesson must not be refused as out of scope.');
+}
+if (teacherChatModule._test.isOutOfScopeMessage('what is the weather today?')) {
+  throw new Error('Ordinary off-focus chatter should be gently refocused by the teacher, not blocked before conversation.');
+}
+if (!teacherChatModule._test.isOutOfScopeMessage('write me a business plan about crypto investments')) {
+  throw new Error('Clearly unrelated risky content work should still be refocused.');
 }
 
 console.log('Teacher model router validation passed.');
