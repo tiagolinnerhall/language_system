@@ -595,13 +595,15 @@ let teacherRecognitionRestartTimer=null;
 let teacherLastSpokenText='';
 let teacherLastSpokenAt=0;
 let teacherAiBusy=false;
-let teacherQueuedAiRequest=null;
+let teacherQueuedAiRequests=[];
 let teacherAttemptedRecallKey='';
 let teacherSpokenRecallAttempt={key:'',transcript:''};
 let teacherLastAutopilotAt=0;
 let teacherLastAutopilotContextKey='';
 let teacherAutopilotCallTimes=[];
 let teacherAutopilotActionTimes=[];
+let teacherAutopilotActionBlockedUntil=0;
+let teacherAutopilotActivationActionsToSuppress=0;
 let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
@@ -627,6 +629,7 @@ const THIRD_LANGUAGE_RE=/\b(french|german|spanish|italian|portuguese|esperanto|l
 const CURATED_FALLBACK_CATEGORY='Everyday Conversation';
 const METHOD_AUDIO_INSTRUCTIONS='Lang5K works like this. Do not try to browse everything or memorize by rereading. Start the guided lesson. First, listen and connect the Russian sentence to the English meaning. Then recall before you reveal. Say the answer quietly, or type Russian or transliteration if you want. After reveal, compare honestly. Choose Again if you missed it, Hard if you barely got it, Good if you got most of it, and Easy only when the answer came back quickly and cleanly. Lang5K then schedules reviews, delayed recall, and repair drills automatically.';
 const TEACHER_AUTOPILOT_COOLDOWN_MS=2500;
+const TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS=2500;
 const TEACHER_AUTOPILOT_MAX_CALLS_PER_MINUTE=10;
 const TEACHER_AUTOPILOT_MAX_ACTIONS_PER_MINUTE=8;
 
@@ -921,6 +924,8 @@ function teacherSetMode(mode){
  localStorage.setItem(storagePrefix+'teacher_autopilot',autopilot?'1':'0');
  refreshTeacherStudyModeControls();
  if(autopilot){
+  teacherAutopilotActionBlockedUntil=Date.now()+TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS;
+  teacherAutopilotActivationActionsToSuppress=1;
   toggleTeacherMode(true);
   teacherSay('Live AI Teacher is on. I am listening and checking your lesson state now.',{speak:false});
   teacherStartLiveListening({announce:false});
@@ -1553,7 +1558,7 @@ async function teacherAskAi(message,{source='typed'}={}){
  }
  if(teacherAiBusy){
   if(source!=='autopilot'){
-   teacherQueuedAiRequest={message:clean,source};
+   teacherQueuedAiRequests.push({message:clean,source});
    setTeacherVoiceStatus('I heard you. I will answer right after this thought.');
   }
   return;
@@ -1569,7 +1574,7 @@ async function teacherAskAi(message,{source='typed'}={}){
   const data=await response.json().catch(()=>({}));
   if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
   teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false,voiceToken:data.voiceToken||''});
-  if(teacherAutopilotEnabled&&data.action&&data.action!=='none')setTimeout(()=>applyTeacherAiAction(data.action),250);
+  maybeApplyTeacherAiAction(data.action,source);
  }catch(error){
   if(source==='autopilot'){
    teacherSay('AI Teacher Autopilot is temporarily unavailable. Use Next step for this card, then I will try again after the next state change.',{speak:false});
@@ -1579,9 +1584,8 @@ async function teacherAskAi(message,{source='typed'}={}){
   if(!fallbackUsed)teacherSay(error.message||'AI teacher is temporarily unavailable. I can still guide you with the buttons.');
  }finally{
   setTeacherAiBusy(false);
-  const queued=teacherQueuedAiRequest;
-  teacherQueuedAiRequest=null;
-  if(queued&&(queued.message!==clean||queued.source!==source)){
+  const queued=teacherQueuedAiRequests.shift();
+  if(queued){
    setTimeout(()=>teacherAskAi(queued.message,{source:queued.source}),50);
   }
  }
@@ -1643,6 +1647,17 @@ function applyTeacherAiAction(action){
   setDailyGoal(Number(goal[1]));
   scheduleTeacherGuide(250);
  }
+}
+
+function maybeApplyTeacherAiAction(action,source){
+ if(!teacherAutopilotEnabled)return;
+ if(!action||action==='none')return;
+ if(source==='autopilot'&&(teacherAutopilotActivationActionsToSuppress>0||Date.now()<teacherAutopilotActionBlockedUntil)){
+  teacherAutopilotActivationActionsToSuppress=Math.max(0,teacherAutopilotActivationActionsToSuppress-1);
+  setTeacherVoiceStatus('Live Teacher is ready. I will not move screens until you ask or press Next step.');
+  return;
+ }
+ setTimeout(()=>applyTeacherAiAction(action),250);
 }
 
 function teacherGuide(){
@@ -1834,6 +1849,10 @@ function teacherLanguageOverride(text){
  return /[а-яё]/i.test(text)||/\b(how do i say|translate|translation|what does|meaning|word for|word is|pronounce|pronunciation|spell|spelling|in russian|russian word|russian phrase|russian sentence|vocabulary)\b/.test(text);
 }
 
+function teacherRussianQuestionSignal(text){
+ return /[а-яё]/i.test(text)&&/(что значит|что означает|что такое|это значит|как сказать|как произнос|как пиш|объясни|перевод|граммат|падеж|род|ударени|слово|фраза|предложени|вопрос|помоги|не понимаю|не понял|не поняла)/i.test(text);
+}
+
 function teacherHardOffTopic(text){
  return /\b(weather|news|politic|recipe|joke|money|stock|medical|doctor|lawyer|movie|music)\b/.test(text);
 }
@@ -1863,6 +1882,7 @@ function teacherTranscriptEchoesTeacher(raw){
 function teacherVoiceLooksLikeRecallAttempt(text){
  if(!teacherInRecallWindow())return false;
  if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text))return false;
+ if(teacherRussianQuestionSignal(text))return false;
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text))return false;
  if(/\b(where|why|what|how|gender|case|grammar|meaning|means|pronounce|pronunciation|spell|spelling|doubt|question|confused|stuck|what now|what should|what do i do|should i do now|next step|explain|should i|can i|do you think|am i|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|say it|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
  return text.length>=2;
@@ -1879,6 +1899,7 @@ function teacherVoiceLooksLikeShadowing(text){
 
 function teacherShouldAskAiFirst(text){
  if(teacherIsListeningCheck(text))return false;
+ if(teacherRussianQuestionSignal(text))return true;
  if(teacherVoiceLooksLikeRecallAttempt(text))return false;
  if(teacherCommandHasRating(text,'again')||teacherCommandHasRating(text,'hard')||teacherCommandHasRating(text,'good')||teacherCommandHasRating(text,'easy'))return false;
  if(/^\s*(reveal|show answer|answer|play|listen|repeat|next|continue|move on|start|begin)\s*$/i.test(text))return false;

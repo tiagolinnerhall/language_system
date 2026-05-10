@@ -58,6 +58,7 @@ let progressCurrent = {
   updatedAt: '2026-05-10T10:05:00.000Z',
   revision: 3
 };
+let teacherAutopilotPlannerCount = 0;
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://127.0.0.1');
@@ -76,6 +77,11 @@ const server = http.createServer((req, res) => {
       teacherChatBodies.push(body);
       const message = String(body.message || '').toLowerCase();
       let reply = 'AI Autopilot decided: start with the guided lesson and keep 10 new sentences only if due reviews stay clear.';
+      let action = 'none';
+      if (message.includes('autopilot: decide the next best step')) {
+        teacherAutopilotPlannerCount += 1;
+        if (teacherAutopilotPlannerCount === 1) action = 'open_browse';
+      }
       if (message.includes('what should') || message.includes('what now')) {
         reply = 'AI Autopilot decided: do not reveal yet. Try recall first, then compare the answer.';
       } else if (message.includes('why this now')) {
@@ -85,7 +91,7 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({
         ok: true,
         reply,
-        action: 'none',
+        action,
         speak: false,
         difficulty: 'normal',
         focus: 'study'
@@ -339,6 +345,13 @@ try {
   if (!/AI Autopilot decided/i.test(teacherMessage)) {
     throw new Error(`Teacher mode did not use the AI autopilot decision. Saw: ${teacherMessage}`);
   }
+  const activationScreenState = await page.evaluate(() => ({
+    mode: eval('currentMode'),
+    browseActive: document.getElementById('browseView')?.classList.contains('active') || false
+  }));
+  if (activationScreenState.mode === 'browse' || activationScreenState.browseActive) {
+    throw new Error(`Live Teacher activation auto-navigated before the student asked: ${JSON.stringify(activationScreenState)}`);
+  }
   const liveTeacherState = await page.evaluate(() => ({
     live: eval('teacherLiveListening'),
     listening: eval('teacherListening'),
@@ -378,6 +391,21 @@ try {
   const russianQuestionChat = teacherChatBodies.at(-1);
   if (teacherChatBodies.length !== beforeRussianQuestionCount + 1 || !russianQuestionChat?.message?.includes('привет что значит пожалуйста')) {
     throw new Error(`Live Teacher swallowed Russian greeting plus real question: ${JSON.stringify(russianQuestionChat)}`);
+  }
+  const beforeRussianRecallQuestionCount = teacherChatBodies.length;
+  await page.evaluate(() => {
+    eval(`(() => {
+      teacherAutopilotEnabled = true;
+      startStudyView();
+      beginStudySession();
+      showStudyCard();
+    })()`);
+  });
+  await page.evaluate(() => window.__emitTeacherSpeech('привет что значит пожалуйста'));
+  await page.waitForTimeout(350);
+  const russianRecallQuestionChat = teacherChatBodies.at(-1);
+  if (teacherChatBodies.length !== beforeRussianRecallQuestionCount + 1 || !russianRecallQuestionChat?.message?.includes('привет что значит пожалуйста')) {
+    throw new Error(`Live Teacher swallowed Russian question during a recall card: ${JSON.stringify(russianRecallQuestionChat)}`);
   }
   await page.evaluate(() => window.__emitTeacherSpeech('pause listening'));
   await page.waitForTimeout(250);
@@ -508,17 +536,18 @@ try {
   }
   const queuedAiState = await page.evaluate(() => eval(`(() => {
     teacherAiBusy = true;
-    teacherQueuedAiRequest = null;
+    teacherQueuedAiRequests = [];
     teacherAskAi('what does привет mean?', { source: 'voice' });
+    teacherAskAi('why this case?', { source: 'typed' });
     const state = {
-      queued: teacherQueuedAiRequest,
+      queued: teacherQueuedAiRequests.map(request => request.message),
       status: document.getElementById('teacherVoiceStatus')?.textContent || ''
     };
     teacherAiBusy = false;
-    teacherQueuedAiRequest = null;
+    teacherQueuedAiRequests = [];
     return state;
   })()`));
-  if (queuedAiState.queued?.message !== 'what does привет mean?' || !/answer right after/i.test(queuedAiState.status)) {
+  if (queuedAiState.queued?.join('|') !== 'what does привет mean?|why this case?' || !/answer right after/i.test(queuedAiState.status)) {
     throw new Error(`Live Teacher dropped an AI-bound question while busy: ${JSON.stringify(queuedAiState)}`);
   }
   await page.evaluate(() => {

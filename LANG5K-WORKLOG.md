@@ -1204,3 +1204,29 @@ Verification:
 
 Remaining Risk:
 - Browser speech recognition remains browser/OS dependent. Live Teacher now detects failed starts and restarts for language changes, but microphone permission and recognition quality are still controlled by the user’s browser.
+
+### Live Teacher Activation Stability
+
+Changed:
+- Blocked the first automatic AI action when Live Teacher is turned on, so pressing Start Live Teacher can listen and advise without briefly jumping to another screen.
+- Replaced the one-slot busy-state teacher queue with a FIFO queue so two quick student questions while the teacher is thinking are answered in order instead of overwriting each other.
+- Added Russian meta-question detection during recall, so phrases like “привет что значит пожалуйста” route to the AI teacher instead of being mistaken for a recall attempt.
+
+Why:
+- A real teacher should not grab navigation immediately on activation, lose student questions, or treat a Russian language question as an answer attempt.
+
+Verification:
+- Confirmed `node .\scripts\headless-app-flow-check.mjs` failed before the fix on activation auto-navigation.
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node .\scripts\validate-sell-readiness.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\validate-preview-full-access.mjs`.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+
+Remaining Risk:
+- Live listening still depends on browser speech-recognition quality and microphone permission. The app now handles the routing and queueing issues once the browser provides a transcript.
