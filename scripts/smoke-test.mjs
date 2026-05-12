@@ -66,6 +66,8 @@ assertIncludes('app.html', app, 'speakInstruction');
 assertIncludes('app.html', app, 'Teacher Mode');
 assertIncludes('app.html', app, 'Start Live Teacher');
 assertIncludes('app.html', app, 'AI Teacher Autopilot');
+assertIncludes('app.html', app, 'Start Live Teacher or Record shadow');
+assertNotIncludes('app.html', app, 'Talk or Record');
 assertIncludes('app.html', app, 'teacherWebsiteMap');
 assertIncludes('app.html', app, 'teacherPerformanceProfile');
 assertIncludes('app.html', app, 'teacherRecommendedPlan');
@@ -78,6 +80,7 @@ assertIncludes('app.html', app, 'Preparing premium AI voice');
 assertIncludes('app.html', app, '<span class="ai-voice-label">AI voice</span>');
 assertIncludes('app.html', app, 'Start Live Teacher');
 assertIncludes('app.html', app, 'Pause Listening');
+assertIncludes('app.html', app, 'Teacher speaking');
 assertIncludes('app.html', app, 'Mic is off until you start the live teacher');
 assertIncludes('app.html', app, 'Silence is ignored');
 assertIncludes('app.html', app, 'Start with Study');
@@ -184,6 +187,9 @@ assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'textFromMessageKey
 assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'teacher_start_plan');
 assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'teacher_voice:day:');
 assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'checkRateLimit');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'Do not listen first');
+assertIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'say I do not remember');
+assertNotIncludes('api/_lib/teacher-voice.js', teacherVoiceApi, 'tell me I tried');
 assertIncludes('vercel.json', vercelConfig, '^/api/teacher-voice$');
 assertIncludes('vercel.json', vercelConfig, "media-src 'self' blob:");
 

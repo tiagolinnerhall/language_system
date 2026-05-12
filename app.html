@@ -446,7 +446,7 @@ body.app-booting #teacherPanel{display:none!important}
    </div>
    <div class="coach-steps">
     <div class="coach-step"><strong>1. Listen</strong>Hear the sentence first.</div>
-    <div class="coach-step"><strong>2. Recall</strong>Speak to yourself or type it. The microphone is only used if you press Talk or Record.</div>
+    <div class="coach-step"><strong>2. Recall</strong>Speak to yourself or type it. The microphone is only used if you press Start Live Teacher or Record shadow.</div>
     <div class="coach-step"><strong>3. Reveal</strong>Compare with the answer.</div>
     <div class="coach-step"><strong>4. Review</strong>Again, Hard, Good, or Easy schedules the next repetition.</div>
    </div>
@@ -598,6 +598,7 @@ let teacherVoiceRequestId=0;
 let teacherVoiceSourceButton=null;
 let teacherVoiceQueue=[];
 let teacherVoicePlaying=false;
+let teacherVoiceQueueRunning=false;
 let teacherPlaybackIdleResolvers=[];
 let speechRate=0.85;
 let teacherModeEnabled=localStorage.getItem(storagePrefix+'teacher_mode')==='1';
@@ -621,8 +622,14 @@ let teacherLastCommandAt=0;
 let teacherLastSpokenText='';
 let teacherLastSpokenAt=0;
 let teacherVoicePlaybackActiveUntil=0;
+let teacherAudioGuardUntil=0;
+let teacherServerMicSegmentHasAppAudio=false;
+let teacherCapturePausedForAudio=false;
+let teacherCaptureResumeTimer=null;
+let teacherRecentAudioEchoTexts=[];
 let teacherAppAudioOutputText='';
 let teacherAppAudioOutputUntil=0;
+let teacherAppAudioPreparing=false;
 let teacherAiBusy=false;
 let teacherQueuedAiRequests=[];
 let teacherAttemptedRecallKey='';
@@ -633,6 +640,8 @@ let teacherAutopilotCallTimes=[];
 let teacherAutopilotActionTimes=[];
 let teacherAutopilotActionBlockedUntil=0;
 let teacherAutopilotActivationActionsToSuppress=0;
+let teacherAutopilotAwaitingLearnerTurn=false;
+let teacherAutopilotApplyingAction=false;
 let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
@@ -677,6 +686,7 @@ let practiceSessionCursor=0;
 let weakPracticeCursor=0;
 let studyRevealed=false;
 let studyRatingLocked=false;
+let studySpacingAdvanceLocked=false;
 let practiceRatingLocked=false;
 let studyAdvanceUnlockTimer=null;
 let dailyNewGoal=10;
@@ -733,7 +743,34 @@ function clearCurrentAudio(){
  }
  teacherAppAudioOutputText='';
  teacherAppAudioOutputUntil=0;
+ teacherAppAudioPreparing=false;
  notifyTeacherPlaybackIdle();
+}
+
+function teacherAudioCaptureGuardActive(){
+ return teacherAudioOutputActive()||Date.now()<teacherAudioGuardUntil;
+}
+
+function teacherAudioOutputActive(){
+ return teacherCapturePausedForAudio||teacherVoicePlaying||isElementAudioPlaying(premiumTeacherAudio)||isElementAudioPlaying(currentAudio);
+}
+
+function markTeacherAudioOutput(text='',minMs=2500){
+ const guardMs=Math.min(2500,Math.max(800,minMs));
+ teacherAudioGuardUntil=Math.max(teacherAudioGuardUntil,Date.now()+guardMs);
+ teacherServerMicSegmentHasAppAudio=true;
+ const clean=String(text||'').trim();
+ if(clean){
+  teacherLastSpokenText=clean;
+  teacherLastSpokenAt=Date.now();
+  const normalized=normalizeTeacherSpeech(clean);
+  if(normalized){
+   const now=Date.now();
+   const expiresAt=now+Math.max(18000,Math.min(45000,minMs+12000));
+   teacherRecentAudioEchoTexts=teacherRecentAudioEchoTexts.filter(item=>item.expiresAt>now).slice(-8);
+   teacherRecentAudioEchoTexts.push({text:normalized,expiresAt});
+  }
+ }
 }
 
 function setTeacherVoiceStatus(message='',sourceButton=null,busy=false){
@@ -787,14 +824,18 @@ function clearPremiumTeacherAudio(){
 function stopPlayback(){
  teacherVoiceRequestId++;
  teacherVoiceQueue.splice(0);
+ teacherVoiceQueueRunning=false;
  teacherVoicePlaying=false;
  teacherVoicePlaybackActiveUntil=0;
+ teacherAudioGuardUntil=Date.now()+800;
  teacherAppAudioOutputText='';
  teacherAppAudioOutputUntil=0;
+ teacherAppAudioPreparing=false;
  clearCurrentAudio();
  clearPremiumTeacherAudio();
  clearTeacherVoiceStatus();
  if(window.speechSynthesis)window.speechSynthesis.cancel();
+ if(teacherLiveListening&&teacherCapturePausedForAudio)resumeTeacherCaptureAfterAudio(700);
  notifyTeacherPlaybackIdle();
 }
 
@@ -803,7 +844,57 @@ function isElementAudioPlaying(audio){
 }
 
 function teacherPlaybackBusy(){
- return teacherVoicePlaying||teacherVoiceQueue.length>0||isElementAudioPlaying(premiumTeacherAudio)||isElementAudioPlaying(currentAudio);
+ return teacherVoiceQueueRunning||teacherVoicePlaying||teacherVoiceQueue.length>0||teacherAppAudioPreparing||isElementAudioPlaying(premiumTeacherAudio)||isElementAudioPlaying(currentAudio);
+}
+
+function pauseTeacherServerMicForAudio(){
+ if(teacherServerMicFlushTimer){
+  clearInterval(teacherServerMicFlushTimer);
+  teacherServerMicFlushTimer=null;
+ }
+ teacherServerMicSegmentHasAppAudio=true;
+ const recorder=teacherServerMicRecorder;
+ if(recorder&&recorder.state&&recorder.state!=='inactive'){
+  try{recorder.stop()}catch(_){}
+ }
+ teacherServerMicRecorder=null;
+ teacherServerMicActive=false;
+}
+
+function pauseTeacherCaptureForAudio(){
+ if(!teacherLiveListening)return;
+ teacherCapturePausedForAudio=true;
+ if(teacherCaptureResumeTimer){
+  clearTimeout(teacherCaptureResumeTimer);
+  teacherCaptureResumeTimer=null;
+ }
+ teacherRecognitionStopping=true;
+ teacherListening=false;
+ const recognition=teacherRecognition;
+ teacherRecognition=null;
+ if(teacherRecognitionRestartTimer){
+  clearTimeout(teacherRecognitionRestartTimer);
+  teacherRecognitionRestartTimer=null;
+ }
+ if(recognition){
+  try{recognition.stop()}catch(_){}
+ }
+ pauseTeacherServerMicForAudio();
+ updateTeacherListeningUI();
+}
+
+function resumeTeacherCaptureAfterAudio(delay=900){
+ if(!teacherLiveListening||!teacherModeEnabled)return;
+ if(teacherCaptureResumeTimer)clearTimeout(teacherCaptureResumeTimer);
+ teacherCaptureResumeTimer=setTimeout(()=>{
+  teacherCaptureResumeTimer=null;
+  if(!teacherLiveListening||!teacherModeEnabled)return;
+  teacherCapturePausedForAudio=false;
+  teacherRecognitionStopping=false;
+  teacherAudioGuardUntil=Math.max(teacherAudioGuardUntil,Date.now()+500);
+  updateTeacherListeningUI();
+  teacherStartLiveListening({announce:false});
+ },delay);
 }
 
 function notifyTeacherPlaybackIdle(){
@@ -877,7 +968,7 @@ function teacherVoicePayloadForText(text,voiceToken=''){
  return null;
 }
 
-async function playPremiumTeacherVoice(text,{onend,onerror,voiceToken=''}={}){
+async function playPremiumTeacherVoice(text,{onplay,onend,onerror,voiceToken=''}={}){
  if(!window.fetch||typeof Audio==='undefined'||!URL||!URL.createObjectURL)throw new Error('Teacher voice playback is not supported.');
  const payload=teacherVoicePayloadForText(text,voiceToken);
  if(!payload)throw new Error('Teacher voice text is empty.');
@@ -911,40 +1002,61 @@ async function playPremiumTeacherVoice(text,{onend,onerror,voiceToken=''}={}){
   if(premiumTeacherAudio===audio)premiumTeacherAudio=null;
   URL.revokeObjectURL(objectUrl);
   if(onerror)onerror();
- };
- await audio.play();
- return true;
+  };
+  let started=false;
+  const markStarted=()=>{
+   if(started)return;
+   started=true;
+   if(onplay)onplay(audio);
+  };
+  audio.onplaying=markStarted;
+  await audio.play();
+  markStarted();
+  return true;
 }
 
 function runTeacherVoiceQueue(){
- if(teacherVoicePlaying)return;
+ if(teacherVoiceQueueRunning)return;
  const item=teacherVoiceQueue.shift();
  if(!item){
   notifyTeacherPlaybackIdle();
   return;
  }
- teacherVoicePlaying=true;
+ teacherVoiceQueueRunning=true;
  const {text,onend,onerror,sourceButton,voiceToken,generation}=item;
  const clean=String(text||'').replace(/\s+/g,' ').trim();
- teacherVoicePlaybackActiveUntil=Date.now()+Math.min(45000,Math.max(12000,clean.length*95+4000));
- setTeacherVoiceStatus('Preparing premium AI voice...',sourceButton,true);
- let settled=false;
- const finish=(ok=true)=>{
-  if(settled)return;
-  settled=true;
-  teacherVoicePlaying=false;
+ const estimatedMs=Math.min(45000,Math.max(12000,clean.length*95+4000));
+  setTeacherVoiceStatus('Preparing premium AI voice...',sourceButton,true);
+  let settled=false;
+  let audioStarted=false;
+  const markPlaying=()=>{
+   if(generation!==teacherVoiceRequestId)return;
+   audioStarted=true;
+   teacherVoicePlaying=true;
+   teacherVoicePlaybackActiveUntil=Date.now()+estimatedMs;
+   pauseTeacherCaptureForAudio();
+   markTeacherAudioOutput(clean,estimatedMs);
+   setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
+  };
+  const finish=(ok=true)=>{
+   if(settled)return;
+   settled=true;
+   teacherVoiceQueueRunning=false;
+   teacherVoicePlaying=false;
   if(generation===teacherVoiceRequestId){
-   teacherVoicePlaybackActiveUntil=Date.now()+(ok?2000:1000);
+   teacherVoicePlaybackActiveUntil=audioStarted?Date.now()+(ok?2000:1000):0;
+   if(audioStarted)teacherAudioGuardUntil=Math.max(teacherAudioGuardUntil,Date.now()+2200);
    if(ok)clearTeacherVoiceStatus(sourceButton);
    else if(!document.getElementById('teacherVoiceStatus')?.textContent)setTeacherVoiceStatus('Premium AI voice unavailable. I will stay text only instead of using a robotic voice.',sourceButton,false);
   }
   if(ok&&onend)onend();
   if(!ok&&onerror)onerror();
+  if(audioStarted)resumeTeacherCaptureAfterAudio(ok?900:500);
   setTimeout(runTeacherVoiceQueue,0);
   notifyTeacherPlaybackIdle();
  };
- playPremiumTeacherVoice(text,{onend:()=>finish(true),onerror:()=>finish(false),voiceToken}).then(()=>{
-  if(generation===teacherVoiceRequestId)setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
+  playPremiumTeacherVoice(text,{onplay:markPlaying,onend:()=>finish(true),onerror:()=>finish(false),voiceToken}).then(()=>{
+   if(generation===teacherVoiceRequestId&&teacherVoicePlaying)setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
  }).catch(error=>{
   if(error.name!=='AbortError')trackAnalytics('audio_fallback',{reason:'teacher_voice_unavailable'});
   if(generation===teacherVoiceRequestId&&error.name!=='AbortError')setTeacherVoiceStatus('Premium AI voice unavailable. I will stay text only instead of using a robotic voice.',sourceButton,false);
@@ -953,13 +1065,12 @@ function runTeacherVoiceQueue(){
 }
 
 function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButton=null,voiceToken='',interrupt=false}={}){
- if(interrupt)stopPlayback();
- const clean=String(text||'').replace(/\s+/g,' ').trim();
- if(!clean)return;
- teacherVoicePlaybackActiveUntil=Date.now()+Math.min(45000,Math.max(12000,clean.length*95+4000));
- teacherVoiceQueue.push({text:clean,onend,onerror,sourceButton,voiceToken,generation:teacherVoiceRequestId});
- runTeacherVoiceQueue();
- }
+  if(interrupt)stopPlayback();
+  const clean=String(text||'').replace(/\s+/g,' ').trim();
+  if(!clean)return;
+  teacherVoiceQueue.push({text:clean,onend,onerror,sourceButton,voiceToken,generation:teacherVoiceRequestId});
+  runTeacherVoiceQueue();
+  }
 
 function speakInstruction(text,button=null){
  stopPlayback();
@@ -1018,19 +1129,23 @@ function teacherStudyModeControlsHTML(){
 
 function teacherLiveControlsHTML(){
  if(!teacherCanUsePremiumAi())return teacherAccessRequiredHTML();
- const liveClass=teacherLiveListening?' active':'';
- const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
- const liveText=micActive?'Live mic on':teacherLiveListening?'Starting mic':'Mic off';
- const liveNote=teacherLiveNoteText();
-  return `<div class="teacher-live-controls">
-   <button type="button" class="btn btn-primary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">&#127908; ${teacherLiveListening?'Pause Listening':'Start Live Teacher'}</button>
+  const liveClass=teacherLiveListening?' active':'';
+ const paused=teacherLiveListening&&teacherCapturePausedForAudio;
+ const micActive=teacherLiveListening&&!paused&&(teacherListening||teacherServerMicActive);
+ const liveText=paused?'Teacher speaking':micActive?'Live mic on':teacherLiveListening?'Starting mic':'Mic off';
+ const buttonText=paused?'&#128264; Teacher speaking':teacherLiveListening?'&#9208; Pause Listening':'&#127908; Start Live Teacher';
+  const liveNote=teacherLiveNoteText();
+   return `<div class="teacher-live-controls">
+   <button type="button" class="btn btn-primary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">${buttonText}</button>
    <div class="teacher-live-state${liveClass}"><span class="teacher-live-dot"></span>${liveText}</div>
    <div class="teacher-live-note">${liveNote}</div>
   </div>`;
 }
 
 function teacherLiveInstructionText(){
- const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
+ const paused=teacherLiveListening&&teacherCapturePausedForAudio;
+ const micActive=teacherLiveListening&&!paused&&(teacherListening||teacherServerMicActive);
+ if(paused)return 'Teacher is speaking now. The mic resumes automatically when the audio ends.';
  if(micActive)return 'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.';
  if(teacherLiveListening)return 'Live Teacher is starting the microphone. Wait for Live mic on before speaking.';
  if(teacherAutopilotEnabled)return 'AI Teacher is open, but the mic is off. Press Start Live Teacher if you want it to hear you.';
@@ -1038,7 +1153,9 @@ function teacherLiveInstructionText(){
 }
 
 function teacherLiveNoteText(){
- const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
+ const paused=teacherLiveListening&&teacherCapturePausedForAudio;
+ const micActive=teacherLiveListening&&!paused&&(teacherListening||teacherServerMicActive);
+ if(paused)return 'Teacher audio is playing; the live mic resumes automatically right after it ends.';
  if(micActive)return 'The teacher is listening until paused. Ask naturally, or say the Russian you remember.';
  if(teacherLiveListening)return 'Microphone access is starting. Wait for Live mic on before speaking.';
  return 'Press Start Live Teacher when you want the teacher to listen and guide by voice.';
@@ -1057,6 +1174,7 @@ function teacherSetMode(mode){
   return;
  }
  teacherAutopilotEnabled=autopilot;
+ if(autopilot)teacherAutopilotAwaitingLearnerTurn=false;
  localStorage.setItem(storagePrefix+'teacher_autopilot',autopilot?'1':'0');
  refreshTeacherStudyModeControls();
  if(autopilot){
@@ -1159,21 +1277,27 @@ function teacherSay(text,{speak=true,voiceToken=''}={}){
  const els=teacherEls();
  if(els.message)els.message.textContent=text;
  if(teacherModeEnabled&&speak&&teacherCanUsePremiumAi()){
-  teacherLastSpokenText=String(text||'');
-  teacherLastSpokenAt=Date.now();
   speakTeacherVoice(text,{lang:'en-US',rate:.95,voiceToken});
  }
 }
 
 function scheduleTeacherGuide(delay=250){
+ if(teacherAutopilotApplyingAction){
+  teacherAutopilotAwaitingLearnerTurn=true;
+  return;
+ }
  waitForTeacherPlaybackIdle().then(()=>{
-  setTimeout(()=>{if(teacherModeEnabled&&teacherAutopilotEnabled)teacherGuide()},delay);
+  setTimeout(()=>{if(teacherModeEnabled&&teacherAutopilotEnabled&&!teacherAutopilotAwaitingLearnerTurn)teacherGuide()},delay);
  });
 }
 
 function teacherAutopilotMinuteWindow(list){
  const cutoff=Date.now()-60*1000;
  return list.filter(time=>time>=cutoff);
+}
+
+function teacherRegisterLearnerTurn(){
+ teacherAutopilotAwaitingLearnerTurn=false;
 }
 
 function teacherAutopilotContextKey(){
@@ -1200,6 +1324,7 @@ function teacherAutopilotContextKey(){
 
 function canAskAutopilotTeacher(contextKey){
  const now=Date.now();
+ if(teacherAutopilotAwaitingLearnerTurn)return false;
  teacherAutopilotCallTimes=teacherAutopilotMinuteWindow(teacherAutopilotCallTimes);
  if(now-teacherLastAutopilotAt<TEACHER_AUTOPILOT_COOLDOWN_MS)return false;
  if(contextKey&&contextKey===teacherLastAutopilotContextKey)return false;
@@ -1274,10 +1399,10 @@ function teacherRequireRecallAttempt(){
  if(!teacherModeEnabled)return true;
  if(teacherHasRecallAttempt())return true;
  if(teacherAutopilotEnabled){
-  teacherSay('In AI Teacher Autopilot, give me a real attempt first: type what you remember, press Talk and say it, or choose skip after you have tried. I will not reveal just from a fake "I tried".');
+  teacherSay('In AI Teacher Autopilot, make one honest recall attempt first: type what you remember, say it aloud if Live Teacher is on, or say "I do not remember" if nothing comes. Then I can reveal.');
   return false;
  }
- teacherSay('Try recall first. Say the Russian quietly, type what you remember, or tell me "I tried" before I reveal the answer.');
+ teacherSay('Try recall first. Say the Russian quietly, type what you remember, or say "I do not remember" if nothing comes. Then I can reveal.');
  return false;
 }
 
@@ -1688,7 +1813,8 @@ function teacherAutopilotInstruction(){
  return [
   'Autopilot: decide the next best step for this exact student now.',
   'Use all supplied context: app route, mode, screen, current card, typed attempt, spoken recall transcript, live listening state, ratings, due reviews, weak cards, session counts, and access state.',
-  'Choose the fastest practical and easiest path for this student: protect memory with due reviews, repair weak items, introduce new material only when the student is ready, and take one safe action at a time.',
+  'Choose the fastest practical and easiest path for this student: protect memory with due reviews, repair weak items, and introduce new material only when the student is ready.',
+  'Do not move the app by yourself in this automatic check. Tell the learner the next step and wait for them to say it, do it, or press Next step.',
   'Reply like a calm live teacher: one short sentence by default. Do not dump metrics or the whole plan unless the student asked for a report.',
   `Current app mode: ${context.mode}. Current screen: ${context.screen}. Current card: ${current.kind||'none'} ${current.type||''}.`,
   `Recommended local plan: ${plan.focus||'study'}; new limit ${plan.newLimit ?? 0}; due ${plan.dueCount ?? 0}; weak ${plan.weakCount ?? 0}.`,
@@ -1704,14 +1830,23 @@ async function teacherAskAi(message,{source='typed'}={}){
   return;
  }
  if(!teacherModeEnabled)toggleTeacherMode(true);
+ if(source!=='autopilot')teacherRegisterLearnerTurn();
  const els=teacherEls();
  if(els.transcript){
   els.transcript.textContent=source==='autopilot'?'Teacher is checking the next step.':(source==='voice'?'I heard: ':'You asked: ')+clean;
  }
  if(teacherAiBusy){
   if(source!=='autopilot'){
+   if(source==='voice'){
+    if(!teacherQueuedAiRequests.some(request=>request.source==='voice'&&request.message===clean)){
+     teacherQueuedAiRequests.push({message:clean,source});
+    }
+    setTeacherVoiceStatus('I heard you. I will answer right after this thought.');
+    return;
+   }
+   teacherQueuedAiRequests=teacherQueuedAiRequests.filter(request=>request.source!=='typed');
    teacherQueuedAiRequests.push({message:clean,source});
-   setTeacherVoiceStatus('I heard you. I will answer right after this thought.');
+   setTeacherVoiceStatus('I will answer that right after this thought.');
   }
   return;
  }
@@ -1731,6 +1866,7 @@ async function teacherAskAi(message,{source='typed'}={}){
   }
   if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
   teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false,voiceToken:data.voiceToken||''});
+  if(source==='autopilot')teacherAutopilotAwaitingLearnerTurn=true;
   maybeApplyTeacherAiAction(data.action,source);
  }catch(error){
   if(source==='autopilot'){
@@ -1790,32 +1926,38 @@ function applyTeacherAiAction(action){
   return;
  }
  teacherAutopilotActionTimes.push(Date.now());
- if(action==='do_next'){teacherDoNext();return}
- if(action==='play_target'){teacherPlayTarget();return}
- if(action==='reveal'){safeTeacherReveal();return}
- if(action==='open_study'){teacherOpenMode('study');return}
- if(action==='open_browse'){teacherOpenMode('browse');return}
- if(action==='open_review'){teacherOpenMode('review');return}
- if(action==='open_cloze'){teacherOpenMode('cloze');return}
- if(action==='open_dictation'){teacherOpenMode('dictation');return}
- if(action==='open_pricing'){window.location.href='pricing.html';return}
- if(action==='open_access'){window.location.href='access.html';return}
- if(action==='open_contact'){window.location.href='contact.html';return}
- const goal=String(action).match(/^set_goal_(5|10|15|20)$/);
- if(goal){
-  setDailyGoal(Number(goal[1]));
-  scheduleTeacherGuide(250);
+ teacherAutopilotApplyingAction=true;
+ try{
+  if(action==='do_next'){teacherDoNext();return}
+  if(action==='play_target'){teacherPlayTarget();return}
+  if(action==='reveal'){safeTeacherReveal();return}
+  if(action==='open_study'){teacherOpenMode('study');return}
+  if(action==='open_browse'){teacherOpenMode('browse');return}
+  if(action==='open_review'){teacherOpenMode('review');return}
+  if(action==='open_cloze'){teacherOpenMode('cloze');return}
+  if(action==='open_dictation'){teacherOpenMode('dictation');return}
+  if(action==='open_pricing'){window.location.href='pricing.html';return}
+  if(action==='open_access'){window.location.href='access.html';return}
+  if(action==='open_contact'){window.location.href='contact.html';return}
+  const goal=String(action).match(/^set_goal_(5|10|15|20)$/);
+  if(goal){
+   setDailyGoal(Number(goal[1]));
+   scheduleTeacherGuide(250);
+  }
+ }finally{
+  teacherAutopilotApplyingAction=false;
+  teacherAutopilotAwaitingLearnerTurn=true;
  }
 }
 
 function maybeApplyTeacherAiAction(action,source){
- if(!teacherAutopilotEnabled)return;
- if(!action||action==='none')return;
- if(source==='autopilot'&&(teacherAutopilotActivationActionsToSuppress>0||Date.now()<teacherAutopilotActionBlockedUntil)){
-  teacherAutopilotActivationActionsToSuppress=Math.max(0,teacherAutopilotActivationActionsToSuppress-1);
-  setTeacherVoiceStatus('Live Teacher is ready. I will not move screens until you ask or press Next step.');
-  return;
- }
+  if(!teacherAutopilotEnabled)return;
+  if(!action||action==='none')return;
+  if(source==='autopilot'){
+   teacherAutopilotAwaitingLearnerTurn=true;
+   if(action!=='guide')setTeacherVoiceStatus('I will wait. Say what you want to do, or press Next step.');
+   return;
+  }
  waitForTeacherPlaybackIdle().then(()=>setTimeout(()=>applyTeacherAiAction(action),250));
 }
 
@@ -1874,6 +2016,7 @@ function teacherGuideLocal(){
 
 function teacherDoNext(){
  if(!teacherModeEnabled)toggleTeacherMode(true);
+ if(!teacherAutopilotApplyingAction)teacherRegisterLearnerTurn();
  const plan=teacherRecommendedPlan();
  const summaryAction=document.querySelector('.study-summary .btn-primary,.study-summary .study-start-btn');
  const spacing=document.querySelector('button[onclick="continueStudySpacing()"]');
@@ -2061,6 +2204,20 @@ function normalizeTeacherSpeech(value){
  return String(value||'').toLowerCase().replace(/[^a-zа-яё0-9]+/gi,' ').replace(/\s+/g,' ').trim();
 }
 
+function teacherEchoPhraseMatch(transcript,source){
+ if(!transcript||!source)return false;
+ if(transcript===source)return true;
+ const transcriptTokens=transcript.split(' ').filter(Boolean);
+ const sourceTokens=source.split(' ').filter(Boolean);
+ if(transcript.length<18||transcriptTokens.length<4)return false;
+ const shorter=Math.min(transcript.length,source.length);
+ const longer=Math.max(transcript.length,source.length);
+ const coverage=longer?shorter/longer:0;
+ if((source.includes(transcript)||transcript.includes(source))&&coverage>=0.65)return true;
+ const sourceStart=sourceTokens.slice(0,Math.min(8,sourceTokens.length)).join(' ');
+ return sourceStart.length>=18&&transcript.startsWith(sourceStart)&&transcript.length/source.length>=0.55;
+}
+
 function teacherDuplicateTranscript(raw){
  const clean=normalizeTeacherSpeech(raw);
  const now=Date.now();
@@ -2075,19 +2232,21 @@ function teacherDuplicateTranscript(raw){
 function teacherTranscriptEchoesTeacher(raw){
  const transcript=normalizeTeacherSpeech(raw);
  if(!transcript)return false;
+ if(teacherAudioOutputActive())return true;
+ const now=Date.now();
+ teacherRecentAudioEchoTexts=teacherRecentAudioEchoTexts.filter(item=>item.expiresAt>now);
+ for(const item of teacherRecentAudioEchoTexts){
+  if(teacherEchoPhraseMatch(transcript,item.text))return true;
+ }
  const spoken=normalizeTeacherSpeech(teacherLastSpokenText);
  const appAudio=normalizeTeacherSpeech(teacherAppAudioOutputText);
  if(appAudio&&Date.now()<teacherAppAudioOutputUntil){
-  if(transcript.length>=4&&(appAudio.includes(transcript)||transcript.includes(appAudio)))return true;
-  const appStart=appAudio.split(' ').slice(0,5).join(' ');
-  if(appStart.length>=4&&transcript.includes(appStart))return true;
+  if(teacherEchoPhraseMatch(transcript,appAudio))return true;
  }
  if(!spoken)return false;
  const voiceStillActive=Date.now()<teacherVoicePlaybackActiveUntil;
  if(!voiceStillActive&&Date.now()-teacherLastSpokenAt>12000)return false;
- if(transcript.length>=10&&spoken.includes(transcript))return true;
- const spokenStart=spoken.split(' ').slice(0,7).join(' ');
- return spokenStart.length>=10&&transcript.includes(spokenStart);
+ return teacherEchoPhraseMatch(transcript,spoken);
 }
 
 function teacherRecallTranscriptSignal(text){
@@ -2172,14 +2331,19 @@ function teacherAnswerListeningCheck(){
 }
 
 function teacherCommand(raw){
- const transcript=String(raw||'').trim();
- const text=transcript.toLowerCase();
- const els=teacherEls();
+  const transcript=String(raw||'').trim();
+  const text=transcript.toLowerCase();
+  const els=teacherEls();
+ if(teacherAudioOutputActive()){
+  if(els.transcript)els.transcript.textContent='';
+  return;
+ }
  if(teacherTranscriptEchoesTeacher(transcript)){
   if(els.transcript)els.transcript.textContent='';
   return;
  }
  if(teacherDuplicateTranscript(transcript))return;
+ teacherRegisterLearnerTurn();
  teacherLastTranscriptAt=Date.now();
  if(els.transcript)els.transcript.textContent=transcript?'I heard: '+transcript:'';
  if(!text){teacherGuide();return}
@@ -2194,13 +2358,11 @@ function teacherCommand(raw){
  if(teacherCannotRecallSignal(text)&&teacherInRecallWindow()){
   teacherMarkRecallAttempted();
   teacherSay('That is an honest recall attempt. Reveal it now, listen, and mark Again if the sentence was not there.');
-  if(teacherAutopilotEnabled){
-   waitForTeacherPlaybackIdle().then(()=>{
-    if(studyViewActive&&!studyRevealed){revealStudyCard();scheduleTeacherGuide(350);return}
-    if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return}
-    if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return}
-   });
-  }
+  waitForTeacherPlaybackIdle().then(()=>{
+   if(studyViewActive&&!studyRevealed){revealStudyCard();scheduleTeacherGuide(350);return}
+   if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return}
+   if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return}
+  });
   return;
  }
  if(teacherShouldAskAiFirst(text)){teacherAskAi(transcript,{source:'voice'});return}
@@ -2232,14 +2394,29 @@ function teacherCommand(raw){
   teacherSay('Good. Now test memory: go to the next screen and try to recall it without looking.');
   return;
  }
- if(teacherVoiceLooksLikeRecallAttempt(text)){
-  teacherMarkRecallAttempted(transcript);
-  teacherSay(`Heard: "${transcript}". Now reveal the answer and compare, or say reveal.`);
-  return;
- }
- if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text)){
-  if(teacherAutopilotEnabled&&!teacherHasRecallAttempt()){
-   teacherSay('I need a real attempt in Autopilot. Type what you remember or press Talk and say the Russian you can produce. Then I can reveal and help you rate.');
+  if(teacherVoiceLooksLikeRecallAttempt(text)){
+   teacherMarkRecallAttempted(transcript);
+   teacherSay(`Heard: "${transcript}". Now reveal the answer and compare, or say reveal.`);
+   return;
+  }
+  if(/\b(i do not remember|i don't remember|i cannot remember|i can't remember|nothing came|nothing comes|no idea|blank)\b/.test(text)){
+   teacherMarkRecallAttempted(transcript);
+   if(studyViewActive&&!studyRevealed){
+    if(document.querySelector('button[onclick="showNewRecallCard()"]')){teacherDoNext();return}
+    revealStudyCard();scheduleTeacherGuide(350);return
+   }
+   if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return}
+   if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return}
+   teacherGuide();
+   return;
+  }
+  if(/\b(i tried|i have tried)\b/.test(text)){
+   teacherSay('Tell me the Russian you remember, or say "I do not remember" if nothing comes. Then I can reveal and help you rate.');
+   return;
+  }
+  if(/\b(i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text)){
+  if(!teacherHasRecallAttempt()){
+   teacherSay('Tell me the Russian you remember, or say "I do not remember" if nothing comes. Then I can reveal and help you rate.');
    return;
   }
   if(studyViewActive&&!studyRevealed){
@@ -2303,21 +2480,24 @@ function updateTeacherListeningUI(){
   if(els.disclosure)els.disclosure.textContent='AI Teacher voice and live listening are included with full access. The demo cards do not send microphone audio.';
   return;
  }
- const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
- const liveText=micActive?'Live mic on':teacherLiveListening?'Starting mic':'Live mic off';
- if(els.sub)els.sub.textContent=micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
+ const paused=teacherLiveListening&&teacherCapturePausedForAudio;
+ const micActive=teacherLiveListening&&!paused&&(teacherListening||teacherServerMicActive);
+ const liveText=paused?'Teacher speaking':micActive?'Live mic on':teacherLiveListening?'Starting mic':'Live mic off';
+ if(els.sub)els.sub.textContent=paused?'Teacher audio is playing. I resume listening right after it ends.':micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
  if(els.disclosure)els.disclosure.textContent=micActive
   ? 'Live Teacher is listening. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.'
-  : teacherLiveListening
+  : paused
+   ? 'Teacher audio is playing, so microphone capture is paused briefly to prevent the teacher from hearing herself.'
+   : teacherLiveListening
    ? 'Microphone access is starting. Short audio segments may be sent only after the live teacher is listening.'
    : 'Mic is off until you start the live teacher. Short audio segments may be sent for transcription only while Live Teacher is on; Lang5K does not store audio.';
  if(els.talk){
   els.talk.onclick=teacherToggleLiveListening;
-  els.talk.textContent=teacherLiveListening?(micActive?'Pause Listening':'Starting...'):'Start Live Teacher';
+  els.talk.textContent=paused?'Teacher speaking':teacherLiveListening?(micActive?'Pause Listening':'Starting...'):'Start Live Teacher';
   els.talk.classList.toggle('active',micActive);
  }
  document.querySelectorAll('.teacher-live-talk').forEach(button=>{
-  button.innerHTML=teacherLiveListening?(micActive?'&#9208; Pause Listening':'&#127908; Starting...'):'&#127908; Start Live Teacher';
+  button.innerHTML=paused?'&#128264; Teacher speaking':teacherLiveListening?(micActive?'&#9208; Pause Listening':'&#127908; Starting...'):'&#127908; Start Live Teacher';
   button.classList.toggle('active',micActive);
   button.disabled=false;
  });
@@ -2428,8 +2608,17 @@ function teacherServerMicRecorderOptions(){
  return mimeType?{mimeType}:{};
 }
 
+function ensureTeacherServerMicFlushTimer(){
+ if(teacherServerMicFlushTimer)return;
+ teacherServerMicFlushTimer=setInterval(()=>{
+  if(teacherServerMicRecorder&&teacherServerMicRecorder.state==='recording'){
+   try{teacherServerMicRecorder.stop()}catch(_){}
+  }
+ },5200);
+}
+
 function startTeacherServerMicRecorder({announce=false}={}){
- if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled)return false;
+ if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled||teacherCapturePausedForAudio)return false;
  const options=teacherServerMicRecorderOptions();
  if(!options.mimeType){
   setTeacherVoiceStatus('Live mic transcription needs a browser-supported audio format. Try Chrome or Edge if this browser cannot start it.');
@@ -2445,7 +2634,11 @@ function startTeacherServerMicRecorder({announce=false}={}){
  teacherServerMicRecorder=recorder;
  teacherServerMicContentType=recorder.mimeType||options.mimeType;
  teacherServerMicChunks=[];
- recorder.ondataavailable=event=>{if(event.data&&event.data.size)teacherServerMicChunks.push(event.data)};
+ teacherServerMicSegmentHasAppAudio=false;
+ recorder.ondataavailable=event=>{
+  if(teacherAudioCaptureGuardActive())teacherServerMicSegmentHasAppAudio=true;
+  if(event.data&&event.data.size&&!teacherServerMicSegmentHasAppAudio)teacherServerMicChunks.push(event.data);
+ };
  recorder.onstart=()=>{
   teacherServerMicActive=true;
   updateTeacherListeningUI();
@@ -2460,19 +2653,21 @@ function startTeacherServerMicRecorder({announce=false}={}){
   const type=teacherServerMicContentType||recorder.mimeType||'';
   if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
   teacherServerMicActive=false;
-  if(chunks.length){
+  if(chunks.length&&!teacherServerMicSegmentHasAppAudio&&!teacherCapturePausedForAudio){
    if(type){
     const blob=new Blob(chunks,{type});
     teacherSubmitServerMicBlob(blob,type);
    }
   }
+  teacherServerMicSegmentHasAppAudio=false;
   updateTeacherListeningUI();
-  if(teacherLiveListening&&teacherModeEnabled&&teacherServerMicStream){
+  if(teacherLiveListening&&teacherModeEnabled&&teacherServerMicStream&&!teacherCapturePausedForAudio){
    setTimeout(()=>startTeacherServerMicRecorder({announce:false}),80);
   }
  };
  try{
   recorder.start();
+  ensureTeacherServerMicFlushTimer();
  }catch(_){
   if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
   teacherServerMicActive=false;
@@ -2487,6 +2682,8 @@ async function teacherStartServerMic({announce=true}={}){
  if(teacherServerMicActive||teacherServerMicRecorder)return true;
  if(!teacherCanUsePremiumAi())return false;
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined')return false;
+ if(teacherCapturePausedForAudio)return false;
+ if(teacherServerMicStream)return startTeacherServerMicRecorder({announce});
  try{
   const stream=await navigator.mediaDevices.getUserMedia({audio:true});
   if(!teacherLiveListening||!teacherModeEnabled){
@@ -2501,11 +2698,6 @@ async function teacherStartServerMic({announce=true}={}){
    updateTeacherListeningUI();
    return false;
   }
-  teacherServerMicFlushTimer=setInterval(()=>{
-   if(teacherServerMicRecorder&&teacherServerMicRecorder.state==='recording'){
-    try{teacherServerMicRecorder.stop()}catch(_){}
-   }
-  },5200);
   return true;
  }catch(_){
   teacherServerMicActive=false;
@@ -2516,6 +2708,13 @@ async function teacherStartServerMic({announce=true}={}){
 
 function stopTeacherListening({disableLive=false}={}){
  if(disableLive)teacherLiveListening=false;
+ if(disableLive){
+  teacherCapturePausedForAudio=false;
+  if(teacherCaptureResumeTimer){
+   clearTimeout(teacherCaptureResumeTimer);
+   teacherCaptureResumeTimer=null;
+  }
+ }
  teacherRecognitionStopping=true;
  teacherListening=false;
  if(teacherRecognitionRestartTimer){
@@ -2557,6 +2756,7 @@ function teacherStartLiveListening({announce=true}={}){
     setTeacherVoiceStatus('Microphone could not start. Check browser permission, then press Start Live Teacher again.');
    }
   });
+  return true;
  }
  if(!SpeechRecognition)return true;
  if(teacherListening||teacherRecognition){
@@ -2636,6 +2836,7 @@ function teacherToggleLiveListening(){
   return;
  }
  teacherAutopilotEnabled=true;
+ teacherAutopilotAwaitingLearnerTurn=false;
  localStorage.setItem(storagePrefix+'teacher_autopilot','1');
  teacherAutopilotActionBlockedUntil=Date.now()+TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS;
  teacherAutopilotActivationActionsToSuppress=1;
@@ -2673,24 +2874,35 @@ function playAudio(text,idx,{onend,onerror}={}){
  }
  const audio=new Audio(hostedAudioUrl(idx));
  currentAudio=audio;
+ teacherAppAudioPreparing=true;
  audio.preload='auto';
  audio.playbackRate=speechRate;
- teacherAppAudioOutputText=text;
- teacherAppAudioOutputUntil=Date.now()+12000;
- const clearAppAudioOutput=()=>{
-  if(currentAudio===audio)currentAudio=null;
-  if(teacherAppAudioOutputText===text)teacherAppAudioOutputUntil=Date.now()+1500;
-  notifyTeacherPlaybackIdle();
+ let audioStarted=false;
+ const markAppAudioStarted=()=>{
+  if(audioStarted)return;
+  audioStarted=true;
+  pauseTeacherCaptureForAudio();
+  teacherAppAudioOutputText=text;
+  teacherAppAudioOutputUntil=Date.now()+12000;
+  markTeacherAudioOutput(text,12000);
  };
- audio.onended=()=>{clearAppAudioOutput();if(onend)onend()};
-audio.onerror=()=>{
-   clearAppAudioOutput();
-   unavailable('hosted_audio_error');
+  const clearAppAudioOutput=()=>{
+   teacherAppAudioPreparing=false;
+   if(currentAudio===audio)currentAudio=null;
+   if(teacherAppAudioOutputText===text)teacherAppAudioOutputUntil=Date.now()+1500;
+   resumeTeacherCaptureAfterAudio(900);
+   notifyTeacherPlaybackIdle();
   };
-  audio.play().catch(()=>{
-   clearAppAudioOutput();
-   unavailable('browser_blocked_audio');
-  });
+  audio.onplaying=markAppAudioStarted;
+  audio.onended=()=>{clearAppAudioOutput();if(onend)onend()};
+ audio.onerror=()=>{
+    clearAppAudioOutput();
+    unavailable('hosted_audio_error');
+   };
+   audio.play().then(markAppAudioStarted).catch(()=>{
+    clearAppAudioOutput();
+    unavailable('browser_blocked_audio');
+   });
 }
 
 async function startShadowRecord(){
@@ -4552,8 +4764,12 @@ function showStudyCard(){
 }
 
 function continueStudySpacing(){
- studyIndex++;
- showStudyCard();
+ if(studySpacingAdvanceLocked)return;
+ studySpacingAdvanceLocked=true;
+ lockStudyAdvanceClicks();
+  studyIndex++;
+  showStudyCard();
+ setTimeout(()=>{studySpacingAdvanceLocked=false},1050);
 }
 
 function showNewRecallCard(){
