@@ -43,10 +43,10 @@ for (const marker of [
 
 const normalizeStoredProgress = extractFunction('normalizeStoredProgress');
 for (const marker of [
-  'sanitizeProgressBackupMap(learned)',
-  'sanitizeProgressBackupMap(reviewBin)',
-  'sanitizeProgressBackupSrs(srsData)',
-  'sanitizeProgressBackupStats(userStats)',
+  'sanitizeProgressBackupMap(learned,progressLimit)',
+  'sanitizeProgressBackupMap(reviewBin,progressLimit)',
+  'sanitizeProgressBackupSrs(srsData,progressLimit)',
+  'sanitizeProgressBackupStats(userStats,progressLimit)',
   "localStorage.setItem(storagePrefix+'learned',JSON.stringify(learned));",
   "localStorage.setItem(storagePrefix+'review_bin',JSON.stringify(reviewBin));",
   "localStorage.setItem(storagePrefix+'srs',JSON.stringify(srsData));",

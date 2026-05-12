@@ -129,10 +129,14 @@ function verifyTeacherVoiceToken(textValue, tokenValue) {
   return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
-function textFromRequestBody(body) {
+function canUseDynamicVoiceText(access) {
+  return Boolean(access && access.ok && access.subject);
+}
+
+function textFromRequestBody(body, access) {
   if (body && Object.prototype.hasOwnProperty.call(body, 'text')) {
     const clean = dynamicTeacherVoiceText(body.text);
-    if (!verifyTeacherVoiceToken(clean, body.voiceToken)) {
+    if (!verifyTeacherVoiceToken(clean, body.voiceToken) && !canUseDynamicVoiceText(access)) {
       const error = new Error('Signed teacher voice token is required.');
       error.statusCode = 403;
       throw error;
@@ -282,7 +286,7 @@ module.exports = async function handler(req, res) {
       return;
     }
     const body = await readJsonBody(req, 8 * 1024);
-    const text = textFromRequestBody(body);
+    const text = textFromRequestBody(body, access);
     const result = await synthesize(text);
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', result.buffer.length);

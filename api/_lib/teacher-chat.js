@@ -335,7 +335,7 @@ function audioContentType(req) {
   if (['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg'].includes(contentType)) {
     return contentType;
   }
-  return 'audio/webm';
+  return '';
 }
 
 function extensionForType(contentType) {
@@ -379,13 +379,18 @@ async function transcribeAudio(buffer, contentType) {
 }
 
 async function handleTranscriptionRequest(req, res, access) {
+  const ipAllowed = await checkRateLimit(`teacher_transcribe:ip:${clientIp(req)}`, 30, 60);
   const subjectAllowed = await checkRateLimit(`teacher_transcribe:subject:${access.subject}`, 160, 60 * 60);
   const dailyAllowed = await checkRateLimit(`teacher_transcribe:day:${access.subject}`, 700, 24 * 60 * 60);
-  if (!subjectAllowed || !dailyAllowed) {
+  if (!ipAllowed || !subjectAllowed || !dailyAllowed) {
     res.status(429).json({ error: 'Too many live teacher transcription requests.' });
     return;
   }
   const contentType = audioContentType(req);
+  if (!contentType) {
+    res.status(415).json({ error: 'Unsupported live teacher audio format.' });
+    return;
+  }
   const buffer = await readBufferBody(req, MAX_AUDIO_BYTES);
   if (buffer.length < 200) {
     res.status(200).json({ ok: true, text: '' });
@@ -496,6 +501,10 @@ module.exports = async function handler(req, res) {
       res.status(401).json({ error: 'Active Lang5K access is required for the AI teacher.' });
       return;
     }
+    if (isTranscriptionRequest(req)) {
+      await handleTranscriptionRequest(req, res, access);
+      return;
+    }
     const ipAllowed = await checkRateLimit(`teacher_chat:ip:${clientIp(req)}`, 12, 60);
     const ipDailyAllowed = await checkRateLimit(`teacher_chat:ip_day:${clientIp(req)}`, 220, 24 * 60 * 60);
     const previewDailyAllowed = access.subject.startsWith('preview:')
@@ -505,10 +514,6 @@ module.exports = async function handler(req, res) {
     const dailyAllowed = await checkRateLimit(`teacher_chat:day:${access.subject}`, 220, 24 * 60 * 60);
     if (!ipAllowed || !ipDailyAllowed || !previewDailyAllowed || !subjectAllowed || !dailyAllowed) {
       res.status(429).json({ error: 'Too many AI teacher requests.' });
-      return;
-    }
-    if (isTranscriptionRequest(req)) {
-      await handleTranscriptionRequest(req, res, access);
       return;
     }
     const body = await readJsonBody(req, 24 * 1024);

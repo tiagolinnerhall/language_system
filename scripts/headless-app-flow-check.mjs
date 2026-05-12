@@ -61,6 +61,7 @@ let progressCurrent = {
 };
 let teacherAutopilotPlannerCount = 0;
 let courseResponseDelayMs = 0;
+let audioManifestDelayMs = 0;
 let teacherChatFailure = false;
 
 const server = http.createServer((req, res) => {
@@ -196,6 +197,14 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/api/analytics') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+  if (url.pathname === '/audio-manifest-ru.json' && audioManifestDelayMs > 0) {
+    setTimeout(() => {
+      const filePath = join(ROOT, 'audio-manifest-ru.json');
+      res.writeHead(200, { 'Content-Type': MIME['.json'] });
+      createReadStream(filePath).pipe(res);
+    }, audioManifestDelayMs);
     return;
   }
   const relative = normalize(url.pathname === '/' ? 'app.html' : url.pathname.replace(/^\/+/, ''));
@@ -363,6 +372,28 @@ try {
   await bootPage.close();
   courseResponseDelayMs = 0;
 
+  audioManifestDelayMs = 1200;
+  await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1&resetProgress=1`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.study-start', { timeout: 8000 });
+  const delayedManifestState = await page.evaluate(() => ({
+    manifestLoaded: eval('hostedAudioIds !== null'),
+    statusText: document.getElementById('audioStatusNotice')?.textContent || '',
+    startText: document.querySelector('.study-start')?.textContent || ''
+  }));
+  if (!delayedManifestState.manifestLoaded || /loading/i.test(delayedManifestState.statusText)) {
+    throw new Error(`Guided lesson became clickable before hosted audio manifest was ready: ${JSON.stringify(delayedManifestState)}`);
+  }
+  await page.getByRole('button', { name: 'Start guided lesson' }).click();
+  await page.waitForSelector('.study-card');
+  const firstAudioReadyState = await page.evaluate(() => ({
+    status: document.getElementById('teacherVoiceStatus')?.textContent || '',
+    card: document.querySelector('.study-card')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 260) || ''
+  }));
+  if (/still loading/i.test(firstAudioReadyState.status)) {
+    throw new Error(`First lesson hit audio before manifest was ready: ${JSON.stringify(firstAudioReadyState)}`);
+  }
+  audioManifestDelayMs = 0;
+
   async function completeCurrentCard() {
     await page.waitForSelector('.study-card');
     const spacingButton = page.getByRole('button', { name: 'Continue' });
@@ -371,9 +402,27 @@ try {
       await page.waitForTimeout(200);
       return;
     }
-    const nextButton = page.getByRole('button', { name: 'Next: test my memory' });
+    const nextButton = page.locator('button[onclick="showNewRecallCard()"]');
     if (await nextButton.count()) await nextButton.click();
-    await page.getByRole('button', { name: 'Show Russian answer and play audio' }).click();
+    const stillNewIntro = await page.evaluate(() => /NEW SENTENCE/i.test(document.querySelector('.study-card')?.textContent || ''));
+    if (stillNewIntro) await page.evaluate(() => eval('showNewRecallCard()'));
+    const revealButton = page.getByRole('button', { name: 'Show Russian answer and play audio' });
+    if (!(await revealButton.count())) {
+      if (await page.locator('.study-summary').count()) return;
+      const startButton = page.getByRole('button', { name: 'Start guided lesson' });
+      if (await startButton.count()) {
+        await startButton.click();
+        await page.waitForTimeout(200);
+        return;
+      }
+      const state = await page.evaluate(() => ({
+        studyIndex: eval('studyIndex'),
+        studyRevealed: eval('studyRevealed'),
+        card: document.querySelector('.study-card')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 500) || ''
+      }));
+      throw new Error(`Study card had no reveal button: ${JSON.stringify(state)}`);
+    }
+    await revealButton.click();
     try {
       await page.waitForSelector('.study-rating', { timeout: 5000 });
     } catch (error) {
@@ -408,7 +457,7 @@ try {
     throw new Error(`Fresh guided lesson did not plan 10 new sentences. Saw: ${text}`);
   }
   await page.evaluate(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = eval('getToday()');
     localStorage.setItem('russian_srs', JSON.stringify({ 0: { box: 1, nextReview: today, lastReview: today, reps: 1 } }));
     localStorage.setItem('russian_review_bin', JSON.stringify({ 0: true }));
     localStorage.setItem('russian_stats', JSON.stringify({ dailyGoal: 10, todayNew: 10, todayReviews: 4, lastStudyDate: today }));
@@ -426,6 +475,164 @@ try {
   }));
   if (resetState.url.includes('resetProgress') || Object.keys(resetState.srs).length || Object.keys(resetState.reviewBin).length || resetState.teacherAutopilot !== null || !/10\s*New Sentences/i.test(resetState.startText.replace(/\s+/g, ' '))) {
     throw new Error(`Fresh-start reset did not clear local progress: ${JSON.stringify(resetState)}`);
+  }
+  await page.evaluate(() => {
+    const today = eval('getToday()');
+    localStorage.setItem('russian_learned', JSON.stringify({ 5: true, 120: true }));
+    localStorage.setItem('russian_review_bin', JSON.stringify({ 120: true }));
+    localStorage.setItem('russian_srs', JSON.stringify({ 120: { box: 2, nextReview: today, lastReview: today, lastRating: 'good' } }));
+    localStorage.setItem('russian_stats', JSON.stringify({ dailyGoal: 10, todayNew: 120, todayReviews: 80, date: today }));
+  });
+  await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.study-start');
+  const demoProgressPreserveState = await page.evaluate(() => ({
+    learned: JSON.parse(localStorage.getItem('russian_learned') || '{}'),
+    reviewBin: JSON.parse(localStorage.getItem('russian_review_bin') || '{}'),
+    srs: JSON.parse(localStorage.getItem('russian_srs') || '{}'),
+    stats: JSON.parse(localStorage.getItem('russian_stats') || '{}')
+  }));
+  if (!demoProgressPreserveState.learned['120'] || !demoProgressPreserveState.reviewBin['120'] || !demoProgressPreserveState.srs['120'] || demoProgressPreserveState.stats.todayNew !== 120) {
+    throw new Error(`Demo mode truncated full-course progress indexes: ${JSON.stringify(demoProgressPreserveState)}`);
+  }
+  const activeSessionResumeState = await page.evaluate(() => eval(`(() => {
+    const session = {
+      mode: 'study',
+      studyViewActive: true,
+      studyIndex: 0,
+      studyQueue: [{ idx: 0, type: 'review' }, { idx: 1, type: 'review' }],
+      studyRevealed: false,
+      studySessionStats: { newCount: 0, reviewCount: 1, againCount: 0, hardCount: 0, goodCount: 1, easyCount: 0 },
+      teacherModeEnabled: true,
+      teacherAutopilotEnabled: true,
+      typedAttempt: 'privet'
+    };
+    applyProgressPayload({ learned: {}, reviewBin: {}, srsData: {}, userStats: { dailyGoal: 10 }, activeSession: session });
+    openInitialLearnerView();
+    return {
+      mode: currentMode,
+      studyViewActive,
+      studyIndex,
+      card: document.querySelector('.study-card')?.textContent?.replace(/\\s+/g, ' ').trim().slice(0, 220) || '',
+      input: document.getElementById('studyInput')?.value || '',
+      startVisible: Boolean(document.querySelector('.study-start'))
+    };
+  })()`));
+  if (activeSessionResumeState.mode !== 'study' || !activeSessionResumeState.studyViewActive || activeSessionResumeState.studyIndex !== 0 || activeSessionResumeState.input !== 'privet' || activeSessionResumeState.startVisible) {
+    throw new Error(`Active study session did not resume on its card: ${JSON.stringify(activeSessionResumeState)}`);
+  }
+  const revealedSessionResumeState = await page.evaluate(() => eval(`(() => {
+    const session = {
+      mode: 'study',
+      studyViewActive: true,
+      studyIndex: 0,
+      studyQueue: [{ idx: 0, type: 'review' }],
+      studyRevealed: true,
+      studySessionStats: { newCount: 0, reviewCount: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 },
+      teacherModeEnabled: true,
+      teacherAutopilotEnabled: true,
+      typedAttempt: 'privet'
+    };
+    applyProgressPayload({ learned: {}, reviewBin: {}, srsData: {}, userStats: { dailyGoal: 10 }, activeSession: session });
+    openInitialLearnerView();
+    return {
+      studyRevealed,
+      hasRating: Boolean(document.querySelector('.study-rating')),
+      hasTarget: Boolean(document.querySelector('.study-target')),
+      index: studyIndex
+    };
+  })()`));
+  if (!revealedSessionResumeState.studyRevealed || !revealedSessionResumeState.hasRating || !revealedSessionResumeState.hasTarget || revealedSessionResumeState.index !== 0) {
+    throw new Error(`Revealed active session did not restore compare/rating state: ${JSON.stringify(revealedSessionResumeState)}`);
+  }
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1&resetProgress=1`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('.study-start');
+  const demoTeacherGate = await page.evaluate(async () => eval(`(async () => {
+    courseAccessMode = 'demo';
+    teacherAutopilotEnabled = true;
+    localStorage.setItem(storagePrefix + 'teacher_autopilot', '1');
+    showStudyStart();
+    const hasLiveButton = Boolean(document.querySelector('.study-start .teacher-live-talk'));
+    const hasVoiceButton = Boolean(document.querySelector('.study-start button.audio-instructions-btn'));
+    const unlockText = document.querySelector('.study-start')?.textContent || '';
+    await teacherAskAi('where do I start?', { source: 'typed' });
+    return {
+      hasLiveButton,
+      hasVoiceButton,
+      autopilot: teacherAutopilotEnabled,
+      status: document.getElementById('teacherVoiceStatus')?.textContent || '',
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      unlockText
+    };
+  })()`));
+  if (demoTeacherGate.hasLiveButton || demoTeacherGate.hasVoiceButton || demoTeacherGate.autopilot || !/full access|unlock/i.test(demoTeacherGate.unlockText + ' ' + demoTeacherGate.status + ' ' + demoTeacherGate.message)) {
+    throw new Error(`Demo AI Teacher looked broken instead of gated: ${JSON.stringify(demoTeacherGate)}`);
+  }
+  const liveNoteOffState = await page.evaluate(() => eval(`(() => {
+    courseAccessMode = 'full';
+    teacherLiveListening = false;
+    teacherListening = false;
+    teacherServerMicActive = false;
+    return teacherLiveControlsHTML();
+  })()`));
+  if (/listening until paused/i.test(liveNoteOffState) || !/Press Start Live Teacher/i.test(liveNoteOffState)) {
+    throw new Error(`Live controls note contradicted mic-off state: ${liveNoteOffState}`);
+  }
+  const liveInstructionState = await page.evaluate(() => eval(`(() => {
+    courseAccessMode = 'full';
+    teacherAutopilotEnabled = true;
+    teacherLiveListening = true;
+    teacherListening = false;
+    teacherServerMicActive = false;
+    const starting = teacherLiveInstructionText();
+    teacherListening = true;
+    const live = teacherLiveInstructionText();
+    teacherLiveListening = false;
+    teacherListening = false;
+    const off = teacherLiveInstructionText();
+    return { starting, live, off };
+  })()`));
+  if (/is listening/i.test(liveInstructionState.starting) || !/starting/i.test(liveInstructionState.starting) || !/is listening/i.test(liveInstructionState.live) || !/mic is off/i.test(liveInstructionState.off)) {
+    throw new Error(`Card live instruction text contradicted mic state: ${JSON.stringify(liveInstructionState)}`);
+  }
+  const liveInstructionRefreshState = await page.evaluate(() => eval(`(() => {
+    courseAccessMode = 'full';
+    teacherAutopilotEnabled = true;
+    teacherLiveListening = false;
+    teacherListening = false;
+    teacherServerMicActive = false;
+    const host = document.createElement('div');
+    host.id = 'liveInstructionRefreshFixture';
+    host.innerHTML = '<div class="study-instruction"><li class="teacher-live-instruction">' + teacherLiveInstructionText() + '</li>' + teacherLiveControlsHTML() + '</div>';
+    document.body.appendChild(host);
+    const before = {
+      instruction: host.querySelector('.teacher-live-instruction')?.textContent || '',
+      note: host.querySelector('.teacher-live-note')?.textContent || '',
+      state: host.querySelector('.teacher-live-state')?.textContent || ''
+    };
+    teacherLiveListening = true;
+    teacherListening = true;
+    updateTeacherListeningUI();
+    const after = {
+      instruction: host.querySelector('.teacher-live-instruction')?.textContent || '',
+      note: host.querySelector('.teacher-live-note')?.textContent || '',
+      state: host.querySelector('.teacher-live-state')?.textContent || ''
+    };
+    host.remove();
+    return { before, after };
+  })()`));
+  if (!/mic is off/i.test(liveInstructionRefreshState.before.instruction) || !/Press Start Live Teacher/i.test(liveInstructionRefreshState.before.note) || !/Live Teacher is listening/i.test(liveInstructionRefreshState.after.instruction) || !/teacher is listening until paused/i.test(liveInstructionRefreshState.after.note) || !/Live mic on/i.test(liveInstructionRefreshState.after.state)) {
+    throw new Error(`Rendered live teacher instruction did not refresh with mic state: ${JSON.stringify(liveInstructionRefreshState)}`);
+  }
+  await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1&view=browse`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('#coachVoiceGuide');
+  const demoBrowseVoiceGate = await page.evaluate(() => ({
+    hasVoiceButton: Boolean(document.querySelector('#coachVoiceGuide button.audio-instructions-btn')),
+    text: document.getElementById('coachVoiceGuide')?.textContent || '',
+    href: document.querySelector('#coachVoiceGuide a')?.getAttribute('href') || ''
+  }));
+  if (demoBrowseVoiceGate.hasVoiceButton || !/full access/i.test(demoBrowseVoiceGate.text) || demoBrowseVoiceGate.href !== 'pricing.html') {
+    throw new Error(`Demo Browse AI voice guide was not gated: ${JSON.stringify(demoBrowseVoiceGate)}`);
   }
   const cloudHistoryCheck = await page.evaluate(async () => {
     eval('courseAccessMode="full"');
@@ -489,10 +696,19 @@ try {
     serverMic: eval('teacherServerMicActive'),
     continuous: window.__lastSpeechRecognition?.continuous,
     lang: window.__lastSpeechRecognition?.lang,
-    button: document.getElementById('teacherTalkBtn')?.textContent || ''
+    button: document.getElementById('teacherTalkBtn')?.textContent || '',
+    sub: document.getElementById('teacherSub')?.textContent || '',
+    status: document.getElementById('teacherVoiceStatus')?.textContent || '',
+    disclosure: document.getElementById('teacherDisclosure')?.textContent || ''
   }));
   if (!liveTeacherState.live || !liveTeacherState.listening || !liveTeacherState.serverMic || !/Pause Listening/i.test(liveTeacherState.button)) {
     throw new Error(`Start Autopilot did not start continuous Live Teacher listening: ${JSON.stringify(liveTeacherState)}`);
+  }
+  if (/requesting microphone/i.test(liveTeacherState.sub + ' ' + liveTeacherState.status)) {
+    throw new Error(`Live Teacher showed contradictory mic readiness: ${JSON.stringify(liveTeacherState)}`);
+  }
+  if (/mic is off/i.test(liveTeacherState.disclosure)) {
+    throw new Error(`Live Teacher disclosure contradicted active mic state: ${JSON.stringify(liveTeacherState)}`);
   }
   const teacherPanelButtons = await page.evaluate(() => [...document.querySelectorAll('#teacherPanel .teacher-actions button')].map(button => button.textContent.replace(/\s+/g, ' ').trim()));
   if (teacherPanelButtons.length > 2) {
@@ -533,6 +749,8 @@ try {
     studyViewActive = true;
     studyRevealed = false;
     teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
     showStudyCard();
     teacherCommand('Hi, hi, hi.');
     return {
@@ -603,10 +821,10 @@ try {
     })()`);
   });
   await page.waitForTimeout(450);
-  await page.evaluate(() => window.__emitTeacherSpeech('привет что значит пожалуйста'));
+  await page.evaluate(() => window.__emitTeacherSpeech('как запомнить пожалуйста'));
   await page.waitForTimeout(350);
   const russianRecallQuestionChat = teacherChatBodies.at(-1);
-  if (teacherChatBodies.length <= beforeRussianRecallQuestionCount || !russianRecallQuestionChat?.message?.includes('привет что значит пожалуйста')) {
+  if (teacherChatBodies.length <= beforeRussianRecallQuestionCount || !russianRecallQuestionChat?.message?.includes('как запомнить пожалуйста')) {
     throw new Error(`Live Teacher swallowed Russian question during a recall card: ${JSON.stringify(russianRecallQuestionChat)}`);
   }
   await page.evaluate(() => window.__emitTeacherSpeech('pause listening'));
@@ -740,6 +958,86 @@ try {
   if (echoState.attempted || echoState.revealed || !/Yes, I am listening/i.test(echoState.message)) {
     throw new Error(`Teacher voice echo was treated as learner recall: ${JSON.stringify(echoState)}`);
   }
+  const delayedEchoState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    showStudyCard();
+    teacherSay('Choose your rating now. Say or click Again, Hard, Good, or Easy.');
+    teacherLastSpokenAt = Date.now() - 30000;
+    teacherVoicePlaybackActiveUntil = Date.now() + 5000;
+    teacherCommand('Choose your rating now. Say or click Again, Hard, Good, or Easy.');
+    return {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+  })()`));
+  if (delayedEchoState.attempted || delayedEchoState.revealed || !/Choose your rating/i.test(delayedEchoState.message)) {
+    throw new Error(`Delayed teacher voice echo was treated as learner speech: ${JSON.stringify(delayedEchoState)}`);
+  }
+  const targetAudioEchoState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'new' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
+    showStudyCard();
+    const target = SENTENCES[0][0];
+    teacherAppAudioOutputText = target;
+    teacherAppAudioOutputUntil = Date.now() + 5000;
+    teacherCommand(target);
+    return {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+  })()`));
+  if (targetAudioEchoState.attempted || targetAudioEchoState.revealed || /Heard:|Now test memory/i.test(targetAudioEchoState.message)) {
+    throw new Error(`Live Teacher treated app target audio as learner speech: ${JSON.stringify(targetAudioEchoState)}`);
+  }
+  const duplicateTranscriptState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }, { idx: 1, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    showStudyCard();
+    teacherCommand('next');
+    const afterFirst = { index: studyIndex, message: document.getElementById('teacherMessage')?.textContent || '' };
+    teacherCommand('next');
+    return {
+      afterFirst,
+      afterSecond: { index: studyIndex, message: document.getElementById('teacherMessage')?.textContent || '' }
+    };
+  })()`));
+  if (duplicateTranscriptState.afterSecond.index !== duplicateTranscriptState.afterFirst.index || duplicateTranscriptState.afterSecond.message !== duplicateTranscriptState.afterFirst.message) {
+    throw new Error(`Duplicate transcript executed twice: ${JSON.stringify(duplicateTranscriptState)}`);
+  }
+  const duplicateQuestionCountBefore = teacherChatBodies.filter(body => body.message === 'what does привет mean').length;
+  const duplicateQuestionState = await page.evaluate(() => eval(`(() => {
+    teacherAiBusy = false;
+    teacherQueuedAiRequests = [];
+    teacherCommand('what does привет mean');
+    const afterFirstStatus = document.getElementById('teacherVoiceStatus')?.textContent || '';
+    teacherCommand('what does привет mean');
+    return {
+      afterFirstStatus,
+      status: document.getElementById('teacherVoiceStatus')?.textContent || ''
+    };
+  })()`));
+  await page.waitForTimeout(350);
+  const duplicateQuestionMatches = teacherChatBodies.filter(body => body.message === 'what does привет mean').length;
+  if (duplicateQuestionMatches !== duplicateQuestionCountBefore + 1) {
+    throw new Error(`Duplicate natural question was sent to AI more than once: ${JSON.stringify({ duplicateQuestionState, duplicateQuestionCountBefore, duplicateQuestionMatches })}`);
+  }
   const queuedAiState = await page.evaluate(() => eval(`(() => {
     teacherAiBusy = true;
     teacherQueuedAiRequests = [];
@@ -831,10 +1129,35 @@ try {
     notVeryEasy: teacherCommandHasRating('not very easy', 'easy'),
     wasntEasy: teacherCommandHasRating("wasn't easy", 'easy'),
     didntFeelEasy: teacherCommandHasRating("it didn't feel easy", 'easy'),
+    goodThanks: teacherCommandHasRating('good thanks', 'good'),
+    thatWasEasy: teacherCommandHasRating('that was easy', 'easy'),
+    rateGood: teacherCommandHasRating('rate it good', 'good'),
+    myRatingGood: teacherCommandHasRating('my rating is good', 'good'),
     hard: teacherCommandHasRating('hard', 'hard')
   }))()`));
-  if (ratingCommandCheck.notGood || !ratingCommandCheck.good || ratingCommandCheck.notThatGood || ratingCommandCheck.dontThinkGood || ratingCommandCheck.dontThinkItsGood || ratingCommandCheck.notEasy || ratingCommandCheck.notVeryEasy || ratingCommandCheck.wasntEasy || ratingCommandCheck.didntFeelEasy || !ratingCommandCheck.hard) {
+  if (ratingCommandCheck.notGood || !ratingCommandCheck.good || ratingCommandCheck.notThatGood || ratingCommandCheck.dontThinkGood || ratingCommandCheck.dontThinkItsGood || ratingCommandCheck.notEasy || ratingCommandCheck.notVeryEasy || ratingCommandCheck.wasntEasy || ratingCommandCheck.didntFeelEasy || ratingCommandCheck.goodThanks || ratingCommandCheck.thatWasEasy || !ratingCommandCheck.rateGood || !ratingCommandCheck.myRatingGood || !ratingCommandCheck.hard) {
     throw new Error(`Teacher rating command negation check failed: ${JSON.stringify(ratingCommandCheck)}`);
+  }
+  const ratingQuestionState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = true;
+    teacherAutopilotEnabled = true;
+    studySessionStats = { newCount: 0, reviewCount: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 };
+    showStudyCard();
+    studyRevealed = true;
+    showStudyCard();
+    const before = { index: studyIndex, good: studySessionStats.goodCount, easy: studySessionStats.easyCount };
+    teacherCommand('is this good?');
+    return {
+      before,
+      after: { index: studyIndex, good: studySessionStats.goodCount, easy: studySessionStats.easyCount, message: document.getElementById('teacherMessage')?.textContent || '' }
+    };
+  })()`));
+  if (ratingQuestionState.after.good !== ratingQuestionState.before.good || ratingQuestionState.after.easy !== ratingQuestionState.before.easy || ratingQuestionState.after.index !== ratingQuestionState.before.index) {
+    throw new Error(`Rating question mutated progress instead of asking/answering: ${JSON.stringify(ratingQuestionState)}`);
   }
   const directDrillNavigation = await page.evaluate(() => eval(`(() => {
     teacherCommand('cloze');
@@ -867,6 +1190,66 @@ try {
   }
   if (!autopilotAttemptGate.afterRealAttempt.revealed) {
     throw new Error(`AI Teacher Autopilot did not reveal after a spoken recall attempt: ${JSON.stringify(autopilotAttemptGate.afterRealAttempt)}`);
+  }
+  const trivialRecallGate = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
+    showStudyCard();
+    teacherCommand('ok');
+    const afterOk = { attempted: teacherHasRecallAttempt(), message: document.getElementById('teacherMessage')?.textContent || '' };
+    teacherCommand('reveal');
+    return { afterOk, afterReveal: { revealed: studyRevealed, message: document.getElementById('teacherMessage')?.textContent || '' } };
+  })()`));
+  if (trivialRecallGate.afterOk.attempted || trivialRecallGate.afterReveal.revealed || !/real attempt|try recall/i.test(trivialRecallGate.afterReveal.message)) {
+    throw new Error(`AI Teacher Autopilot accepted trivial speech as recall: ${JSON.stringify(trivialRecallGate)}`);
+  }
+  const doubtRecallGate = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
+    showStudyCard();
+    teacherCommand('как запомнить это?');
+    const afterRussianDoubt = { attempted: teacherHasRecallAttempt(), revealed: studyRevealed, message: document.getElementById('teacherMessage')?.textContent || '' };
+    document.getElementById('studyInput').value = 'help';
+    const typedHelp = teacherHasRecallAttempt();
+    document.getElementById('studyInput').value = '?';
+    const typedQuestion = teacherHasRecallAttempt();
+    document.getElementById('studyInput').value = 'не знаю';
+    const typedRussianDoubt = teacherHasRecallAttempt();
+    document.getElementById('studyInput').value = 'skazhi pozhaluysta';
+    const typedRecall = teacherHasRecallAttempt();
+    return { afterRussianDoubt, typedHelp, typedQuestion, typedRussianDoubt, typedRecall };
+  })()`));
+  if (doubtRecallGate.afterRussianDoubt.attempted || doubtRecallGate.afterRussianDoubt.revealed || doubtRecallGate.typedHelp || doubtRecallGate.typedQuestion || doubtRecallGate.typedRussianDoubt || !doubtRecallGate.typedRecall) {
+    throw new Error(`AI Teacher Autopilot accepted doubt/non-recall as a real attempt: ${JSON.stringify(doubtRecallGate)}`);
+  }
+  const aiRatingActionGate = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = true;
+    teacherAutopilotEnabled = true;
+    studySessionStats = { newCount: 0, reviewCount: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 };
+    showStudyCard();
+    studyRevealed = true;
+    showStudyCard();
+    applyTeacherAiAction('rate_good');
+    return { index: studyIndex, good: studySessionStats.goodCount, message: document.getElementById('teacherMessage')?.textContent || '' };
+  })()`));
+  if (aiRatingActionGate.good !== 0 || aiRatingActionGate.index !== 0 || !/choose|rating|honest|you rate/i.test(aiRatingActionGate.message)) {
+    throw new Error(`AI rating action directly mutated progress: ${JSON.stringify(aiRatingActionGate)}`);
   }
   const teacherModeIsolation = await page.evaluate(() => eval(`(() => {
     studyQueue = [{ idx: 0, type: 'review' }];
@@ -954,8 +1337,9 @@ try {
     throw new Error(`Short guided sessions must create true delayed recall with spacing. Saw: ${JSON.stringify(shortDelayed)}`);
   }
   await page.evaluate(() => localStorage.clear());
-  await page.reload({ waitUntil: 'networkidle' });
+  await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1&resetProgress=1`, { waitUntil: 'networkidle' });
   await page.waitForSelector('.study-start');
+  await page.evaluate(() => eval('courseAccessMode="full"; showStudyStart();'));
   await page.getByRole('button', { name: /Hear AI voice guide/i }).click();
   await page.waitForTimeout(250);
   await page.getByRole('button', { name: 'Start guided lesson' }).click();
@@ -980,8 +1364,9 @@ try {
     throw new Error(`Space/Enter auto-rated after reveal: before ${JSON.stringify(beforeKeyboardRating)}, after ${JSON.stringify(afterKeyboardRating)}`);
   }
   await page.evaluate(() => localStorage.clear());
-  await page.reload({ waitUntil: 'networkidle' });
+  await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1&resetProgress=1`, { waitUntil: 'networkidle' });
   await page.waitForSelector('.study-start');
+  await page.evaluate(() => eval('courseAccessMode="full"; showStudyStart();'));
   const translitCheck = await page.evaluate(() => {
     const analysis = eval('analyzeAttempt(SENTENCES[0][1], SENTENCES[0][0], SENTENCES[0][1])');
     return { rating: analysis?.rating, checkedAs: analysis?.checkedAs, state: analysis?.state };
@@ -1036,19 +1421,50 @@ try {
   if (!/Self-check before rating/i.test(revealText)) {
     throw new Error('Blank optional recall did not show the self-check rubric.');
   }
-  await page.getByRole('button', { name: /Good/i }).dblclick();
+  await page.evaluate(() => eval(`(() => {
+    teacherAutopilotEnabled = false;
+    teacherModeEnabled = false;
+    localStorage.setItem(storagePrefix + 'teacher_autopilot', '0');
+    localStorage.setItem(storagePrefix + 'teacher_mode', '0');
+    stopTeacherListening({ disableLive: true });
+    hideAllViews();
+    setActiveMode('study');
+    studyViewActive = true;
+    document.getElementById('studyView').classList.add('active');
+    document.getElementById('studyHeaderBar').style.display = 'flex';
+    studyQueue = [{ idx: 0, type: 'review' }, { idx: 1, type: 'review' }];
+    studyIndex = 0;
+    studySessionStats = { newCount: 0, reviewCount: 0, againCount: 0, hardCount: 0, goodCount: 0, easyCount: 0 };
+    studyRevealed = false;
+    studyRatingLocked = false;
+    showStudyCard();
+    revealStudyCard({ bypassRecallGate: true, playAudio: false });
+  })()`));
+  await page.evaluate(() => {
+    const button = document.querySelector('.study-rating .btn-good');
+    button?.click();
+    button?.click();
+  });
   await page.waitForTimeout(900);
-  const teacherAfterFirstRating = await page.evaluate(() => eval('teacherModeEnabled'));
-  if (teacherAfterFirstRating) {
-    throw new Error('Teacher Mode turned on during the rating double-click guard test.');
-  }
   const firstClickState = await page.evaluate(() => ({
     studyIndex: eval('studyIndex'),
-    goodCount: eval('studySessionStats.goodCount')
+    goodCount: eval('studySessionStats.goodCount'),
+    revealed: eval('studyRevealed'),
+    locked: eval('studyRatingLocked'),
+    goodButtons: document.querySelectorAll('.study-rating .btn-good').length,
+    card: document.querySelector('.study-card')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 260) || ''
   }));
   if (firstClickState.studyIndex !== 1 || firstClickState.goodCount !== 1) {
     throw new Error(`Rating guard failed. State after double click: ${JSON.stringify(firstClickState)}`);
   }
+  await page.evaluate(() => eval(`(() => {
+    teacherModeEnabled = false;
+    teacherAutopilotEnabled = false;
+    localStorage.setItem(storagePrefix + 'teacher_mode', '0');
+    localStorage.setItem(storagePrefix + 'teacher_autopilot', '0');
+    startStudyView();
+    beginStudySession();
+  })()`));
   for (let i = 0; i < 40; i++) {
     if (await page.locator('.study-summary').count()) break;
     await completeCurrentCard();

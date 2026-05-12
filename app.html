@@ -376,8 +376,12 @@ body.app-booting #teacherPanel{display:none!important}
 .teacher-transcript{min-height:18px;font-size:.82rem;color:var(--text3);margin-bottom:8px}
 .teacher-voice-status{min-height:16px;font-size:.74rem;color:var(--text3);margin-bottom:6px}
 .teacher-disclosure{font-size:.72rem;color:var(--text3);line-height:1.35}
+.teacher-access-note{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:11px 12px;color:var(--text2);font-size:.86rem;line-height:1.35}
+.teacher-access-note strong{display:block;color:var(--text);margin-bottom:3px}
+.teacher-access-note a{color:var(--primary);font-weight:800}
 .ai-voice-label{display:inline-flex;margin-left:6px;padding:1px 6px;border-radius:999px;border:1px solid var(--border);font-size:.68rem;font-weight:800;letter-spacing:0;color:var(--text3);background:var(--bg)}
 .audio-instructions-btn.voice-loading{opacity:.75;cursor:wait}
+.inline-voice-status{display:block;margin:-6px 0 10px;font-size:.78rem;color:var(--text3);line-height:1.35}
 @media(max-width:640px){body.teacher-active{padding-bottom:410px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:58vh}.teacher-actions{grid-template-columns:1fr}.teacher-chat{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}.teacher-mode-options{grid-template-columns:1fr}.teacher-live-controls .btn{flex:1 1 100%}.cloud-history-row{grid-template-columns:1fr}.cloud-history-actions{justify-content:flex-start}}
 </style>
 </head>
@@ -446,10 +450,10 @@ body.app-booting #teacherPanel{display:none!important}
     <div class="coach-step"><strong>3. Reveal</strong>Compare with the answer.</div>
     <div class="coach-step"><strong>4. Review</strong>Again, Hard, Good, or Easy schedules the next repetition.</div>
    </div>
-   <div class="coach-action">
-    <button class="btn btn-primary" onclick="startStudyView()">Start guided lesson</button>
-    <button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakMethodGuide(this)">&#128266; Hear how Lang5K works <span class="ai-voice-label">AI voice</span></button>
-    <div class="coach-secondary">Best practical path: review due cards first, then add new ones.</div>
+    <div class="coach-action">
+     <button class="btn btn-primary" onclick="startStudyView()">Start guided lesson</button>
+     <div id="coachVoiceGuide"></div>
+     <div class="coach-secondary">Best practical path: review due cards first, then add new ones.</div>
    </div>
   </div>
  </div>
@@ -517,7 +521,7 @@ body.app-booting #teacherPanel{display:none!important}
  </div>
  <div class="teacher-message" id="teacherMessage">Turn on Teacher Mode when you want me to guide the lesson step by step.</div>
  <div class="teacher-actions">
- <button class="btn btn-primary teacher-live-talk" id="teacherTalkBtn" type="button" onclick="teacherToggleLiveListening()">Start Live Teacher</button>
+  <button class="btn btn-primary" id="teacherTalkBtn" type="button" onclick="teacherToggleLiveListening()">Start Live Teacher</button>
  <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Next step</button>
  </div>
  <form class="teacher-chat" onsubmit="teacherSubmitQuestion(event)">
@@ -526,7 +530,7 @@ body.app-booting #teacherPanel{display:none!important}
  </form>
  <div class="teacher-transcript" id="teacherTranscript"></div>
  <div class="teacher-voice-status" id="teacherVoiceStatus"></div>
- <div class="teacher-disclosure">Mic is off until you start the live teacher. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.</div>
+  <div class="teacher-disclosure" id="teacherDisclosure">Mic is off until you start the live teacher. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.</div>
 </div>
 
 <script src="languages/config.js"></script>
@@ -607,10 +611,15 @@ let teacherServerMicActive=false;
 let teacherServerMicSubmitting=false;
 let teacherServerMicFlushTimer=null;
 let teacherServerMicPendingSegments=[];
-let teacherServerMicContentType='audio/webm';
+let teacherServerMicContentType='';
 let teacherLastTranscriptAt=0;
+let teacherLastCommandText='';
+let teacherLastCommandAt=0;
 let teacherLastSpokenText='';
 let teacherLastSpokenAt=0;
+let teacherVoicePlaybackActiveUntil=0;
+let teacherAppAudioOutputText='';
+let teacherAppAudioOutputUntil=0;
 let teacherAiBusy=false;
 let teacherQueuedAiRequests=[];
 let teacherAttemptedRecallKey='';
@@ -627,9 +636,14 @@ let dictationCurrent=null;
 let hostedAudioIds=null;
 let hostedAudioById=new Map();
 let audioManifestVersion='';
+let hostedAudioManifestPromise=null;
 let shadowRecorder=null;
 let shadowChunks=[];
 let shadowAudioUrl='';
+let pendingActiveSessionResume=false;
+let pendingActiveSessionTypedAttempt='';
+let pendingActiveSessionRevealed=false;
+let pendingActiveSessionNewRecall=false;
 
 // SRS Constants (Leitner system)
 const LEITNER_DAYS={1:1,2:3,3:7,4:14,5:30};
@@ -714,12 +728,16 @@ function clearCurrentAudio(){
   currentAudio.currentTime=0;
   currentAudio=null;
  }
+ teacherAppAudioOutputText='';
+ teacherAppAudioOutputUntil=0;
 }
 
 function setTeacherVoiceStatus(message='',sourceButton=null,busy=false){
  const status=document.getElementById('teacherVoiceStatus');
  if(status)status.textContent=message;
  if(sourceButton){
+  const existing=sourceButton.nextElementSibling&&sourceButton.nextElementSibling.classList?.contains('inline-voice-status')?sourceButton.nextElementSibling:null;
+  if(existing&&(!message||busy))existing.remove();
   if(!sourceButton.dataset.originalHtml)sourceButton.dataset.originalHtml=sourceButton.innerHTML;
   if(busy)teacherVoiceSourceButton=sourceButton;
   sourceButton.disabled=busy;
@@ -731,6 +749,12 @@ function setTeacherVoiceStatus(message='',sourceButton=null,busy=false){
   if(!busy){
    sourceButton.innerHTML=sourceButton.dataset.originalHtml;
    if(teacherVoiceSourceButton===sourceButton)teacherVoiceSourceButton=null;
+   if(message){
+    const inline=existing||document.createElement('span');
+    inline.className='inline-voice-status';
+    inline.textContent=message;
+    sourceButton.insertAdjacentElement('afterend',inline);
+   }
   }
  }
 }
@@ -758,6 +782,9 @@ function clearPremiumTeacherAudio(){
 
 function stopPlayback(){
  teacherVoiceRequestId++;
+ teacherVoicePlaybackActiveUntil=0;
+ teacherAppAudioOutputText='';
+ teacherAppAudioOutputUntil=0;
  clearCurrentAudio();
  clearPremiumTeacherAudio();
  clearTeacherVoiceStatus();
@@ -854,8 +881,11 @@ async function playPremiumTeacherVoice(text,{onend,onerror,voiceToken=''}={}){
 function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButton=null,voiceToken=''}={}){
  stopPlayback();
  const requestId=++teacherVoiceRequestId;
+ const clean=String(text||'').replace(/\s+/g,' ').trim();
+ teacherVoicePlaybackActiveUntil=Date.now()+Math.min(45000,Math.max(12000,clean.length*95+4000));
  setTeacherVoiceStatus('Preparing premium AI voice...',sourceButton,true);
  const done=()=>{
+  if(requestId===teacherVoiceRequestId)teacherVoicePlaybackActiveUntil=Date.now()+2000;
   if(requestId===teacherVoiceRequestId)clearTeacherVoiceStatus(sourceButton);
   if(onend)onend();
  };
@@ -864,6 +894,7 @@ function speakTeacherVoice(text,{lang='en-US',rate=.95,onend,onerror,sourceButto
   }).catch(error=>{
    if(error.name==='AbortError')return;
    trackAnalytics('audio_fallback',{reason:'teacher_voice_unavailable'});
+   if(requestId===teacherVoiceRequestId)teacherVoicePlaybackActiveUntil=Date.now()+1000;
    if(requestId===teacherVoiceRequestId)setTeacherVoiceStatus('Premium AI voice unavailable. I will stay text only instead of using a robotic voice.',sourceButton,false);
    if(onerror)onerror();
   });
@@ -879,11 +910,39 @@ function speakMethodGuide(button=null){
  speakInstruction(METHOD_AUDIO_INSTRUCTIONS,button);
 }
 
+function teacherCanUsePremiumAi(){
+ return courseAccessMode==='full';
+}
+
+function teacherAccessRequiredHTML(){
+ return `<div class="teacher-access-note"><strong>AI Teacher is full-access.</strong> Unlock the full course to use live listening, AI replies, and premium voice. <a href="pricing.html">Unlock full course</a></div>`;
+}
+
+function teacherShowAccessRequired(){
+ teacherAutopilotEnabled=false;
+ localStorage.setItem(storagePrefix+'teacher_autopilot','0');
+ stopTeacherListening({disableLive:true});
+ toggleTeacherMode(true);
+ setTeacherVoiceStatus('AI Teacher needs full access. The demo cards still work without live AI.');
+ teacherSay('AI Teacher voice and live answers are included with full access. You can continue the demo cards now, or unlock the full course when ready.',{speak:false});
+ refreshTeacherStudyModeControls();
+}
+
+function renderCoachVoiceGuide(){
+ const host=document.getElementById('coachVoiceGuide');
+ if(!host)return;
+ host.innerHTML=teacherCanUsePremiumAi()
+  ? '<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakMethodGuide(this)">&#128266; Hear how Lang5K works <span class="ai-voice-label">AI voice</span></button>'
+  : '<a class="btn btn-secondary audio-instructions-btn" href="pricing.html">AI voice guide with full access</a>';
+}
+
 function instructionButtonHTML(text,label='Hear Audio Instructions'){
+ if(!teacherCanUsePremiumAi())return `<a class="btn btn-secondary audio-instructions-btn" href="pricing.html">AI voice guide with full access</a>`;
  return `<button type="button" class="btn btn-secondary audio-instructions-btn" onclick="speakInstruction('${escapeForHandler(text)}',this)">&#128266; ${escapeHtml(label)} <span class="ai-voice-label">AI voice</span></button>`;
 }
 
 function teacherStudyModeControlsHTML(){
+ if(!teacherCanUsePremiumAi())return teacherAccessRequiredHTML();
  const selfActive=!teacherAutopilotEnabled?' active':'';
  const teacherActive=teacherAutopilotEnabled?' active':'';
  return `<div class="teacher-mode-chooser">
@@ -897,13 +956,31 @@ function teacherStudyModeControlsHTML(){
 }
 
 function teacherLiveControlsHTML(){
+ if(!teacherCanUsePremiumAi())return teacherAccessRequiredHTML();
  const liveClass=teacherLiveListening?' active':'';
- const liveText=teacherLiveListening?'Live listening':'Mic off';
- return `<div class="teacher-live-controls">
-  <button type="button" class="btn btn-primary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">&#127908; ${teacherLiveListening?'Pause Listening':'Start Live Teacher'}</button>
-  <div class="teacher-live-state${liveClass}"><span class="teacher-live-dot"></span>${liveText}</div>
-  <div class="teacher-live-note">The teacher listens until paused. Ask naturally, or say the Russian you remember.</div>
- </div>`;
+ const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
+ const liveText=micActive?'Live mic on':teacherLiveListening?'Starting mic':'Mic off';
+ const liveNote=teacherLiveNoteText();
+  return `<div class="teacher-live-controls">
+   <button type="button" class="btn btn-primary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">&#127908; ${teacherLiveListening?'Pause Listening':'Start Live Teacher'}</button>
+   <div class="teacher-live-state${liveClass}"><span class="teacher-live-dot"></span>${liveText}</div>
+   <div class="teacher-live-note">${liveNote}</div>
+  </div>`;
+}
+
+function teacherLiveInstructionText(){
+ const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
+ if(micActive)return 'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.';
+ if(teacherLiveListening)return 'Live Teacher is starting the microphone. Wait for Live mic on before speaking.';
+ if(teacherAutopilotEnabled)return 'AI Teacher is open, but the mic is off. Press Start Live Teacher if you want it to hear you.';
+ return 'Open AI Teacher if you want spoken guidance or questions.';
+}
+
+function teacherLiveNoteText(){
+ const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
+ if(micActive)return 'The teacher is listening until paused. Ask naturally, or say the Russian you remember.';
+ if(teacherLiveListening)return 'Microphone access is starting. Wait for Live mic on before speaking.';
+ return 'Press Start Live Teacher when you want the teacher to listen and guide by voice.';
 }
 
 function refreshTeacherStudyModeControls(){
@@ -914,6 +991,10 @@ function refreshTeacherStudyModeControls(){
 
 function teacherSetMode(mode){
  const autopilot=mode==='autopilot';
+ if(autopilot&&!teacherCanUsePremiumAi()){
+  teacherShowAccessRequired();
+  return;
+ }
  teacherAutopilotEnabled=autopilot;
  localStorage.setItem(storagePrefix+'teacher_autopilot',autopilot?'1':'0');
  refreshTeacherStudyModeControls();
@@ -922,7 +1003,7 @@ function teacherSetMode(mode){
   teacherAutopilotActivationActionsToSuppress=1;
   toggleTeacherMode(true);
   teacherSay('Live AI Teacher is on. I am listening and checking your lesson state now.',{speak:false});
-  teacherStartLiveListening({announce:false});
+  teacherStartLiveListening({announce:true});
   scheduleTeacherGuide(120);
  } else {
   stopTeacherListening({disableLive:true});
@@ -941,8 +1022,9 @@ function teacherEls(){
    transcript:document.getElementById('teacherTranscript'),
    talk:document.getElementById('teacherTalkBtn'),
    input:document.getElementById('teacherQuestionInput'),
-   ask:document.getElementById('teacherAskBtn')
- };
+   ask:document.getElementById('teacherAskBtn'),
+   disclosure:document.getElementById('teacherDisclosure')
+  };
 }
 
 function teacherFocusQuestion(){
@@ -975,6 +1057,7 @@ function teacherHoldTalkKeyUp(event){
 }
 
 function initializeTeacherMode(){
+ renderCoachVoiceGuide();
  const els=teacherEls();
  document.body.classList.toggle('teacher-active',teacherModeEnabled);
  if(els.panel)els.panel.classList.toggle('active',teacherModeEnabled);
@@ -1014,7 +1097,7 @@ function toggleTeacherMode(force){
 function teacherSay(text,{speak=true,voiceToken=''}={}){
  const els=teacherEls();
  if(els.message)els.message.textContent=text;
- if(teacherModeEnabled&&speak){
+ if(teacherModeEnabled&&speak&&teacherCanUsePremiumAi()){
   teacherLastSpokenText=String(text||'');
   teacherLastSpokenAt=Date.now();
   speakTeacherVoice(text,{lang:'en-US',rate:.95,voiceToken});
@@ -1105,7 +1188,7 @@ function teacherTypedRecallAttempt(){
  const current=teacherCurrentItem();
  const id=current?.kind==='cloze'?'clozeInput':current?.kind==='dictation'?'dictationInput':current?.kind==='study'?'studyInput':'';
  const input=id?document.getElementById(id):null;
- if(input&&input.offsetParent!==null&&input.value.trim().length>0)return true;
+ if(input&&input.offsetParent!==null)return teacherRecallTranscriptSignal(input.value);
  return false;
 }
 
@@ -1545,6 +1628,10 @@ function teacherAutopilotInstruction(){
 async function teacherAskAi(message,{source='typed'}={}){
  const clean=String(message||'').trim();
  if(!clean){teacherGuide();return}
+ if(!teacherCanUsePremiumAi()){
+  teacherShowAccessRequired();
+  return;
+ }
  if(!teacherModeEnabled)toggleTeacherMode(true);
  const els=teacherEls();
  if(els.transcript){
@@ -1566,6 +1653,10 @@ async function teacherAskAi(message,{source='typed'}={}){
    body:JSON.stringify({message:clean,context:teacherAiContext()})
   });
   const data=await response.json().catch(()=>({}));
+  if(response.status===401){
+   teacherShowAccessRequired();
+   return;
+  }
   if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
   teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false,voiceToken:data.voiceToken||''});
   maybeApplyTeacherAiAction(data.action,source);
@@ -1617,6 +1708,10 @@ function applyTeacherAiAction(action){
  if(!teacherAutopilotEnabled)return;
  if(!action||action==='none')return;
  if(action==='guide')return;
+ if(/^rate_(again|hard|good|easy)$/.test(action)){
+  teacherSay('You choose the rating. If you missed it choose Again, if it was partial choose Hard, if you got most choose Good, and use Easy only when it was instant and clean.',{speak:false});
+  return;
+ }
  teacherAutopilotActionTimes=teacherAutopilotMinuteWindow(teacherAutopilotActionTimes);
  if(teacherAutopilotActionTimes.length>=TEACHER_AUTOPILOT_MAX_ACTIONS_PER_MINUTE){
   teacherSay('Autopilot paused automatic actions for a moment. Tell me what is difficult, or press Next step when ready.',{speak:false});
@@ -1626,10 +1721,6 @@ function applyTeacherAiAction(action){
  if(action==='do_next'){teacherDoNext();return}
  if(action==='play_target'){teacherPlayTarget();return}
  if(action==='reveal'){safeTeacherReveal();return}
- if(action==='rate_again'){teacherRate('again');return}
- if(action==='rate_hard'){teacherRate('hard');return}
- if(action==='rate_good'){teacherRate('good');return}
- if(action==='rate_easy'){teacherRate('easy');return}
  if(action==='open_study'){teacherOpenMode('study');return}
  if(action==='open_browse'){teacherOpenMode('browse');return}
  if(action==='open_review'){teacherOpenMode('review');return}
@@ -1821,7 +1912,35 @@ function teacherRate(rating){
  teacherSay('Reveal and compare first. Then rate it.');
 }
 
+function teacherRatingQuestionSignal(text){
+ const raw=String(text||'');
+ const clean=raw.toLowerCase().replace(/\s+/g,' ').trim();
+ if(!/\b(again|hard|good|easy)\b/.test(clean))return false;
+ if(/[?]/.test(raw))return true;
+ return /^(?:is|was|were|am|are|do|does|did|should|can|could|would|will|what|how|why)\b.*\b(?:again|hard|good|easy)\b/.test(clean)
+  || /\b(?:should i|do you think|would you call|is it|was it)\b.*\b(?:again|hard|good|easy)\b/.test(clean);
+}
+
+function teacherRatingCommandIntent(text,rating){
+ const clean=String(text||'').toLowerCase().replace(/\s+/g,' ').trim();
+ if(!clean)return false;
+ if(clean===rating||clean===`${rating} please`)return true;
+ if(new RegExp(`^(?:rate|mark|choose|pick|select|set|record|score|grade)(?:\\s+(?:it|this|me|my answer|my recall|as|to|the rating)){0,4}\\s+${rating}$`).test(clean))return true;
+ if(new RegExp(`\\b(?:my rating|rating|score|grade)\\s+(?:is|was|=)?\\s*${rating}\\b`).test(clean))return true;
+ if(new RegExp(`\\b${rating}\\s+(?:rating|score|grade)\\b`).test(clean))return true;
+ return false;
+}
+
+function teacherRatingDiscussionSignal(text){
+ const clean=String(text||'').toLowerCase().replace(/\s+/g,' ').trim();
+ if(!/\b(again|hard|good|easy)\b/.test(clean))return false;
+ if(teacherRatingQuestionSignal(clean))return true;
+ return !['again','hard','good','easy'].some(rating=>teacherRatingCommandIntent(clean,rating));
+}
+
 function teacherCommandHasRating(text,rating){
+ if(teacherRatingQuestionSignal(text))return false;
+ if(!teacherRatingCommandIntent(text,rating))return false;
  const negated=new RegExp(`\\b(?:not|no|do not|don't|dont|did not|didn't|didnt|was not|wasn't|wasnt|is not|isn't|isnt|do not think|don't think|dont think)\\b(?:\\s+[\\w']+){0,5}\\s+${rating}\\b`).test(text);
  return !negated&&new RegExp(`\\b${rating}\\b`).test(text);
 }
@@ -1846,7 +1965,7 @@ function teacherLanguageOverride(text){
 }
 
 function teacherRussianQuestionSignal(text){
- return /[а-яё]/i.test(text)&&/(что значит|что означает|что такое|это значит|как сказать|как произнос|как пиш|объясни|перевод|граммат|падеж|род|ударени|слово|фраза|предложени|вопрос|помоги|не понимаю|не понял|не поняла)/i.test(text);
+ return /[а-яё]/i.test(text)&&/(что значит|что означает|что такое|это значит|что это|что делать|как сказать|как произнос|как пиш|как запомн|как учить|как понять|почему|можно ли|можешь|объясни|объясните|перевод|переведи|граммат|падеж|род|ударени|слово|фраза|предложени|вопрос|помоги|помогите|не знаю|не помню|забыл|забыла|не понимаю|не понял|не поняла|сложно|трудно)/i.test(text);
 }
 
 function teacherHardOffTopic(text){
@@ -1870,13 +1989,56 @@ function normalizeTeacherSpeech(value){
  return String(value||'').toLowerCase().replace(/[^a-zа-яё0-9]+/gi,' ').replace(/\s+/g,' ').trim();
 }
 
+function teacherDuplicateTranscript(raw){
+ const clean=normalizeTeacherSpeech(raw);
+ const now=Date.now();
+ if(!clean)return false;
+ const contextKey=teacherAttemptKey()+'|'+clean;
+ if(contextKey===teacherLastCommandText&&now-teacherLastCommandAt<6500)return true;
+ teacherLastCommandText=contextKey;
+ teacherLastCommandAt=now;
+ return false;
+}
+
 function teacherTranscriptEchoesTeacher(raw){
- const spoken=normalizeTeacherSpeech(teacherLastSpokenText);
  const transcript=normalizeTeacherSpeech(raw);
- if(!spoken||!transcript||Date.now()-teacherLastSpokenAt>12000)return false;
+ if(!transcript)return false;
+ const spoken=normalizeTeacherSpeech(teacherLastSpokenText);
+ const appAudio=normalizeTeacherSpeech(teacherAppAudioOutputText);
+ if(appAudio&&Date.now()<teacherAppAudioOutputUntil){
+  if(transcript.length>=4&&(appAudio.includes(transcript)||transcript.includes(appAudio)))return true;
+  const appStart=appAudio.split(' ').slice(0,5).join(' ');
+  if(appStart.length>=4&&transcript.includes(appStart))return true;
+ }
+ if(!spoken)return false;
+ const voiceStillActive=Date.now()<teacherVoicePlaybackActiveUntil;
+ if(!voiceStillActive&&Date.now()-teacherLastSpokenAt>12000)return false;
  if(transcript.length>=10&&spoken.includes(transcript))return true;
  const spokenStart=spoken.split(' ').slice(0,7).join(' ');
  return spokenStart.length>=10&&transcript.includes(spokenStart);
+}
+
+function teacherRecallTranscriptSignal(text){
+ const clean=String(text||'').toLowerCase().replace(/\s+/g,' ').trim();
+ if(!clean)return false;
+ if(/^(ok|okay|yes|yeah|yep|no|nope|hi|hello|hey|done|ready|i tried|i did it)$/i.test(clean))return false;
+ const current=teacherCurrentItem();
+ const sentence=current?.sentence||[];
+ if(hasCyrillic(clean)){
+  const targetCyrillic=answerTokens(sentence[0]||'');
+  const spokenCyrillic=answerTokens(clean);
+  if(!spokenCyrillic.length)return false;
+  const comparison=compareTokenRecall(spokenCyrillic,targetCyrillic);
+  if(teacherRussianQuestionSignal(clean)||/(^|\s)(не знаю|не помню|забыл|забыла|не понимаю|сложно|трудно)(\s|$)/i.test(clean)){
+   return comparison.sharedUnique.length>=2||comparison.overlap>=0.35;
+  }
+  return /[а-яё]{2,}/i.test(clean);
+ }
+ const target=latinTokens(`${sentence[0]||''} ${sentence[1]||''}`);
+ const spoken=latinTokens(clean);
+ if(spoken.length<2)return false;
+ if(target.length&&compareTokenRecall(spoken,target).sharedUnique.length>0)return true;
+ return /\b(?:zh|kh|ts|ch|sh|sch|ya|ye|yo|yu|iy|yy|aya|ogo|ovo|cht|cto|chto|vy|my|eto|kak|gde|skazhi|pozhaluysta|spasibo|prostite)\b/.test(clean);
 }
 
 function teacherVoiceLooksLikeRecallAttempt(text){
@@ -1886,7 +2048,7 @@ function teacherVoiceLooksLikeRecallAttempt(text){
  if(teacherRussianQuestionSignal(text))return false;
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text))return false;
  if(/\b(where|why|what|how|gender|case|grammar|meaning|means|pronounce|pronunciation|spell|spelling|doubt|question|confused|stuck|what now|what should|what do i do|should i do now|next step|explain|should i|can i|do you think|am i|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|say it|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
- return text.length>=2;
+ return teacherRecallTranscriptSignal(text);
 }
 
 function teacherVoiceLooksLikeShadowing(text){
@@ -1896,13 +2058,14 @@ function teacherVoiceLooksLikeShadowing(text){
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text))return false;
  if(teacherIsListeningCheck(text)||teacherPauseListeningRequested(text)||teacherStopTeacherRequested(text))return false;
  if(/\b(where|why|what|how|meaning|means|grammar|pronounce|pronunciation|spell|spelling|doubt|question|confused|stuck|next step|explain|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
- return String(text||'').trim().length>=2;
+ return teacherRecallTranscriptSignal(text);
 }
 
 function teacherShouldAskAiFirst(text){
  if(teacherIsListeningCheck(text))return false;
  if(teacherNaturalDoubtSignal(text))return true;
  if(teacherRussianQuestionSignal(text))return true;
+ if(teacherRatingDiscussionSignal(text))return true;
  if(teacherVoiceLooksLikeRecallAttempt(text))return false;
  if(teacherCommandHasRating(text,'again')||teacherCommandHasRating(text,'hard')||teacherCommandHasRating(text,'good')||teacherCommandHasRating(text,'easy'))return false;
  if(/^\s*(reveal|show answer|answer|play|listen|repeat|next|continue|move on|start|begin)\s*$/i.test(text))return false;
@@ -1939,6 +2102,7 @@ function teacherCommand(raw){
   if(els.transcript)els.transcript.textContent='';
   return;
  }
+ if(teacherDuplicateTranscript(transcript))return;
  teacherLastTranscriptAt=Date.now();
  if(els.transcript)els.transcript.textContent=transcript?'I heard: '+transcript:'';
  if(!text){teacherGuide();return}
@@ -2031,10 +2195,35 @@ function teacherCommand(raw){
 
 function updateTeacherListeningUI(){
  const els=teacherEls();
+ if(!teacherCanUsePremiumAi()){
+  if(els.sub)els.sub.textContent='AI Teacher voice and live listening are included with full access.';
+  if(els.talk){
+   els.talk.textContent='Unlock AI Teacher';
+   els.talk.classList.remove('active');
+   els.talk.onclick=()=>{window.location.href='pricing.html'};
+  }
+  document.querySelectorAll('.teacher-live-talk').forEach(button=>{
+   button.innerHTML='Unlock AI Teacher';
+   button.classList.remove('active');
+   button.disabled=false;
+  });
+  document.querySelectorAll('.teacher-live-state').forEach(node=>{
+   node.classList.remove('active');
+   node.innerHTML='<span class="teacher-live-dot"></span>Full access';
+  });
+  if(els.disclosure)els.disclosure.textContent='AI Teacher voice and live listening are included with full access. The demo cards do not send microphone audio.';
+  return;
+ }
  const micActive=teacherLiveListening&&(teacherListening||teacherServerMicActive);
  const liveText=micActive?'Live mic on':teacherLiveListening?'Starting mic':'Live mic off';
  if(els.sub)els.sub.textContent=micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
+ if(els.disclosure)els.disclosure.textContent=micActive
+  ? 'Live Teacher is listening. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.'
+  : teacherLiveListening
+   ? 'Microphone access is starting. Short audio segments may be sent only after the live teacher is listening.'
+   : 'Mic is off until you start the live teacher. Short audio segments may be sent for transcription only while Live Teacher is on; Lang5K does not store audio.';
  if(els.talk){
+  els.talk.onclick=teacherToggleLiveListening;
   els.talk.textContent=teacherLiveListening?(micActive?'Pause Listening':'Starting...'):'Start Live Teacher';
   els.talk.classList.toggle('active',micActive);
  }
@@ -2046,6 +2235,12 @@ function updateTeacherListeningUI(){
  document.querySelectorAll('.teacher-live-state').forEach(node=>{
   node.classList.toggle('active',micActive);
   node.innerHTML=`<span class="teacher-live-dot"></span>${liveText}`;
+ });
+ document.querySelectorAll('.teacher-live-note').forEach(node=>{
+  node.textContent=teacherLiveNoteText();
+ });
+ document.querySelectorAll('.teacher-live-instruction').forEach(node=>{
+  node.textContent=teacherLiveInstructionText();
  });
 }
 
@@ -2109,6 +2304,9 @@ async function drainTeacherServerMicSegments(){
   if(response.ok&&data.ok&&teacherTranscriptLooksUseful(data.text)){
    teacherCommand(data.text);
    handled=true;
+  }else if(response.status===401){
+   teacherShowAccessRequired();
+   handled=true;
   }else if(!response.ok&&response.status!==429&&!teacherHadRecentTranscript()){
    setTeacherVoiceStatus('I can see the mic, but I could not read that clearly. Try one short sentence, or type it.');
   }
@@ -2124,15 +2322,30 @@ async function drainTeacherServerMicSegments(){
 async function teacherSubmitServerMicSegment({force=false}={}){
  const chunks=teacherServerMicChunks.splice(0);
  if(!chunks.length)return false;
- const type=teacherServerMicContentType||((teacherServerMicRecorder&&teacherServerMicRecorder.mimeType)||'audio/webm');
+ const type=teacherServerMicContentType||(teacherServerMicRecorder&&teacherServerMicRecorder.mimeType)||'';
+ if(!type){
+  setTeacherVoiceStatus('Live mic recorder format is unsupported in this browser. Try Chrome or Edge for Live Teacher voice.');
+  return false;
+ }
  const blob=new Blob(chunks,{type});
  return teacherSubmitServerMicBlob(blob,type,{force});
 }
 
+function teacherServerMicRecorderOptions(){
+ if(typeof MediaRecorder==='undefined')return {};
+ const candidates=['audio/webm;codecs=opus','audio/webm','audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/ogg;codecs=opus'];
+ if(typeof MediaRecorder.isTypeSupported!=='function')return {};
+ const mimeType=candidates.find(type=>MediaRecorder.isTypeSupported(type));
+ return mimeType?{mimeType}:{};
+}
+
 function startTeacherServerMicRecorder({announce=false}={}){
  if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled)return false;
- const preferred='audio/webm;codecs=opus';
- const options=MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(preferred)?{mimeType:preferred}:{mimeType:'audio/webm'};
+ const options=teacherServerMicRecorderOptions();
+ if(!options.mimeType){
+  setTeacherVoiceStatus('Live mic transcription needs a browser-supported audio format. Try Chrome or Edge if this browser cannot start it.');
+  return false;
+ }
  let recorder;
  try{
   recorder=new MediaRecorder(teacherServerMicStream,options);
@@ -2141,13 +2354,13 @@ function startTeacherServerMicRecorder({announce=false}={}){
   return false;
  }
  teacherServerMicRecorder=recorder;
- teacherServerMicContentType=recorder.mimeType||options.mimeType||'audio/webm';
+ teacherServerMicContentType=recorder.mimeType||options.mimeType;
  teacherServerMicChunks=[];
  recorder.ondataavailable=event=>{if(event.data&&event.data.size)teacherServerMicChunks.push(event.data)};
  recorder.onstart=()=>{
   teacherServerMicActive=true;
   updateTeacherListeningUI();
-  if(announce)setTeacherVoiceStatus('Live Teacher is listening. Ask naturally; silence is ignored.');
+  setTeacherVoiceStatus('Live Teacher is listening. Ask naturally; silence is ignored.');
  };
  recorder.onerror=()=>{
   setTeacherVoiceStatus('The mic recorder had an issue. Press Start Live Teacher to retry.');
@@ -2155,12 +2368,14 @@ function startTeacherServerMicRecorder({announce=false}={}){
  };
  recorder.onstop=()=>{
   const chunks=teacherServerMicChunks.splice(0);
-  const type=teacherServerMicContentType||recorder.mimeType||'audio/webm';
+  const type=teacherServerMicContentType||recorder.mimeType||'';
   if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
   teacherServerMicActive=false;
   if(chunks.length){
-   const blob=new Blob(chunks,{type});
-   teacherSubmitServerMicBlob(blob,type);
+   if(type){
+    const blob=new Blob(chunks,{type});
+    teacherSubmitServerMicBlob(blob,type);
+   }
   }
   updateTeacherListeningUI();
   if(teacherLiveListening&&teacherModeEnabled&&teacherServerMicStream){
@@ -2181,6 +2396,7 @@ function startTeacherServerMicRecorder({announce=false}={}){
 
 async function teacherStartServerMic({announce=true}={}){
  if(teacherServerMicActive||teacherServerMicRecorder)return true;
+ if(!teacherCanUsePremiumAi())return false;
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined')return false;
  try{
   const stream=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -2189,12 +2405,18 @@ async function teacherStartServerMic({announce=true}={}){
    return false;
   }
   teacherServerMicStream=stream;
-  if(!startTeacherServerMicRecorder({announce}))return false;
+  if(!startTeacherServerMicRecorder({announce})){
+   stream.getTracks().forEach(track=>track.stop());
+   if(teacherServerMicStream===stream)teacherServerMicStream=null;
+   teacherServerMicActive=false;
+   updateTeacherListeningUI();
+   return false;
+  }
   teacherServerMicFlushTimer=setInterval(()=>{
    if(teacherServerMicRecorder&&teacherServerMicRecorder.state==='recording'){
     try{teacherServerMicRecorder.stop()}catch(_){}
    }
-  },3600);
+  },5200);
   return true;
  }catch(_){
   teacherServerMicActive=false;
@@ -2222,6 +2444,10 @@ function stopTeacherListening({disableLive=false}={}){
 
 function teacherStartLiveListening({announce=true}={}){
  if(!teacherModeEnabled)toggleTeacherMode(true);
+ if(!teacherCanUsePremiumAi()){
+  teacherShowAccessRequired();
+  return false;
+ }
  const serverMicSupported=Boolean(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&typeof MediaRecorder!=='undefined');
  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!SpeechRecognition&&!serverMicSupported){
@@ -2258,7 +2484,7 @@ function teacherStartLiveListening({announce=true}={}){
   if(teacherRecognition!==recognition)return;
   teacherListening=true;
   updateTeacherListeningUI();
-  if(announce&&!teacherServerMicActive)setTeacherVoiceStatus('Live mic on. I am listening while you study. Silence is ignored.');
+  if(!teacherServerMicActive)setTeacherVoiceStatus('Live mic on. I am listening while you study. Silence is ignored.');
  };
  recognition.onresult=event=>{
   for(let i=event.resultIndex||0;i<(event.results?.length||0);i++){
@@ -2360,13 +2586,19 @@ function playAudio(text,idx,{onend,onerror}={}){
  currentAudio=audio;
  audio.preload='auto';
  audio.playbackRate=speechRate;
- audio.onended=()=>{if(currentAudio===audio)currentAudio=null;if(onend)onend()};
+ teacherAppAudioOutputText=text;
+ teacherAppAudioOutputUntil=Date.now()+12000;
+ const clearAppAudioOutput=()=>{
+  if(currentAudio===audio)currentAudio=null;
+  if(teacherAppAudioOutputText===text)teacherAppAudioOutputUntil=Date.now()+1500;
+ };
+ audio.onended=()=>{clearAppAudioOutput();if(onend)onend()};
 audio.onerror=()=>{
-   if(currentAudio===audio)currentAudio=null;
+   clearAppAudioOutput();
    unavailable('hosted_audio_error');
   };
   audio.play().catch(()=>{
-   if(currentAudio===audio)currentAudio=null;
+   clearAppAudioOutput();
    unavailable('browser_blocked_audio');
   });
 }
@@ -2430,25 +2662,33 @@ function shadowToolsHTML(){
 async function loadLanguageData(){
  try{
   const token=localStorage.getItem('lang5k_access_token')||'';
-  const wantsFull=!demoRequested;
-  const query=new URLSearchParams({lang:langKey,mode:wantsFull?'full':'demo'});
-  const response=await fetch('/api/course?'+query.toString(),{
-   cache:'no-store',
-   headers:wantsFull&&token?{Authorization:'Bearer '+token}:{}
-  });
-  const data=await response.json().catch(()=>({error:'Unable to read course response.'}));
+  const requestCourse=async mode=>{
+   const query=new URLSearchParams({lang:langKey,mode});
+   const response=await fetch('/api/course?'+query.toString(),{
+    cache:'no-store',
+    headers:mode==='full'&&token?{Authorization:'Bearer '+token}:{}
+   });
+   const data=await response.json().catch(()=>({error:'Unable to read course response.'}));
+   return {response,data};
+  };
+  const preferFull=Boolean(token)||!demoRequested;
+  let {response,data}=await requestCourse(preferFull?'full':'demo');
+  if(!response.ok&&demoRequested&&preferFull){
+   ({response,data}=await requestCourse('demo'));
+  }
   if(!response.ok){
    renderAccessRequired(data.error||'Paid access is required.');
    return;
   }
   SENTENCES=data.sentences||[];
-  normalizeStoredProgress();
   courseAccessMode=data.mode||'demo';
+  normalizeStoredProgress();
   if(!SENTENCES.length){
    app.innerHTML='<div class="empty-state">No data loaded for this language yet.</div>';
    finishAppBoot();
    return;
   }
+  if(hostedAudioIds===null&&hostedAudioManifestPromise)await hostedAudioManifestPromise;
   renderAudioStatusNotice();
   premiumStudyOrder=buildPremiumStudyOrder();
   if(!resetProgressRequested)await syncCloudProgress('load');
@@ -2523,6 +2763,7 @@ function shouldAutoStartGuidedLesson(){
 
 function openInitialLearnerView(){
  const view=urlParams.get('view')||'';
+ if(resumeActiveSessionView())return;
  if(shouldAutoStartGuidedLesson()){app.innerHTML='';startStudyView();return}
  if(view==='cloze'){showClozeView();return}
  if(view==='dictation'){showDictationView();return}
@@ -3255,6 +3496,7 @@ function activeSessionPayload(){
   teacherLiveListening,
   teacherAttemptedRecallKey,
   teacherSpokenRecallAttempt:{...teacherSpokenRecallAttempt},
+  newRecallActive:Boolean(studyQueue[studyIndex]?.type==='new'&&document.getElementById('studyInput')),
   typedAttempt:attempt.raw||'',
   updatedAt:Date.now()
  };
@@ -3280,12 +3522,22 @@ function markLocalProgressChanged(){
 
 function applyActiveSessionPayload(session){
  if(!session||typeof session!=='object')return;
+ pendingActiveSessionResume=false;
+ pendingActiveSessionTypedAttempt='';
+ pendingActiveSessionRevealed=false;
+ pendingActiveSessionNewRecall=false;
  if(['browse','study','cloze','dictation','bin'].includes(session.mode))currentMode=session.mode;
  studyViewActive=Boolean(session.studyViewActive);
  studyIndex=Math.max(0,Number(session.studyIndex||0));
  if(Array.isArray(session.studyQueue)){
-  studyQueue=session.studyQueue.filter(item=>item&&typeof item==='object').slice(0,120);
- }
+  studyQueue=session.studyQueue.filter(item=>{
+   if(!item||typeof item!=='object')return false;
+   if(item.type==='spacing')return true;
+   const idx=Number(item.idx);
+   return Number.isInteger(idx)&&idx>=0&&idx<SENTENCES.length;
+  }).slice(0,120);
+  }
+ if(studyQueue.length)studyIndex=Math.min(studyIndex,studyQueue.length-1);
  studyRevealed=Boolean(session.studyRevealed);
  if(session.studySessionStats&&typeof session.studySessionStats==='object')studySessionStats={...studySessionStats,...session.studySessionStats};
  teacherModeEnabled=Boolean(session.teacherModeEnabled);
@@ -3296,8 +3548,36 @@ function applyActiveSessionPayload(session){
  stopTeacherListening({disableLive:true});
  teacherAttemptedRecallKey=typeof session.teacherAttemptedRecallKey==='string'?session.teacherAttemptedRecallKey:'';
  if(session.teacherSpokenRecallAttempt&&typeof session.teacherSpokenRecallAttempt==='object')teacherSpokenRecallAttempt={...teacherSpokenRecallAttempt,...session.teacherSpokenRecallAttempt};
+ pendingActiveSessionResume=Boolean(session.studyViewActive&&currentMode==='study'&&studyQueue.length&&studyIndex<studyQueue.length);
+ pendingActiveSessionTypedAttempt=typeof session.typedAttempt==='string'?session.typedAttempt.slice(0,300):'';
+ pendingActiveSessionRevealed=Boolean(session.studyRevealed);
+ pendingActiveSessionNewRecall=Boolean(session.newRecallActive);
  updateTeacherListeningUI();
  initializeTeacherMode();
+}
+
+function resumeActiveSessionView(){
+ if(!pendingActiveSessionResume||!studyQueue.length||studyIndex>=studyQueue.length)return false;
+ const typed=pendingActiveSessionTypedAttempt;
+ const shouldReveal=pendingActiveSessionRevealed;
+ const shouldShowNewRecall=pendingActiveSessionNewRecall;
+ pendingActiveSessionResume=false;
+ pendingActiveSessionTypedAttempt='';
+ pendingActiveSessionRevealed=false;
+ pendingActiveSessionNewRecall=false;
+ hideAllViews();
+ setActiveMode('study');
+ studyViewActive=true;
+ const studyView=document.getElementById('studyView');
+ const header=document.getElementById('studyHeaderBar');
+ if(studyView)studyView.classList.add('active');
+ if(header)header.style.display='flex';
+ showStudyCard();
+ if(shouldShowNewRecall&&studyQueue[studyIndex]?.type==='new')showNewRecallCard();
+ const input=document.getElementById('studyInput');
+ if(input&&typed)input.value=typed;
+ if(shouldReveal&&studyQueue[studyIndex]?.type!=='spacing')revealStudyCard({bypassRecallGate:true,playAudio:false});
+ return true;
 }
 
 function applyProgressPayload(progress){
@@ -3570,13 +3850,13 @@ function clampBackupSrsDate(value,{allowFuture=true,fallback=getToday()}={}){
  return value;
 }
 
-function sanitizeProgressBackupMap(source){
+function sanitizeProgressBackupMap(source,maxIndex=SENTENCES.length){
  const clean={};
  let skipped=0;
  if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
  Object.keys(source).forEach(key=>{
   const idx=Number(key);
-  if(Number.isInteger(idx)&&idx>=0&&idx<SENTENCES.length){
+  if(Number.isInteger(idx)&&idx>=0&&idx<maxIndex){
    if(source[key]===true){
     clean[idx]=true;
    }else if(source[key]!==false){
@@ -3589,13 +3869,13 @@ function sanitizeProgressBackupMap(source){
  return {value:clean,skipped};
 }
 
-function sanitizeProgressBackupSrs(source){
+function sanitizeProgressBackupSrs(source,maxIndex=SENTENCES.length){
  const clean={};
  let skipped=0;
  if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
  Object.entries(source).forEach(([key,item])=>{
   const idx=Number(key);
-  if(!Number.isInteger(idx)||idx<0||idx>=SENTENCES.length||!item||typeof item!=='object'||Array.isArray(item)){
+  if(!Number.isInteger(idx)||idx<0||idx>=maxIndex||!item||typeof item!=='object'||Array.isArray(item)){
    skipped++;
    return;
   }
@@ -3614,12 +3894,11 @@ function sanitizeProgressBackupSrs(source){
  return {value:clean,skipped};
 }
 
-function sanitizeProgressBackupStats(source){
+function sanitizeProgressBackupStats(source,maxDailyCount=SENTENCES.length){
  const clean={};
  let skipped=0;
  if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
- const maxDailyCount=SENTENCES.length;
- const maxStreakDays=3650;
+  const maxStreakDays=3650;
  function assignBoundedStat(key,maxValue){
   if(source[key]===undefined)return;
   const value=Number(source[key]);
@@ -3643,10 +3922,12 @@ function sanitizeProgressBackupStats(source){
 }
 
 function normalizeStoredProgress(){
- const learnedResult=sanitizeProgressBackupMap(learned);
- const reviewBinResult=sanitizeProgressBackupMap(reviewBin);
- const srsResult=sanitizeProgressBackupSrs(srsData);
- const statsResult=sanitizeProgressBackupStats(userStats);
+ const fullCourseLimit=Math.max(SENTENCES.length,Number(LANG.sentences)||0);
+ const progressLimit=courseAccessMode==='demo'?fullCourseLimit:SENTENCES.length;
+ const learnedResult=sanitizeProgressBackupMap(learned,progressLimit);
+ const reviewBinResult=sanitizeProgressBackupMap(reviewBin,progressLimit);
+ const srsResult=sanitizeProgressBackupSrs(srsData,progressLimit);
+ const statsResult=sanitizeProgressBackupStats(userStats,progressLimit);
  learned=learnedResult.value;
  reviewBin=reviewBinResult.value;
  srsData=srsResult.value;
@@ -4164,7 +4445,7 @@ function showStudyCard(){
      <ul>
       <li>This is English. Try to remember the Russian translation.</li>
      <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-      <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Teacher if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
+      <li class="teacher-live-instruction">${teacherLiveInstructionText()}</li>
     </ul>
     ${instructionButtonHTML(instruction)}
     ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
@@ -4200,7 +4481,7 @@ function showNewRecallCard(){
     <ul>
      <li>This is English. Try to remember the Russian translation you just heard.</li>
     <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-     <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Teacher if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
+     <li class="teacher-live-instruction">${teacherLiveInstructionText()}</li>
    </ul>
    ${instructionButtonHTML(instruction)}
    ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
@@ -4213,11 +4494,11 @@ function showNewRecallCard(){
  syncTeacherRecognitionLanguage();
 }
 
-function revealStudyCard(){
- if(studyRevealed)return;
- const item=studyQueue[studyIndex];
- if(!item||item.type==='spacing')return;
- if(teacherModeEnabled&&document.getElementById('studyInput')&&!teacherRequireRecallAttempt())return;
+function revealStudyCard(options={}){
+  if(studyRevealed)return;
+  const item=studyQueue[studyIndex];
+  if(!item||item.type==='spacing')return;
+  if(!options.bypassRecallGate&&teacherModeEnabled&&document.getElementById('studyInput')&&!teacherRequireRecallAttempt())return;
  studyRevealed=true;
  studyRatingLocked=false;
  syncTeacherRecognitionLanguage();
@@ -4271,7 +4552,7 @@ function revealStudyCard(){
    </div>
   </div>`;
 
- speakText(s[0],item.idx);
+ if(options.playAudio!==false)speakText(s[0],item.idx);
 }
 
 function rateStudyCard(rating){
@@ -4910,8 +5191,8 @@ function ratePractice(rating,mode){
  // Load saved daily goal
  syncDailyGoalFromStats();
 
- loadHostedAudioManifest();
- loadLanguageData();
+  hostedAudioManifestPromise=loadHostedAudioManifest();
+  loadLanguageData();
  window.addEventListener('pagehide',flushCloudProgress);
  if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
