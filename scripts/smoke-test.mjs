@@ -114,7 +114,7 @@ assertIncludes('app.html', app, 'showCloudProgressHistory');
 assertIncludes('app.html', app, 'restoreCloudProgressRevision');
 assertIncludes('app.html', app, 'storedCloudProgressRevision');
 assertIncludes('app.html', app, 'local_reset_only');
-assertIncludes('app.html', app, 'This is English. Try to remember the Russian translation');
+assertIncludes('app.html', app, 'This is English. Do not listen yet; try to remember the Russian from memory.');
 assertIncludes('app.html', app, 'Optional: type Russian or transliteration');
 assertIncludes('app.html', app, 'Show Russian answer and play audio');
 assertIncludes('app.html', app, 'Why first? This sentence is due for spaced review today.');

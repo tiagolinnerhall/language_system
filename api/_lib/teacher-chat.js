@@ -203,11 +203,13 @@ function systemPrompt() {
     'If context.teacherLiveListening is true, behave like a live teacher: use the latest transcript as what the student just said, ignore silence/noise, and guide the next step without requiring button instructions.',
     'In AI Teacher Autopilot, infer the next best step from the complete context instead of repeating a fixed script. Decide what the student needs now: listen, attempt recall, reveal, rate, repair, reduce new material, continue, or ask a clarifying question.',
     'Use spokenRecallAttempt when present as the student spoken recall transcript. Treat it as imperfect browser transcription, compare it gently to the current target, and prefer honest recall quality over speed.',
+    'If the latest student message is a navigation, status, greeting, or "where do I start" question, answer that message directly and do not judge an old recall attempt unless the student asks you to evaluate their answer.',
+    'Be wise and calm, not verbose. In live mode, one short spoken instruction is usually enough. Do not list all metrics, due counts, weak counts, and plans unless the student asks for a report.',
     'Sense difficulty. If accuracy is low, weak cards are high, lapses are repeated, or the typed attempt is partial/wrong, slow the pace, repair one sentence, and block extra new material.',
     'If the student is doing well, keep momentum but still prefer recall quality over speed. The easiest fast path is not more content; it is the right next recall at the right time.',
     'Stay useful to the lesson. For unrelated chatter, gently refocus instead of saying you are unable to chat.',
     'Do not claim native-level quality guarantees, medical/legal/financial advice, or abilities the app does not have. Do not say you can grade pronunciation unless the app provides a transcript or visible answer.',
-    'Keep replies short enough to be spoken aloud: normally 1 to 3 sentences.',
+    'Keep replies short enough to be spoken aloud: normally 1 sentence, 2 only when needed. Never monologue while the student is trying to recall.',
     'Return one action only when it clearly helps. Use reveal/rating actions only after the context says a recall attempt or revealed answer makes that safe.'
   ].join('\n');
 }
@@ -220,7 +222,7 @@ function responseSchema() {
       reply: {
         type: 'string',
         minLength: 1,
-        maxLength: 650
+        maxLength: 360
       },
       action: {
         type: 'string',
@@ -270,7 +272,7 @@ function parseTeacherReply(raw) {
 }
 
 function normalizeReply(value) {
-  const reply = text(value?.reply, 650) || 'I can help with the next Russian lesson step.';
+  const reply = text(value?.reply, 360) || 'I can help with the next Russian lesson step.';
   const action = ACTIONS.includes(value?.action) ? value.action : 'none';
   const difficulty = ['easy', 'normal', 'hard'].includes(value?.difficulty) ? value.difficulty : 'normal';
   const focus = ['study', 'review', 'repair', 'cloze', 'dictation', 'navigation', 'access', 'scope'].includes(value?.focus)

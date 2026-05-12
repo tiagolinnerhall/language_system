@@ -624,6 +624,80 @@ try {
   if (!/mic is off/i.test(liveInstructionRefreshState.before.instruction) || !/Press Start Live Teacher/i.test(liveInstructionRefreshState.before.note) || !/Live Teacher is listening/i.test(liveInstructionRefreshState.after.instruction) || !/teacher is listening until paused/i.test(liveInstructionRefreshState.after.note) || !/Live mic on/i.test(liveInstructionRefreshState.after.state)) {
     throw new Error(`Rendered live teacher instruction did not refresh with mic state: ${JSON.stringify(liveInstructionRefreshState)}`);
   }
+  const teacherVoiceQueueState = await page.evaluate(async () => eval(`(async () => {
+    courseAccessMode = 'full';
+    teacherModeEnabled = true;
+    teacherAutopilotEnabled = true;
+    stopPlayback();
+    const events = [];
+    const originalPlay = playPremiumTeacherVoice;
+    const originalApply = applyTeacherAiAction;
+    const originalGuide = teacherGuide;
+    playPremiumTeacherVoice = async (text, { onend } = {}) => {
+      events.push('start:' + text);
+      setTimeout(() => {
+        events.push('end:' + text);
+        if (onend) onend();
+      }, 60);
+      return true;
+    };
+    applyTeacherAiAction = action => events.push('action:' + action);
+    teacherGuide = () => events.push('guide');
+    teacherSay('first voice');
+    teacherSay('second voice');
+    maybeApplyTeacherAiAction('open_browse', 'typed');
+    scheduleTeacherGuide(10);
+    await new Promise(resolve => setTimeout(resolve, 35));
+    const early = [...events];
+    await new Promise(resolve => setTimeout(resolve, 420));
+    const final = [...events];
+    stopPlayback();
+    events.length = 0;
+    teacherSay('interrupt first');
+    teacherSay('interrupt second');
+    setTimeout(() => stopPlayback(), 20);
+    await new Promise(resolve => setTimeout(resolve, 160));
+    const interrupted = [...events];
+    playPremiumTeacherVoice = originalPlay;
+    applyTeacherAiAction = originalApply;
+    teacherGuide = originalGuide;
+    stopPlayback();
+    return { early, final, interrupted };
+  })()`));
+  if (teacherVoiceQueueState.early.some(item => item.includes('second voice')) || teacherVoiceQueueState.early.some(item => item.startsWith('action:')) || teacherVoiceQueueState.early.includes('guide')) {
+    throw new Error(`Teacher voice/action sequencing started too early: ${JSON.stringify(teacherVoiceQueueState)}`);
+  }
+  const firstStart = teacherVoiceQueueState.final.indexOf('start:first voice');
+  const firstEnd = teacherVoiceQueueState.final.indexOf('end:first voice');
+  const secondStart = teacherVoiceQueueState.final.indexOf('start:second voice');
+  const secondEnd = teacherVoiceQueueState.final.indexOf('end:second voice');
+  const actionIndex = teacherVoiceQueueState.final.indexOf('action:open_browse');
+  const guideIndex = teacherVoiceQueueState.final.indexOf('guide');
+  if ([firstStart, firstEnd, secondStart, secondEnd, actionIndex, guideIndex].some(index => index < 0) || !(firstStart < firstEnd && firstEnd < secondStart && secondStart < secondEnd && secondEnd < actionIndex && secondEnd < guideIndex)) {
+    throw new Error(`Teacher voice/action sequencing was not ordered: ${JSON.stringify(teacherVoiceQueueState)}`);
+  }
+  if (teacherVoiceQueueState.interrupted.some(item => item.includes('interrupt second'))) {
+    throw new Error(`stopPlayback did not clear queued teacher voice: ${JSON.stringify(teacherVoiceQueueState)}`);
+  }
+  const navigationQuestionRecallState = await page.evaluate(() => eval(`(() => {
+    courseAccessMode = 'full';
+    teacherModeEnabled = true;
+    teacherAutopilotEnabled = true;
+    if (!document.querySelector('.study-card')) {
+      beginStudySession();
+      if (document.querySelector('button[onclick="showNewRecallCard()"]')) showNewRecallCard();
+    }
+    teacherSpokenRecallAttempt = { key: teacherAttemptBaseKey(), transcript: 'Алло' };
+    return {
+      alloRecall: teacherVoiceLooksLikeRecallAttempt('Алло'),
+      whereNeedsRecallContext: teacherMessageNeedsRecallContext('Where do I start?'),
+      whereContextSpoken: teacherAiContext({ includeSpokenRecall: false }).spokenRecallAttempt,
+      ratingNeedsRecallContext: teacherMessageNeedsRecallContext('Was my answer good?')
+    };
+  })()`));
+  if (navigationQuestionRecallState.alloRecall || navigationQuestionRecallState.whereNeedsRecallContext || navigationQuestionRecallState.whereContextSpoken || !navigationQuestionRecallState.ratingNeedsRecallContext) {
+    throw new Error(`Navigation question inherited stale recall context: ${JSON.stringify(navigationQuestionRecallState)}`);
+  }
   await page.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1&view=browse`, { waitUntil: 'networkidle' });
   await page.waitForSelector('#coachVoiceGuide');
   const demoBrowseVoiceGate = await page.evaluate(() => ({
@@ -773,15 +847,14 @@ try {
     showStudyCard();
     teacherCommand("I don't know");
   })()`));
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(900);
   const naturalDoubtState = await page.evaluate(() => ({
     message: document.getElementById('teacherMessage')?.textContent || '',
     attempted: eval('teacherHasRecallAttempt()'),
     revealed: eval('studyRevealed')
   }));
-  const naturalDoubtChat = teacherChatBodies.at(-1);
-  if (teacherChatBodies.length !== beforeNaturalDoubtCount + 1 || !naturalDoubtChat?.message?.includes("I don't know") || naturalDoubtState.attempted || naturalDoubtState.revealed || /Heard:|reveal the answer/i.test(naturalDoubtState.message)) {
-    throw new Error(`Live Teacher treated a natural student doubt as recall instead of answering: ${JSON.stringify({ naturalDoubtState, naturalDoubtChat })}`);
+  if (teacherChatBodies.length !== beforeNaturalDoubtCount || !naturalDoubtState.revealed || !/honest recall|mark Again/i.test(naturalDoubtState.message)) {
+    throw new Error(`Live Teacher did not treat "I don't know" as an honest recall attempt: ${JSON.stringify({ naturalDoubtState, callsBefore: beforeNaturalDoubtCount, callsAfter: teacherChatBodies.length })}`);
   }
   teacherChatFailure = true;
   await page.evaluate(() => eval('teacherGuide()'));
@@ -946,6 +1019,8 @@ try {
     studyViewActive = true;
     studyRevealed = false;
     teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
     showStudyCard();
     teacherAnswerListeningCheck();
     teacherCommand('Yes, I am listening. I heard you. Try the Russian for this card now');
@@ -965,6 +1040,8 @@ try {
     studyViewActive = true;
     studyRevealed = false;
     teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
     showStudyCard();
     teacherSay('Choose your rating now. Say or click Again, Hard, Good, or Easy.');
     teacherLastSpokenAt = Date.now() - 30000;
