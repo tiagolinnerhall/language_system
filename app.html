@@ -351,6 +351,15 @@ body.study-advance-lock .header,body.study-advance-lock .study-view,body.study-a
 .teacher-toggle{font-weight:800}
 .teacher-toggle.active{background:var(--green);color:#fff}
 body.teacher-active{padding-bottom:280px}
+body.app-booting .learning-coach,
+body.app-booting #dashboard,
+body.app-booting #modeTabs,
+body.app-booting #filtersBar,
+body.app-booting .progress-wrap,
+body.app-booting #advancedTools,
+body.app-booting #studyBtn,
+body.app-booting #teacherToggleBtn,
+body.app-booting #teacherPanel{display:none!important}
 .teacher-panel{position:fixed;right:20px;bottom:20px;width:min(390px,calc(100vw - 32px));max-height:min(70vh,520px);overflow:auto;z-index:250;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 40px rgba(15,23,42,.22);padding:16px;display:none;color:var(--text)}
 .teacher-panel.active{display:block}
 .teacher-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
@@ -358,7 +367,7 @@ body.teacher-active{padding-bottom:280px}
 .teacher-sub{font-size:.8rem;color:var(--text3);line-height:1.35}
 .teacher-close{border:1px solid var(--border);background:var(--bg);color:var(--text2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:1rem}
 .teacher-message{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text2);font-size:.92rem;line-height:1.45;margin-bottom:12px}
-.teacher-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.teacher-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .teacher-actions .btn{justify-content:center;padding:9px 10px;font-size:.8rem}
 .teacher-chat{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}
 .teacher-chat input{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);padding:10px 11px;font:inherit;font-size:.86rem}
@@ -372,7 +381,7 @@ body.teacher-active{padding-bottom:280px}
 @media(max-width:640px){body.teacher-active{padding-bottom:410px}.teacher-panel{left:12px;right:12px;bottom:12px;width:auto;max-height:58vh}.teacher-actions{grid-template-columns:1fr}.teacher-chat{grid-template-columns:1fr}.teacher-toggle{padding:8px 10px}.teacher-mode-options{grid-template-columns:1fr}.teacher-live-controls .btn{flex:1 1 100%}.cloud-history-row{grid-template-columns:1fr}.cloud-history-actions{justify-content:flex-start}}
 </style>
 </head>
-<body>
+<body class="app-booting">
 <div class="header">
  <div class="header-top">
   <h1 id="pageTitle">Loading...<span id="pageSubtitle"></span></h1>
@@ -508,9 +517,8 @@ body.teacher-active{padding-bottom:280px}
  </div>
  <div class="teacher-message" id="teacherMessage">Turn on Teacher Mode when you want me to guide the lesson step by step.</div>
  <div class="teacher-actions">
- <button class="btn btn-primary" type="button" onclick="teacherSetMode('autopilot')">Start Live Teacher</button>
+ <button class="btn btn-primary teacher-live-talk" id="teacherTalkBtn" type="button" onclick="teacherToggleLiveListening()">Start Live Teacher</button>
  <button class="btn btn-secondary" type="button" onclick="teacherDoNext()">Next step</button>
- <button class="btn btn-secondary teacher-live-talk" id="teacherTalkBtn" type="button" onclick="teacherToggleLiveListening()">Start Live Mic</button>
  </div>
  <form class="teacher-chat" onsubmit="teacherSubmitQuestion(event)">
   <input id="teacherQuestionInput" type="text" maxlength="700" autocomplete="off" placeholder="Ask about this lesson">
@@ -598,6 +606,9 @@ let teacherServerMicChunks=[];
 let teacherServerMicActive=false;
 let teacherServerMicSubmitting=false;
 let teacherServerMicFlushTimer=null;
+let teacherServerMicPendingSegments=[];
+let teacherServerMicContentType='audio/webm';
+let teacherLastTranscriptAt=0;
 let teacherLastSpokenText='';
 let teacherLastSpokenAt=0;
 let teacherAiBusy=false;
@@ -889,11 +900,9 @@ function teacherLiveControlsHTML(){
  const liveClass=teacherLiveListening?' active':'';
  const liveText=teacherLiveListening?'Live listening':'Mic off';
  return `<div class="teacher-live-controls">
-  <button type="button" class="btn btn-primary teacher-live-open" onclick="teacherSetMode('autopilot')">${teacherLiveListening?'Teacher is leading':'Start Live Teacher'}</button>
-  <button type="button" class="btn btn-secondary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">&#127908; ${teacherLiveListening?'Pause Listening':'Start Live Mic'}</button>
-  <button type="button" class="btn btn-secondary" onclick="teacherFocusQuestion()">Ask Teacher</button>
+  <button type="button" class="btn btn-primary teacher-live-talk${liveClass}" onclick="teacherToggleLiveListening()">&#127908; ${teacherLiveListening?'Pause Listening':'Start Live Teacher'}</button>
   <div class="teacher-live-state${liveClass}"><span class="teacher-live-dot"></span>${liveText}</div>
-  <div class="teacher-live-note">In Autopilot, the mic stays live until you pause or stop the teacher. Short audio segments may be transcribed; useful transcripts are handled with this card and your performance.</div>
+  <div class="teacher-live-note">The teacher listens until paused. Ask naturally, or say the Russian you remember.</div>
  </div>`;
 }
 
@@ -1539,7 +1548,7 @@ async function teacherAskAi(message,{source='typed'}={}){
  if(!teacherModeEnabled)toggleTeacherMode(true);
  const els=teacherEls();
  if(els.transcript){
-  els.transcript.textContent=source==='autopilot'?'AI teacher is assessing the lesson.':(source==='voice'?'You said: ':'You asked: ')+clean;
+  els.transcript.textContent=source==='autopilot'?'Teacher is checking the next step.':(source==='voice'?'I heard: ':'You asked: ')+clean;
  }
  if(teacherAiBusy){
   if(source!=='autopilot'){
@@ -1549,7 +1558,7 @@ async function teacherAskAi(message,{source='typed'}={}){
   return;
  }
  setTeacherAiBusy(true);
- setTeacherVoiceStatus(source==='autopilot'?'AI teacher is assessing your progress...':'Teacher is thinking...');
+ setTeacherVoiceStatus(source==='autopilot'?'Thinking about the next step...':'Teacher is thinking...');
  try{
   const response=await fetch('/api/teacher-chat',{
    method:'POST',
@@ -1562,11 +1571,13 @@ async function teacherAskAi(message,{source='typed'}={}){
   maybeApplyTeacherAiAction(data.action,source);
  }catch(error){
   if(source==='autopilot'){
-   teacherSay('AI Teacher Autopilot is temporarily unavailable. Use Next step for this card, then I will try again after the next state change.',{speak:false});
+   setTeacherVoiceStatus('Using simple guidance while the teacher reconnects.');
+   teacherGuideLocal();
    return;
   }
+  if(teacherIsListeningCheck(clean)){teacherAnswerListeningCheck();return}
   const fallbackUsed=teacherAnswerMappedQuestion(clean.toLowerCase());
-  if(!fallbackUsed)teacherSay(error.message||'AI teacher is temporarily unavailable. I can still guide you with the buttons.');
+  if(!fallbackUsed)teacherSay('I am here. Ask one short lesson question, or say what you remember for this card.');
  }finally{
   setTeacherAiBusy(false);
   const queued=teacherQueuedAiRequests.shift();
@@ -1871,6 +1882,7 @@ function teacherTranscriptEchoesTeacher(raw){
 function teacherVoiceLooksLikeRecallAttempt(text){
  if(!teacherInRecallWindow())return false;
  if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text))return false;
+ if(teacherNaturalDoubtSignal(text))return false;
  if(teacherRussianQuestionSignal(text))return false;
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text))return false;
  if(/\b(where|why|what|how|gender|case|grammar|meaning|means|pronounce|pronunciation|spell|spelling|doubt|question|confused|stuck|what now|what should|what do i do|should i do now|next step|explain|should i|can i|do you think|am i|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|say it|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
@@ -1880,6 +1892,7 @@ function teacherVoiceLooksLikeRecallAttempt(text){
 function teacherVoiceLooksLikeShadowing(text){
  if(!teacherInNewIntroWindow())return false;
  if(/\b(i tried|i have tried|i answered|i said it|i did it|ready to reveal|done recalling|done)\b/.test(text))return false;
+ if(teacherNaturalDoubtSignal(text))return false;
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text))return false;
  if(teacherIsListeningCheck(text)||teacherPauseListeningRequested(text)||teacherStopTeacherRequested(text))return false;
  if(/\b(where|why|what|how|meaning|means|grammar|pronounce|pronunciation|spell|spelling|doubt|question|confused|stuck|next step|explain|help|guide|open|go to|take me|show me|visit|play|audio|listen|replay|repeat|reveal|show answer|answer|again|hard|good|easy|cloze|dictation|start|begin|lesson|study|next|continue|move on)\b/.test(text))return false;
@@ -1888,6 +1901,7 @@ function teacherVoiceLooksLikeShadowing(text){
 
 function teacherShouldAskAiFirst(text){
  if(teacherIsListeningCheck(text))return false;
+ if(teacherNaturalDoubtSignal(text))return true;
  if(teacherRussianQuestionSignal(text))return true;
  if(teacherVoiceLooksLikeRecallAttempt(text))return false;
  if(teacherCommandHasRating(text,'again')||teacherCommandHasRating(text,'hard')||teacherCommandHasRating(text,'good')||teacherCommandHasRating(text,'easy'))return false;
@@ -1895,11 +1909,17 @@ function teacherShouldAskAiFirst(text){
  return /\b(where do i start|what now|what should|what do i do|next step|why|how|what does|meaning|grammar|case|gender|pronunciation|pronounce|spell|spelling|translate|translation|explain|doubt|confused|stuck|mistake|wrong|should i|can i|open|go to|take me|show me)\b/.test(text);
 }
 
+function teacherNaturalDoubtSignal(text){
+ return /\b(i don'?t know|i do not know|no idea|not sure|i'?m lost|i am lost|i'?m confused|i am confused|too hard|this is hard|i forgot|i forget|i can'?t remember|i cannot remember|i don'?t remember|i do not remember|i am stuck|i'?m stuck)\b/.test(String(text||'').toLowerCase());
+}
+
 function teacherIsListeningCheck(text){
  const clean=String(text||'').trim().toLowerCase();
  if(!clean)return false;
+ const simple=clean.replace(/[^a-zа-яё\s]+/gi,' ').replace(/\s+/g,' ').trim();
  if(/\b(are you listening|can you hear me|do you hear me|did you hear me|are you there|you listening|mic on|microphone on|is this working)\b/.test(clean))return true;
  if(/(ты меня слышишь|вы меня слышите|слышишь меня|слышите меня|ты тут|вы тут|ты здесь|вы здесь)/i.test(clean))return true;
+ if(/^(hi|hello|hey|teacher)(\s+(hi|hello|hey|teacher))*$/.test(simple))return true;
  if(/^(привет|здравствуй|здравствуйте)[.!?\s]*$/i.test(clean))return true;
  return /^(hi|hello|hey|teacher|hi teacher|hello teacher|hey teacher)[.!?\s]*$/.test(clean);
 }
@@ -1919,12 +1939,13 @@ function teacherCommand(raw){
   if(els.transcript)els.transcript.textContent='';
   return;
  }
+ teacherLastTranscriptAt=Date.now();
  if(els.transcript)els.transcript.textContent=transcript?'I heard: '+transcript:'';
  if(!text){teacherGuide();return}
  if(teacherStopTeacherRequested(text)){toggleTeacherMode(false);return}
  if(teacherPauseListeningRequested(text)){
   stopTeacherListening({disableLive:true});
-  teacherSay('Live mic paused. I am not listening now. Press Start Live Mic when you want me again.',{speak:false});
+  teacherSay('Live teacher paused. I am not listening now. Press Start Live Teacher when you want me again.',{speak:false});
   return;
  }
  if(teacherIsListeningCheck(text)){teacherAnswerListeningCheck();return}
@@ -2014,11 +2035,11 @@ function updateTeacherListeningUI(){
  const liveText=micActive?'Live mic on':teacherLiveListening?'Starting mic':'Live mic off';
  if(els.sub)els.sub.textContent=micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
  if(els.talk){
-  els.talk.textContent=teacherLiveListening?(micActive?'Pause Listening':'Starting Mic...'):'Start Live Mic';
+  els.talk.textContent=teacherLiveListening?(micActive?'Pause Listening':'Starting...'):'Start Live Teacher';
   els.talk.classList.toggle('active',micActive);
  }
  document.querySelectorAll('.teacher-live-talk').forEach(button=>{
-  button.innerHTML=teacherLiveListening?(micActive?'&#9208; Pause Listening':'&#127908; Starting Mic...'):'&#127908; Start Live Mic';
+  button.innerHTML=teacherLiveListening?(micActive?'&#9208; Pause Listening':'&#127908; Starting...'):'&#127908; Start Live Teacher';
   button.classList.toggle('active',micActive);
   button.disabled=false;
  });
@@ -2058,35 +2079,104 @@ function stopTeacherServerMic(){
   teacherServerMicStream=null;
  }
  teacherServerMicChunks=[];
+ teacherServerMicPendingSegments=[];
  updateTeacherListeningUI();
 }
 
-async function teacherSubmitServerMicSegment({force=false}={}){
- if(teacherServerMicSubmitting)return false;
- const chunks=teacherServerMicChunks.splice(0);
- if(!chunks.length)return false;
- const type=(teacherServerMicRecorder&&teacherServerMicRecorder.mimeType)||'audio/webm';
- const blob=new Blob(chunks,{type});
+function teacherHadRecentTranscript(windowMs=12000){
+ return teacherLastTranscriptAt&&Date.now()-teacherLastTranscriptAt<windowMs;
+}
+
+async function teacherSubmitServerMicBlob(blob,type,{force=false}={}){
  if(!force&&blob.size<900)return false;
+ teacherServerMicPendingSegments.push({blob,type});
+ return drainTeacherServerMicSegments();
+}
+
+async function drainTeacherServerMicSegments(){
+ if(teacherServerMicSubmitting)return false;
+ const segment=teacherServerMicPendingSegments.shift();
+ if(!segment)return false;
  teacherServerMicSubmitting=true;
+ let handled=false;
  try{
   const response=await fetch('/api/teacher-chat?transcribe=1',{
    method:'POST',
-   headers:{'Content-Type':type},
-   body:blob
+   headers:{'Content-Type':segment.type},
+   body:segment.blob
   });
   const data=await response.json().catch(()=>({}));
   if(response.ok&&data.ok&&teacherTranscriptLooksUseful(data.text)){
    teacherCommand(data.text);
-   return true;
+   handled=true;
+  }else if(!response.ok&&response.status!==429&&!teacherHadRecentTranscript()){
+   setTeacherVoiceStatus('I can see the mic, but I could not read that clearly. Try one short sentence, or type it.');
   }
-  if(!response.ok&&response.status!==429)setTeacherVoiceStatus('Live mic heard audio, but transcription is temporarily unavailable.');
  }catch(_){
-  setTeacherVoiceStatus('Live mic transcription is temporarily unavailable.');
+  if(!teacherHadRecentTranscript())setTeacherVoiceStatus('I can see the mic, but I could not read that clearly. Try one short sentence, or type it.');
  }finally{
   teacherServerMicSubmitting=false;
+  if(teacherServerMicPendingSegments.length)setTimeout(()=>drainTeacherServerMicSegments(),0);
  }
- return false;
+ return handled;
+}
+
+async function teacherSubmitServerMicSegment({force=false}={}){
+ const chunks=teacherServerMicChunks.splice(0);
+ if(!chunks.length)return false;
+ const type=teacherServerMicContentType||((teacherServerMicRecorder&&teacherServerMicRecorder.mimeType)||'audio/webm');
+ const blob=new Blob(chunks,{type});
+ return teacherSubmitServerMicBlob(blob,type,{force});
+}
+
+function startTeacherServerMicRecorder({announce=false}={}){
+ if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled)return false;
+ const preferred='audio/webm;codecs=opus';
+ const options=MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(preferred)?{mimeType:preferred}:{mimeType:'audio/webm'};
+ let recorder;
+ try{
+  recorder=new MediaRecorder(teacherServerMicStream,options);
+ }catch(_){
+  setTeacherVoiceStatus('The mic recorder could not start. Check browser permission, then start the teacher again.');
+  return false;
+ }
+ teacherServerMicRecorder=recorder;
+ teacherServerMicContentType=recorder.mimeType||options.mimeType||'audio/webm';
+ teacherServerMicChunks=[];
+ recorder.ondataavailable=event=>{if(event.data&&event.data.size)teacherServerMicChunks.push(event.data)};
+ recorder.onstart=()=>{
+  teacherServerMicActive=true;
+  updateTeacherListeningUI();
+  if(announce)setTeacherVoiceStatus('Live Teacher is listening. Ask naturally; silence is ignored.');
+ };
+ recorder.onerror=()=>{
+  setTeacherVoiceStatus('The mic recorder had an issue. Press Start Live Teacher to retry.');
+  stopTeacherServerMic();
+ };
+ recorder.onstop=()=>{
+  const chunks=teacherServerMicChunks.splice(0);
+  const type=teacherServerMicContentType||recorder.mimeType||'audio/webm';
+  if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
+  teacherServerMicActive=false;
+  if(chunks.length){
+   const blob=new Blob(chunks,{type});
+   teacherSubmitServerMicBlob(blob,type);
+  }
+  updateTeacherListeningUI();
+  if(teacherLiveListening&&teacherModeEnabled&&teacherServerMicStream){
+   setTimeout(()=>startTeacherServerMicRecorder({announce:false}),80);
+  }
+ };
+ try{
+  recorder.start();
+ }catch(_){
+  if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
+  teacherServerMicActive=false;
+  updateTeacherListeningUI();
+  setTeacherVoiceStatus('The mic recorder could not start. Check browser permission, then start the teacher again.');
+  return false;
+ }
+ return true;
 }
 
 async function teacherStartServerMic({announce=true}={}){
@@ -2099,29 +2189,12 @@ async function teacherStartServerMic({announce=true}={}){
    return false;
   }
   teacherServerMicStream=stream;
-  const preferred='audio/webm;codecs=opus';
-  const options=MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(preferred)?{mimeType:preferred}:{mimeType:'audio/webm'};
-  const recorder=new MediaRecorder(stream,options);
-  teacherServerMicRecorder=recorder;
-  teacherServerMicChunks=[];
-  recorder.ondataavailable=event=>{if(event.data&&event.data.size)teacherServerMicChunks.push(event.data)};
-  recorder.onstart=()=>{
-   teacherServerMicActive=true;
-   updateTeacherListeningUI();
-   if(announce)setTeacherVoiceStatus('Live Teacher is listening. Ask naturally; silence is ignored.');
-  };
-  recorder.onerror=()=>{
-   setTeacherVoiceStatus('Live mic had a recorder issue. Press Start Live Mic to retry.');
-   stopTeacherServerMic();
-  };
-  recorder.onstop=()=>{teacherServerMicActive=false;updateTeacherListeningUI()};
-  recorder.start(2500);
+  if(!startTeacherServerMicRecorder({announce}))return false;
   teacherServerMicFlushTimer=setInterval(()=>{
    if(teacherServerMicRecorder&&teacherServerMicRecorder.state==='recording'){
-    try{teacherServerMicRecorder.requestData()}catch(_){}
+    try{teacherServerMicRecorder.stop()}catch(_){}
    }
-   teacherSubmitServerMicSegment();
-  },4500);
+  },3600);
   return true;
  }catch(_){
   teacherServerMicActive=false;
@@ -2166,7 +2239,7 @@ function teacherStartLiveListening({announce=true}={}){
    if(!ok&&!teacherListening&&teacherLiveListening){
     teacherLiveListening=false;
     updateTeacherListeningUI();
-    setTeacherVoiceStatus('Microphone could not start. Check browser permission, then press Start Live Mic again.');
+    setTeacherVoiceStatus('Microphone could not start. Check browser permission, then press Start Live Teacher again.');
    }
   });
  }
@@ -2227,7 +2300,7 @@ function teacherStartLiveListening({announce=true}={}){
   if(!teacherServerMicActive&&!serverMicSupported)teacherLiveListening=false;
   updateTeacherListeningUI();
   if(!serverMicSupported){
-   setTeacherVoiceStatus('Live mic could not start. Check browser microphone permission, then press Start Live Mic again.');
+   setTeacherVoiceStatus('Live mic could not start. Check browser microphone permission, then press Start Live Teacher again.');
    return false;
   }
   return true;
@@ -2249,6 +2322,8 @@ function teacherToggleLiveListening(){
  }
  teacherAutopilotEnabled=true;
  localStorage.setItem(storagePrefix+'teacher_autopilot','1');
+ teacherAutopilotActionBlockedUntil=Date.now()+TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS;
+ teacherAutopilotActivationActionsToSuppress=1;
  refreshTeacherStudyModeControls();
  teacherStartLiveListening();
  scheduleTeacherGuide(120);
@@ -2371,22 +2446,26 @@ async function loadLanguageData(){
   courseAccessMode=data.mode||'demo';
   if(!SENTENCES.length){
    app.innerHTML='<div class="empty-state">No data loaded for this language yet.</div>';
+   finishAppBoot();
    return;
   }
-  setLearnerShellVisible(true);
   renderAudioStatusNotice();
   premiumStudyOrder=buildPremiumStudyOrder();
   if(!resetProgressRequested)await syncCloudProgress('load');
   populateCategoryFilter();
-  render();
   renderAccessNotice(data);
   updateBinBadge();
   updateStreakDisplay();
   updateDueBadge();
+  setLearnerShellVisible(true);
+  updateProgress();
+  openInitialLearnerView();
+  initializeTeacherMode();
+  finishAppBoot();
   trackAnalytics('app_start',{sentences:SENTENCES.length});
-  maybeStartGuidedLesson();
  }catch(e){
   app.innerHTML='<div class="empty-state">Error loading language data: '+escapeHtml(e.message||'Unknown error')+'</div>';
+  finishAppBoot();
  }
 }
 
@@ -2419,6 +2498,7 @@ function renderAccessNotice(data){
 }
 
 function renderAccessRequired(message){
+ finishAppBoot();
  setLearnerShellVisible(false);
  if(accessNotice)accessNotice.innerHTML='';
  app.innerHTML=`<div class="access-required">
@@ -2430,11 +2510,27 @@ function renderAccessRequired(message){
  </div>`;
 }
 
-function maybeStartGuidedLesson(){
+function finishAppBoot(){
+ document.body.classList.remove('app-booting');
+}
+
+function shouldAutoStartGuidedLesson(){
  const view=urlParams.get('view')||'';
- if(view==='browse'||view==='cloze'||view==='dictation')return;
- if(searchInput.value||categoryFilter.value||unlearnedOnly.checked)return;
- setTimeout(()=>startStudyView(),120);
+ if(view==='browse'||view==='cloze'||view==='dictation')return false;
+ if(searchInput.value||categoryFilter.value||unlearnedOnly.checked)return false;
+ return true;
+}
+
+function openInitialLearnerView(){
+ const view=urlParams.get('view')||'';
+ if(shouldAutoStartGuidedLesson()){app.innerHTML='';startStudyView();return}
+ if(view==='cloze'){showClozeView();return}
+ if(view==='dictation'){showDictationView();return}
+ showBrowseView();
+}
+
+function maybeStartGuidedLesson(){
+ if(shouldAutoStartGuidedLesson())startStudyView();
 }
 
 // === Core functions ===
@@ -2650,7 +2746,7 @@ function renderAudioStatusNotice(){
   host.innerHTML=`<div class="audio-status-card"><span class="audio-status-dot ready"></span><div><strong>Hosted audio ready</strong>All ${courseCount} visible ${escapeHtml(LANG.name)} sentences have hosted audio available for listening and shadowing.</div></div>`;
   return;
  }
- host.innerHTML=`<div class="audio-status-card"><span class="audio-status-dot"></span><div><strong>Audio continuity check</strong>Hosted audio is available for ${covered} of ${courseCount} visible sentences. If a file is unavailable, Lang5K uses browser speech so practice can continue.</div></div>`;
+ host.innerHTML=`<div class="audio-status-card"><span class="audio-status-dot"></span><div><strong>Audio continuity check</strong>Hosted audio is available for ${covered} of ${courseCount} visible sentences. If a file is unavailable, Lang5K reports it instead of using robotic browser speech.</div></div>`;
 }
 
 function hideAllViews(){
@@ -4068,7 +4164,7 @@ function showStudyCard(){
      <ul>
       <li>This is English. Try to remember the Russian translation.</li>
      <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-      <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Mic if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
+      <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Teacher if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
     </ul>
     ${instructionButtonHTML(instruction)}
     ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
@@ -4104,7 +4200,7 @@ function showNewRecallCard(){
     <ul>
      <li>This is English. Try to remember the Russian translation you just heard.</li>
     <li>Say it quietly to yourself, or type Russian words/transliteration you remember.</li>
-     <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Mic if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
+     <li>${teacherLiveListening?'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.':teacherAutopilotEnabled?'AI Teacher is open, but the mic is off. Press Start Live Teacher if you want it to hear you.':'Open AI Teacher if you want spoken guidance or questions.'}</li>
    </ul>
    ${instructionButtonHTML(instruction)}
    ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
@@ -4813,7 +4909,6 @@ function ratePractice(rating,mode){
 
  // Load saved daily goal
  syncDailyGoalFromStats();
- initializeTeacherMode();
 
  loadHostedAudioManifest();
  loadLanguageData();

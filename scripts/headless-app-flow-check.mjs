@@ -60,12 +60,18 @@ let progressCurrent = {
   revision: 3
 };
 let teacherAutopilotPlannerCount = 0;
+let courseResponseDelayMs = 0;
+let teacherChatFailure = false;
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://127.0.0.1');
   if (url.pathname === '/api/course') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ language: 'russian', mode: 'demo', total: rows.length, limit: 80, sentences: rows.slice(0, 80) }));
+    const sendCourse = () => {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ language: 'russian', mode: 'demo', total: rows.length, limit: 80, sentences: rows.slice(0, 80) }));
+    };
+    if (courseResponseDelayMs > 0) setTimeout(sendCourse, courseResponseDelayMs);
+    else sendCourse();
     return;
   }
   if (url.pathname === '/api/teacher-chat') {
@@ -87,6 +93,11 @@ const server = http.createServer((req, res) => {
       raw += chunk;
     });
     req.on('end', () => {
+      if (teacherChatFailure) {
+        res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'AI unavailable for regression test.' }));
+        return;
+      }
       const body = JSON.parse(raw || '{}');
       teacherChatBodies.push(body);
       const message = String(body.message || '').toLowerCase();
@@ -266,6 +277,9 @@ try {
         if (this.onstart) setTimeout(() => this.onstart(), 0);
       }
       stop() {
+        if (this.ondataavailable) {
+          this.ondataavailable({ data: new Blob(['voice data'], { type: this.mimeType }) });
+        }
         this.state = 'inactive';
         if (this.onstop) setTimeout(() => this.onstop(), 0);
       }
@@ -312,6 +326,42 @@ try {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('dialog', dialog => dialog.accept());
+
+  courseResponseDelayMs = 900;
+  const bootPage = await browser.newPage();
+  await bootPage.goto(`http://127.0.0.1:${port}/app.html?lang=russian&demo=1`, { waitUntil: 'domcontentloaded' });
+  await bootPage.waitForSelector('.loading');
+  const bootState = await bootPage.evaluate(() => {
+    const visible = selector => {
+      const el = document.querySelector(selector);
+      return el ? getComputedStyle(el).display !== 'none' : false;
+    };
+    return {
+      bodyBooting: document.body.classList.contains('app-booting'),
+      coach: visible('.learning-coach'),
+      dashboard: visible('#dashboard'),
+      modeTabs: visible('#modeTabs'),
+      filters: visible('#filtersBar'),
+      teacherPanel: visible('#teacherPanel'),
+      loadingText: document.getElementById('app')?.textContent || ''
+    };
+  });
+  if (!bootState.bodyBooting || bootState.coach || bootState.dashboard || bootState.modeTabs || bootState.filters || bootState.teacherPanel || !/Loading sentences/i.test(bootState.loadingText)) {
+    throw new Error(`Boot showed unstable learner shell before course data loaded: ${JSON.stringify(bootState)}`);
+  }
+  await bootPage.waitForSelector('.study-start', { timeout: 8000 });
+  const firstReadyState = await bootPage.evaluate(() => ({
+    bodyBooting: document.body.classList.contains('app-booting'),
+    mode: eval('currentMode'),
+    browseActive: document.getElementById('mainView')?.classList.contains('hidden') === false,
+    studyActive: document.getElementById('studyView')?.classList.contains('active') || false,
+    loadingVisible: /Loading sentences/i.test(document.getElementById('app')?.textContent || '')
+  }));
+  if (firstReadyState.bodyBooting || firstReadyState.mode !== 'study' || !firstReadyState.studyActive || firstReadyState.loadingVisible) {
+    throw new Error(`Boot did not settle directly on the guided study screen: ${JSON.stringify(firstReadyState)}`);
+  }
+  await bootPage.close();
+  courseResponseDelayMs = 0;
 
   async function completeCurrentCard() {
     await page.waitForSelector('.study-card');
@@ -444,6 +494,10 @@ try {
   if (!liveTeacherState.live || !liveTeacherState.listening || !liveTeacherState.serverMic || !/Pause Listening/i.test(liveTeacherState.button)) {
     throw new Error(`Start Autopilot did not start continuous Live Teacher listening: ${JSON.stringify(liveTeacherState)}`);
   }
+  const teacherPanelButtons = await page.evaluate(() => [...document.querySelectorAll('#teacherPanel .teacher-actions button')].map(button => button.textContent.replace(/\s+/g, ' ').trim()));
+  if (teacherPanelButtons.length > 2) {
+    throw new Error(`AI Teacher panel exposes too many competing controls: ${teacherPanelButtons.join(' | ')}`);
+  }
   const beforeServerMicChatCount = teacherChatBodies.length;
   const beforeServerMicTranscribeCount = teacherTranscribeBodies.length;
   await page.evaluate(async () => {
@@ -470,6 +524,57 @@ try {
   }
   if (!/yes|listening|heard you/i.test(micCheckMessage) || /Due reviews first|Autopilot decided/i.test(micCheckMessage)) {
     throw new Error(`Live Teacher did not answer a listening check like a human teacher. Saw: ${micCheckMessage}`);
+  }
+  const beforeRepeatedGreetingCount = teacherChatBodies.length;
+  const repeatedGreetingState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    showStudyCard();
+    teacherCommand('Hi, hi, hi.');
+    return {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+  })()`));
+  if (teacherChatBodies.length !== beforeRepeatedGreetingCount || repeatedGreetingState.attempted || repeatedGreetingState.revealed || !/yes|listening|heard you/i.test(repeatedGreetingState.message)) {
+    throw new Error(`Live Teacher treated a repeated greeting as a recall attempt: ${JSON.stringify(repeatedGreetingState)}`);
+  }
+  const beforeNaturalDoubtCount = teacherChatBodies.length;
+  await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    showStudyCard();
+    teacherCommand("I don't know");
+  })()`));
+  await page.waitForTimeout(350);
+  const naturalDoubtState = await page.evaluate(() => ({
+    message: document.getElementById('teacherMessage')?.textContent || '',
+    attempted: eval('teacherHasRecallAttempt()'),
+    revealed: eval('studyRevealed')
+  }));
+  const naturalDoubtChat = teacherChatBodies.at(-1);
+  if (teacherChatBodies.length !== beforeNaturalDoubtCount + 1 || !naturalDoubtChat?.message?.includes("I don't know") || naturalDoubtState.attempted || naturalDoubtState.revealed || /Heard:|reveal the answer/i.test(naturalDoubtState.message)) {
+    throw new Error(`Live Teacher treated a natural student doubt as recall instead of answering: ${JSON.stringify({ naturalDoubtState, naturalDoubtChat })}`);
+  }
+  teacherChatFailure = true;
+  await page.evaluate(() => eval('teacherGuide()'));
+  await page.waitForTimeout(350);
+  const aiFailureFallback = await page.evaluate(() => ({
+    message: document.getElementById('teacherMessage')?.textContent || '',
+    status: document.getElementById('teacherVoiceStatus')?.textContent || ''
+  }));
+  teacherChatFailure = false;
+  if (/temporarily unavailable|AI unavailable|request was invalid/i.test(aiFailureFallback.message) || !/try|recall|lesson|card|start/i.test(aiFailureFallback.message)) {
+    throw new Error(`AI Teacher outage did not fall back to simple lesson guidance: ${JSON.stringify(aiFailureFallback)}`);
   }
   const beforeRussianMicCheckCount = teacherChatBodies.length;
   await page.evaluate(() => window.__emitTeacherSpeech('привет ты меня слышишь'));

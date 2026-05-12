@@ -10,7 +10,7 @@ function mustInclude(marker, message) {
 mustInclude('id="audioStatusNotice"', 'App shell must reserve space for learner-visible audio status.');
 mustInclude('function renderAudioStatusNotice()', 'App must render a dynamic audio status notice.');
 mustInclude('Hosted audio ready', 'Audio status must confirm when hosted audio is ready.');
-mustInclude('browser speech so practice can continue', 'Audio status must explain the continuity path when hosted files are unavailable.');
+mustInclude('reports it instead of using robotic browser speech', 'Audio status must explain that missing hosted files do not fall back to robotic speech.');
 mustInclude('renderAudioStatusNotice();', 'Audio status must refresh after data or manifest loading.');
 mustInclude('.audio-status', 'Audio notice needs explicit styling so it is visible but not disruptive.');
 

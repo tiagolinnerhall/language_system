@@ -15,7 +15,6 @@ const required = [
   'AI Teacher Autopilot',
   'Start Live Teacher',
   'Hear AI voice guide',
-  'Ask Teacher',
   'Pause Listening',
   'teacherStartLiveListening',
   'teacherListenToggle()'

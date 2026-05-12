@@ -1271,3 +1271,40 @@ Verification:
 Remaining Risk:
 - Headless tests can prove routing, fallback, and UI states, but they cannot prove real microphone recognition quality for every browser/OS. Real Chrome microphone permission and provider transcription quality still need a manual buyer-style test after deployment.
 - Live Teacher transcription uses the configured OpenAI key. If billing, key permissions, or provider availability fail, the app now shows a text status instead of pretending the mic worked.
+
+### Live Teacher Listening And Startup Simplification
+
+Changed:
+- Hid learner chrome and the teacher panel during boot so the app no longer flashes Browse/loading before settling into the guided Study screen.
+- Replaced the duplicated three-button teacher panel with one live-teacher toggle plus Next step, while keeping the question input for typed questions.
+- Changed server microphone recording from sliced WebM fragments to short complete recorder segments, so each transcription upload is a valid audio file instead of a middle fragment of a long recording.
+- Suppressed confusing transcription-unavailable noise after a recent successful transcript and replaced internal outage copy with simple teacher fallback guidance.
+- Treated repeated greetings/status checks like “hi, hi, hi” as live-teacher conversation, not recall attempts.
+- Routed natural student doubts like “I don’t know” to the teacher instead of marking them as spoken recall.
+- Removed the remaining audio-status copy that implied robotic browser speech fallback for missing hosted audio.
+
+Why:
+- The previous flow could look like it was listening while later mic chunks failed transcription, could classify normal student speech as an answer attempt, and exposed too many teacher controls for a premium buyer experience.
+
+Verification:
+- Confirmed `node .\scripts\headless-app-flow-check.mjs` failed before fixes on startup boot state and on “I don’t know” being treated as recall.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node .\scripts\validate-audio-status-notice.mjs`.
+- Ran `node .\scripts\validate-sell-readiness.mjs`.
+- Ran `node .\scripts\validate-preview-full-access.mjs`.
+- Ran `node .\scripts\validate-russian-course.mjs`.
+- Ran `node .\scripts\validate-premium-study-order.mjs`.
+- Ran `node .\scripts\validate-audio-manifest-alignment.mjs`.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node --check .\api\_lib\teacher-voice.js`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+- Tested the production transcription endpoint with an authenticated preview session and generated WAV/WebM speech; both returned transcript text.
+
+Remaining Risk:
+- Fresh subagent audit sessions could not run because the Codex usage limit rejected them. The same checks were covered locally with headless regression tests and manual code review.
+- Headless tests still cannot prove the user’s physical microphone quality, but the app now sends valid complete audio segments and has a verified production transcription endpoint.
