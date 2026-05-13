@@ -1106,6 +1106,7 @@ function teacherShowAccessRequired({expired=false}={}){
  toggleTeacherMode(true);
  setTeacherVoiceStatus(teacherAiAccessBlocked?'AI Teacher access expired. Sign in again or recover access.':'AI Teacher needs full access. The demo cards still work without live AI.');
  teacherSay(teacherAiAccessBlocked?'AI Teacher access expired. Sign in again or recover access, then I can listen and answer.':'AI Teacher voice and live answers are included with full access. You can continue the demo cards now, or unlock the full course when ready.',{speak:false});
+ if(document.querySelector('.study-start'))showStudyStart();
  refreshTeacherStudyModeControls();
 }
 
@@ -3085,6 +3086,10 @@ function setLearnerShellVisible(visible){
 
 function renderAccessNotice(data){
  if(!accessNotice)return;
+ if(teacherAiAccessBlocked){
+  accessNotice.innerHTML=`<div class="access-notice"><span><strong>AI Teacher session expired.</strong> Sign in again or recover access to use live teacher.</span><a href="access.html">Recover access</a></div>`;
+  return;
+ }
  if(data.mode==='full'){
   accessNotice.innerHTML=`<div class="access-notice"><span><strong>Full course active.</strong> Your guided training path has ${data.total} sentences.</span><a href="pricing.html">Account help</a></div>`;
   return;
@@ -4634,7 +4639,9 @@ function showStudyStart(){
  const doneAction=coachFirst?{label:'Back to guided plan',action:'goToTodayPlan()'}:{label:'Back to Browse',action:'exitStudy()'};
  const totalSession=buildStudyQueue(due,newAvail).length;
  const estMinutes=Math.max(1,Math.round(totalSession*0.8));
- const accessLine=courseAccessMode==='demo'
+ const accessLine=teacherAiAccessBlocked
+  ?`<div class="study-access-line"><strong>AI Teacher session expired.</strong> <a href="login.html?next=${encodeURIComponent(location.pathname+location.search+location.hash)}">Sign in again</a><a href="access.html">Recover access</a></div>`
+  :courseAccessMode==='demo'
   ?`<div class="study-access-line"><strong>Demo:</strong> ${SENTENCES.length} of ${LANG.sentences} sentences. <a href="pricing.html">Unlock full course</a><a href="access.html">Recover access</a></div>`
   :`<div class="study-access-line"><strong>Full course active.</strong> Progress syncs on this account. <a href="access.html">Account help</a></div>`;
  const startAction=showWeakPracticeAction&&due.length===0?`
