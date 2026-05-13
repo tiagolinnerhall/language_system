@@ -891,7 +891,7 @@ try {
     status: document.getElementById('teacherVoiceStatus')?.textContent || '',
     disclosure: document.getElementById('teacherDisclosure')?.textContent || ''
   }));
-  if (!liveTeacherState.live || !(liveTeacherState.listening || liveTeacherState.serverMic) || !liveTeacherState.speechStarted || !/Pause Listening/i.test(liveTeacherState.button)) {
+  if (!liveTeacherState.live || !(liveTeacherState.listening || liveTeacherState.serverMic) || !liveTeacherState.serverMic || !liveTeacherState.speechStarted || !/Pause Listening/i.test(liveTeacherState.button)) {
     throw new Error(`Start Autopilot did not start continuous Live Teacher listening: ${JSON.stringify(liveTeacherState)}`);
   }
   if (/requesting microphone/i.test(liveTeacherState.sub + ' ' + liveTeacherState.status)) {

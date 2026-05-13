@@ -1484,3 +1484,26 @@ Verification:
 
 Remaining Risk:
 - Browser speech recognition quality still depends on the user’s browser, microphone, permissions, and noise. The app now avoids the known self-loop, stale-action, delayed-server, and fake-feedback failures in headless regression.
+
+### Live Teacher Bilingual Backup Listening
+
+Changed:
+- Started server transcription as a bilingual backup even when browser speech recognition is available.
+- Kept browser speech recognition as the instant path, but added recent-transcript dedupe so backup transcription does not double-answer the same utterance.
+- Added context keys to backup mic chunks so stale chunks are dropped after the card/state changes.
+- Reduced backup mic chunks to 2.6 seconds so missed English/Russian speech is recovered faster while staying below transcription rate limits.
+- Updated the headless live-teacher check to require the backup mic path to start alongside browser speech recognition.
+
+Why:
+- On Russian recall screens, browser speech recognition is set to `ru-RU` so a learner asking an English question can be missed by Chrome. The UI showed “Live mic on” but the teacher could remain on the opening message. The backup OpenAI transcription path is bilingual and catches those missed utterances.
+
+Verification:
+- Ran `node --check` on the extracted app script.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran discoverability, guided-study, study-rating, study-lock, and practice-lock validations.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+
+Remaining Risk:
+- Real mic behavior still depends on browser permission and OS audio input, but the app no longer relies on a single-language browser recognizer to hear the student.

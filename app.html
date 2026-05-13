@@ -694,7 +694,7 @@ const TEACHER_MIC_RMS_THRESHOLD=0.018;
 const TEACHER_MIC_MIN_VOICE_MS=240;
 const TEACHER_MIC_MIN_PEAK=0.026;
 const TEACHER_VOICE_AI_COOLDOWN_MS=3200;
-const TEACHER_SERVER_MIC_FLUSH_MS=3600;
+const TEACHER_SERVER_MIC_FLUSH_MS=2600;
 const TEACHER_SERVER_MIC_STALE_MS=11000;
 
 // Study session state
@@ -2417,6 +2417,16 @@ function teacherDuplicateTranscript(raw){
  return false;
 }
 
+function teacherRecentLearnerTranscriptMatches(raw,windowMs=8500){
+ const clean=normalizeTeacherSpeech(raw);
+ if(!clean||!teacherLastCommandText||!teacherLastCommandAt)return false;
+ if(Date.now()-teacherLastCommandAt>windowMs)return false;
+ const separator=teacherLastCommandText.indexOf('|');
+ const recent=separator>=0?teacherLastCommandText.slice(separator+1):teacherLastCommandText;
+ if(!recent)return false;
+ return clean===recent||teacherEchoPhraseMatch(clean,recent)||teacherEchoPhraseMatch(recent,clean);
+}
+
 function teacherTranscriptEchoesTeacher(raw,{shortCommands=false}={}){
   const transcript=normalizeTeacherSpeech(raw);
   if(!transcript)return false;
@@ -2815,7 +2825,7 @@ async function teacherSubmitServerMicBlob(blob,type,{force=false,capturedDuringA
   if(teacherAudioCaptureGuardActive()&&!force)return false;
   if(Date.now()<teacherServerMicRateLimitedUntil)return false;
   if(!force&&blob.size<900)return false;
-  teacherServerMicPendingSegments.push({blob,type,capturedDuringAudio,capturedAt});
+  teacherServerMicPendingSegments.push({blob,type,capturedDuringAudio,capturedAt,contextKey:teacherAutopilotContextKey(),force});
   return drainTeacherServerMicSegments();
 }
 
@@ -2837,7 +2847,9 @@ async function drainTeacherServerMicSegments(){
   });
   const data=await response.json().catch(()=>({}));
   if(response.ok&&data.ok&&teacherTranscriptLooksUseful(data.text)){
-   if(!segment.capturedDuringAudio)teacherCommand(data.text,{allowDuringAudio:true});
+   const staleContext=!segment.force&&segment.contextKey&&segment.contextKey!==teacherAutopilotContextKey();
+   const duplicateRecent=!segment.force&&teacherRecentLearnerTranscriptMatches(data.text);
+   if(!segment.capturedDuringAudio&&!staleContext&&!duplicateRecent)teacherCommand(data.text,{allowDuringAudio:true});
    handled=true;
   }else if(response.status===401){
    teacherShowAccessRequired({expired:true});
@@ -3020,9 +3032,9 @@ function teacherStartLiveListening({announce=true}={}){
   teacherShowAccessRequired();
   return false;
  }
- const serverMicSupported=Boolean(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&typeof MediaRecorder!=='undefined');
- const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
- const shouldStartServerMic=serverMicSupported&&!SpeechRecognition;
+  const serverMicSupported=Boolean(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&typeof MediaRecorder!=='undefined');
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ const shouldStartServerMic=serverMicSupported;
  if(!SpeechRecognition&&!serverMicSupported){
   teacherLiveListening=false;
   updateTeacherListeningUI();
