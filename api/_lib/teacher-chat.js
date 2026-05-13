@@ -150,8 +150,8 @@ function sanitizeContext(value) {
       weakCount: int(plan.weakCount, 0, 5000),
       todayNew: int(plan.todayNew, 0, 5000),
       todayReviews: int(plan.todayReviews, 0, 5000),
-      sessionAccuracy: plan.sessionAccuracy === null ? null : int(plan.sessionAccuracy, 0, 100),
-      lifetimeAccuracy: plan.lifetimeAccuracy === null ? null : int(plan.lifetimeAccuracy, 0, 100)
+      sessionAccuracy: plan.sessionAccuracy == null ? null : int(plan.sessionAccuracy, 0, 100),
+      lifetimeAccuracy: plan.lifetimeAccuracy == null ? null : int(plan.lifetimeAccuracy, 0, 100)
     },
     performance: {
       learnedCount: int(performance.learnedCount, 0, 5000),
@@ -167,8 +167,8 @@ function sanitizeContext(value) {
       completedFirstGuidedSession: bool(performance.completedFirstGuidedSession),
       lapses: int(performance.lapses, 0, 5000),
       sessionRated: int(performance.sessionRated, 0, 5000),
-      sessionAccuracy: performance.sessionAccuracy === null ? null : int(performance.sessionAccuracy, 0, 100),
-      lifetimeAccuracy: performance.lifetimeAccuracy === null ? null : int(performance.lifetimeAccuracy, 0, 100),
+      sessionAccuracy: performance.sessionAccuracy == null ? null : int(performance.sessionAccuracy, 0, 100),
+      lifetimeAccuracy: performance.lifetimeAccuracy == null ? null : int(performance.lifetimeAccuracy, 0, 100),
       ratings: pickCounts(performance.ratings, ['again', 'hard', 'good', 'easy']),
       boxes: pickCounts(performance.boxes, ['0', '1', '2', '3', '4', '5'])
     },
@@ -563,5 +563,6 @@ module.exports._test = {
   isLanguageScopeMessage,
   isOutOfScopeMessage,
   isTranscriptionRequest,
+  sanitizeContext,
   teacherReasoningEffort
 };

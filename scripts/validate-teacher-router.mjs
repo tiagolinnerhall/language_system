@@ -144,6 +144,17 @@ const fastChoice = teacherChatModule._test.chooseTeacherModel('hi are you listen
 if (fastChoice.tier !== 'fast') {
   throw new Error(`Simple live teacher checks must use the fast route, not premium/high-latency route: ${JSON.stringify(fastChoice)}`);
 }
+const sanitizedFastChoice = teacherChatModule._test.chooseTeacherModel('hello', teacherChatModule._test.sanitizeContext({
+  teacherLiveListening: true,
+  teacherAutopilotEnabled: true,
+  plan: {},
+  performance: {},
+  difficulty: {},
+  current: {}
+}));
+if (sanitizedFastChoice.tier !== 'fast') {
+  throw new Error(`Sanitized empty performance context must not become low-accuracy premium routing: ${JSON.stringify(sanitizedFastChoice)}`);
+}
 const hardChoice = teacherChatModule._test.chooseTeacherModel('explain the grammar ending because I am confused', {
   teacherLiveListening: true,
   teacherAutopilotEnabled: true,
