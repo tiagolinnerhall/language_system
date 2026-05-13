@@ -13,11 +13,12 @@ function mustInclude(name, source, needle) {
   if (!source.includes(needle)) throw new Error(`${name} missing ${needle}`);
 }
 
-mustInclude('teacher-chat', chat, "const DEFAULT_FAST_MODEL = 'gpt-5.4-mini'");
+mustInclude('teacher-chat', chat, "const DEFAULT_FAST_MODEL = 'gpt-5.5'");
 mustInclude('teacher-chat', chat, "const DEFAULT_PREMIUM_MODEL = 'gpt-5.5'");
 mustInclude('teacher-chat', chat, 'function hardSignal(message, context)');
 mustInclude('teacher-chat', chat, 'function chooseTeacherModel(message, context)');
 mustInclude('teacher-chat', chat, 'context.teacherLiveListening || context.teacherAutopilotEnabled || context.studyActive');
+mustInclude('teacher-chat', chat, "LANG5K_TRANSCRIBE_MODEL || 'gpt-4o-transcribe'");
 mustInclude('teacher-chat', chat, 'LANG5K_TEACHER_FAST_MODEL');
 mustInclude('teacher-chat', chat, 'LANG5K_TEACHER_PREMIUM_MODEL');
 mustInclude('teacher-chat', chat, 'typedAttempt');

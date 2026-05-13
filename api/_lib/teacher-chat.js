@@ -6,7 +6,7 @@ const { checkRateLimit, getEntitlement } = require('./store');
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 const OPENAI_TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
-const DEFAULT_FAST_MODEL = 'gpt-5.4-mini';
+const DEFAULT_FAST_MODEL = 'gpt-5.5';
 const DEFAULT_PREMIUM_MODEL = 'gpt-5.5';
 const MAX_AUDIO_BYTES = 3 * 1024 * 1024;
 const ACTIONS = [
@@ -361,7 +361,7 @@ async function transcribeAudio(buffer, contentType) {
     throw error;
   }
   const form = new FormData();
-  const model = String(process.env.LANG5K_TRANSCRIBE_MODEL || 'gpt-4o-mini-transcribe').trim();
+  const model = String(process.env.LANG5K_TRANSCRIBE_MODEL || 'gpt-4o-transcribe').trim();
   form.append('file', new Blob([buffer], { type: contentType }), `live-teacher.${extensionForType(contentType)}`);
   form.append('model', model);
   form.append('response_format', 'json');
@@ -436,6 +436,7 @@ function teacherModels() {
 
 function chooseTeacherModel(message, context) {
   const models = teacherModels();
+  if (models.premium) return { model: models.premium, tier: 'premium' };
   if (context.teacherLiveListening || context.teacherAutopilotEnabled || context.studyActive) return { model: models.premium, tier: 'premium' };
   if (hardSignal(message, context)) return { model: models.premium, tier: 'premium' };
   return { model: models.fast, tier: 'fast' };

@@ -4,6 +4,28 @@ This file records the unattended premium-improvement loop so completed work does
 
 ## 2026-05-13
 
+### Strongest Teacher Model Defaults
+
+Changed:
+- Changed every AI Teacher chat route to choose the premium reasoning model tier by default instead of keeping any cheaper fast-chat fallback.
+- Set the built-in teacher chat default to `gpt-5.5` for both fast and premium paths.
+- Upgraded live microphone transcription default from `gpt-4o-mini-transcribe` to `gpt-4o-transcribe`.
+
+Why:
+- The user explicitly chose quality over cost for the live teacher. The teacher should not downgrade model quality during normal lesson conversation or Russian speech handling.
+
+Verification:
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `git diff --check`.
+- Confirmed Vercel production env contains `LANG5K_TEACHER_PREMIUM_MODEL`, `LANG5K_TEACHER_MODEL`, `LANG5K_TEACHER_FAST_MODEL`, and `LANG5K_TRANSCRIBE_MODEL`.
+
+Remaining Risk:
+- This increases OpenAI cost per live-teacher turn and transcription request. It improves quality, but bad physical microphone audio can still produce bad transcripts.
+
 ### Live Teacher Recall Classifier And Premium Model Routing
 
 Changed:
