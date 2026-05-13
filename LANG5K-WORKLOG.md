@@ -1544,3 +1544,21 @@ Verification:
 - Ran `node .\scripts\headless-app-flow-check.mjs`.
 - Ran `git diff --check`.
 - Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+
+### Live Teacher Mic Silent-Drop Hotfix
+
+Changed:
+- Stopped the fallback mic from silently discarding every audio chunk just because the local browser volume detector did not classify the segment as loud enough.
+- Added a quiet-probe fallback: if Live Teacher is on, there is no recent transcript, and the local detector says "not spoken", the app periodically submits a non-app-audio chunk for server transcription instead of doing nothing.
+- Added cooldown/status handling so quiet probes do not transcribe continuously and can tell the learner when the mic is open but speech was not clear.
+- Added a headless regression proving soft/undetected fallback audio still reaches transcription while the quiet-probe cooldown prevents constant transcription.
+
+Why:
+- The UI could truthfully show "Live mic on" while a too-strict local volume gate dropped soft speech before it ever reached the transcription API, making it feel like the teacher was not listening.
+
+Verification:
+- Ran `node --check` on the extracted app script.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.

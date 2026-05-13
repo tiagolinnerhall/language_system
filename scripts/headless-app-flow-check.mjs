@@ -973,6 +973,41 @@ try {
   if (teacherTranscribeBodies.length !== beforeServerMicTranscribeCount + 1 || teacherChatBodies.length !== beforeServerMicChatCount + 1 || !serverMicChat?.message?.includes('what does привет mean')) {
     throw new Error(`Server mic transcription did not route into teacher chat: ${JSON.stringify({ transcribes: teacherTranscribeBodies.length, chat: serverMicChat })}`);
   }
+  await page.waitForFunction(() => !eval('teacherAiBusy'), null, { timeout: 5000 });
+  const beforeQuietProbeChatCount = teacherChatBodies.length;
+  const beforeQuietProbeTranscribeCount = teacherTranscribeBodies.length;
+  await page.evaluate(async () => {
+    await eval(`(async () => {
+      teacherServerMicContentType = 'audio/webm';
+      teacherServerMicSegmentHasAppAudio = false;
+      teacherCapturePausedForAudio = false;
+      teacherAudioGuardUntil = 0;
+      teacherServerMicActivityAvailable = true;
+      teacherServerMicSegmentStartedAt = Date.now() - 3000;
+      teacherServerMicSegmentVoiceMs = 0;
+      teacherServerMicSegmentPeak = 0;
+      teacherLastTranscriptAt = 0;
+      teacherLastCommandText = '';
+      teacherLastCommandAt = 0;
+      teacherServerMicLastQuietProbeAt = Date.now() - TEACHER_SERVER_MIC_QUIET_PROBE_MS - 100;
+      const decision = teacherServerMicSubmissionDecision(false);
+      if (!decision.submit || !decision.quietProbe) throw new Error('quiet probe did not allow fallback transcription');
+      teacherServerMicLastQuietProbeAt = Date.now();
+      await teacherSubmitServerMicBlob(new Blob([new Uint8Array(2048).fill(1)], { type: 'audio/webm' }), 'audio/webm', {
+        capturedAt: Date.now() - 3000,
+        quietProbe: decision.quietProbe
+      });
+    })()`);
+  });
+  await page.waitForTimeout(900);
+  const quietProbeChat = teacherChatBodies.at(-1);
+  if (teacherTranscribeBodies.length !== beforeQuietProbeTranscribeCount + 1 || teacherChatBodies.length !== beforeQuietProbeChatCount + 1 || !quietProbeChat?.message?.includes('what does привет mean')) {
+    throw new Error(`Server mic quiet fallback did not submit soft/undetected speech: ${JSON.stringify({ transcribes: teacherTranscribeBodies.length, chat: quietProbeChat })}`);
+  }
+  const quietProbeCooldown = await page.evaluate(() => eval('teacherServerMicSubmissionDecision(false).submit'));
+  if (quietProbeCooldown) {
+    throw new Error('Server mic quiet fallback ignored its cooldown and would transcribe continuously.');
+  }
   const beforeSilenceCount = teacherChatBodies.length;
   const fillerUseful = await page.evaluate(() => eval(`teacherTranscriptLooksUseful('um')`));
   await page.waitForTimeout(150);

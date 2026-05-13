@@ -69,6 +69,8 @@ mustInclude('app.html', app, 'function teacherRatingCommandIntent(text,rating)')
 mustInclude('app.html', app, 'function teacherRecallTranscriptSignal(text)');
 mustInclude('app.html', app, 'teacherVoicePlaybackActiveUntil');
 mustInclude('app.html', app, 'teacherAppAudioOutputUntil');
+mustInclude('app.html', app, 'TEACHER_SERVER_MIC_QUIET_PROBE_MS');
+mustInclude('app.html', app, 'function teacherServerMicSubmissionDecision');
 mustInclude('app.html', app, 'teacherQueuedAiRequests');
 mustInclude('app.html', app, 'teacherAutopilotActionBlockedUntil');
 mustInclude('app.html', app, 'teacherAutopilotActivationActionsToSuppress');

@@ -635,6 +635,8 @@ let teacherServerMicActivityAvailable=false;
 let teacherServerMicSegmentStartedAt=0;
 let teacherServerMicSegmentVoiceMs=0;
 let teacherServerMicSegmentPeak=0;
+let teacherServerMicLastQuietProbeAt=0;
+let teacherServerMicLastNoSpeechStatusAt=0;
 let teacherCapturePausedForAudio=false;
 let teacherCaptureResumeTimer=null;
 let teacherRecentAudioEchoTexts=[];
@@ -696,6 +698,7 @@ const TEACHER_MIC_MIN_PEAK=0.026;
 const TEACHER_VOICE_AI_COOLDOWN_MS=3200;
 const TEACHER_SERVER_MIC_FLUSH_MS=2600;
 const TEACHER_SERVER_MIC_STALE_MS=11000;
+const TEACHER_SERVER_MIC_QUIET_PROBE_MS=6500;
 
 // Study session state
 let studyQueue=[];
@@ -866,6 +869,13 @@ function teacherMicSegmentLooksSpoken(){
  const segmentMs=Date.now()-teacherServerMicSegmentStartedAt;
  if(segmentMs<700)return false;
  return teacherServerMicSegmentVoiceMs>=TEACHER_MIC_MIN_VOICE_MS&&teacherServerMicSegmentPeak>=TEACHER_MIC_MIN_PEAK;
+}
+
+function teacherServerMicSubmissionDecision(looksSpoken,now=Date.now()){
+ if(looksSpoken)return {submit:true,quietProbe:false};
+ if(teacherHadRecentTranscript(9000))return {submit:false,quietProbe:false};
+ if(now-teacherServerMicLastQuietProbeAt<TEACHER_SERVER_MIC_QUIET_PROBE_MS)return {submit:false,quietProbe:false};
+ return {submit:true,quietProbe:true};
 }
 
 function setTeacherVoiceStatus(message='',sourceButton=null,busy=false){
@@ -2821,11 +2831,11 @@ function teacherHadRecentTranscript(windowMs=12000){
  return teacherLastTranscriptAt&&Date.now()-teacherLastTranscriptAt<windowMs;
 }
 
-async function teacherSubmitServerMicBlob(blob,type,{force=false,capturedDuringAudio=false,capturedAt=Date.now()}={}){
+async function teacherSubmitServerMicBlob(blob,type,{force=false,capturedDuringAudio=false,capturedAt=Date.now(),quietProbe=false}={}){
   if(teacherAudioCaptureGuardActive()&&!force)return false;
   if(Date.now()<teacherServerMicRateLimitedUntil)return false;
   if(!force&&blob.size<900)return false;
-  teacherServerMicPendingSegments.push({blob,type,capturedDuringAudio,capturedAt,contextKey:teacherAutopilotContextKey(),force});
+  teacherServerMicPendingSegments.push({blob,type,capturedDuringAudio,capturedAt,contextKey:teacherAutopilotContextKey(),force,quietProbe});
   return drainTeacherServerMicSegments();
 }
 
@@ -2850,6 +2860,13 @@ async function drainTeacherServerMicSegments(){
    const staleContext=!segment.force&&segment.contextKey&&segment.contextKey!==teacherAutopilotContextKey();
    const duplicateRecent=!segment.force&&teacherRecentLearnerTranscriptMatches(data.text);
    if(!segment.capturedDuringAudio&&!staleContext&&!duplicateRecent)teacherCommand(data.text,{allowDuringAudio:true});
+   handled=true;
+  }else if(response.ok&&data.ok&&segment.quietProbe&&!teacherHadRecentTranscript(9000)){
+   const now=Date.now();
+   if(now-teacherServerMicLastNoSpeechStatusAt>12000){
+    teacherServerMicLastNoSpeechStatusAt=now;
+    setTeacherVoiceStatus('Mic is open, but I did not hear clear speech yet. Speak one short sentence, or type if needed.');
+   }
    handled=true;
   }else if(response.status===401){
    teacherShowAccessRequired({expired:true});
@@ -2941,12 +2958,14 @@ function startTeacherServerMicRecorder({announce=false}={}){
    const chunks=teacherServerMicChunks.splice(0);
    const type=teacherServerMicContentType||recorder.mimeType||'';
    const looksSpoken=teacherMicSegmentLooksSpoken();
+   const submission=teacherServerMicSubmissionDecision(looksSpoken);
    if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
    teacherServerMicActive=false;
-   if(chunks.length&&!teacherServerMicSegmentHasAppAudio&&!teacherCapturePausedForAudio&&looksSpoken){
+   if(chunks.length&&!teacherServerMicSegmentHasAppAudio&&!teacherCapturePausedForAudio&&submission.submit){
     if(type){
      const blob=new Blob(chunks,{type});
-     teacherSubmitServerMicBlob(blob,type,{capturedDuringAudio:teacherServerMicSegmentHasAppAudio,capturedAt:teacherServerMicSegmentStartedAt});
+     if(submission.quietProbe)teacherServerMicLastQuietProbeAt=Date.now();
+     teacherSubmitServerMicBlob(blob,type,{capturedDuringAudio:teacherServerMicSegmentHasAppAudio,capturedAt:teacherServerMicSegmentStartedAt,quietProbe:submission.quietProbe});
    }
   }
   teacherServerMicSegmentHasAppAudio=false;
