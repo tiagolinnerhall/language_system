@@ -1406,3 +1406,23 @@ Verification:
 
 Remaining Risk:
 - Real microphone quality still depends on the student browser, OS permissions, and room audio. The app now avoids the main self-loop and silent-transcript failure modes and shows explicit access/mic states.
+
+### AI Teacher Model Reasoning And "Did Not Get It" Routing
+
+Changed:
+- Switched teacher chat calls from forced low reasoning to high reasoning by default, with `LANG5K_TEACHER_REASONING_EFFORT` as the production override.
+- Added production env var `LANG5K_TEACHER_REASONING_EFFORT=high`.
+- Strengthened the teacher system prompt so the default spoken reply language is English, with Russian only for target words/phrases or explicit Russian-answer requests.
+- Added deterministic local handling for “I didn’t get it”, “I don’t understand”, “Я не знаю”, and “не понял” so those never become a Russian AI monologue.
+- Added headless regressions for “I didn’t get it” and “Я не знаю” on a recall card.
+
+Why:
+- The teacher model was already configured as `gpt-5.5`, but the request used low reasoning. The bad screenshot showed the transcript was understood but routed into a Russian coaching reply instead of a simple English repair step.
+
+Verification:
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+
+Remaining Risk:
+- Higher reasoning may cost more per teacher reply. This is intentional for premium teacher quality.

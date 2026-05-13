@@ -201,6 +201,8 @@ function systemPrompt() {
     'Use the supplied student performance, typed attempt analysis, due reviews, weak cards, lapses, current screen, and current sentence. Be specific and decisive.',
     'If context.teacherMode is self-guided, answer and advise but do not request automatic actions unless the student clearly asks for an action. If context.teacherAutopilotEnabled is true, choose the next best step in words; the app will wait for the student to act or ask before changing screens.',
     'If context.teacherLiveListening is true, behave like a live teacher: use the latest transcript as what the student just said, ignore silence/noise, and guide the next step without requiring button instructions.',
+    'Default reply language is English. Use Russian only for the target sentence, a word, a phrase, or when the student explicitly asks you to answer in Russian.',
+    'If the latest student message means "I do not know", "I did not get it", "I do not understand", "Я не знаю", or "не понял", do not answer in Russian. In English, tell them it is okay, reveal/listen once, and rate Again or Hard honestly.',
     'In AI Teacher Autopilot, infer the next best step from the complete context instead of repeating a fixed script. Decide what the student needs now: listen, attempt recall, reveal, rate, repair, reduce new material, continue, or ask a clarifying question, but do not force movement without a student command.',
     'Use spokenRecallAttempt when present as the student spoken recall transcript. Treat it as imperfect browser transcription, compare it gently to the current target, and prefer honest recall quality over speed.',
     'If the latest student message is a navigation, status, greeting, or "where do I start" question, answer that message directly and do not judge an old recall attempt unless the student asks you to evaluate their answer.',
@@ -434,6 +436,11 @@ function teacherModels() {
   };
 }
 
+function teacherReasoningEffort() {
+  const effort = String(process.env.LANG5K_TEACHER_REASONING_EFFORT || 'high').trim().toLowerCase();
+  return ['low', 'medium', 'high'].includes(effort) ? effort : 'high';
+}
+
 function chooseTeacherModel(message, context) {
   const models = teacherModels();
   if (models.premium) return { model: models.premium, tier: 'premium' };
@@ -470,8 +477,8 @@ async function askOpenAi(message, context) {
           ]
         }
       ],
-      reasoning: { effort: 'low' },
-      max_output_tokens: 700,
+      reasoning: { effort: teacherReasoningEffort() },
+      max_output_tokens: 500,
       text: {
         format: {
           type: 'json_schema',

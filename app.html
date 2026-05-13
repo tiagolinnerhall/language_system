@@ -2460,8 +2460,31 @@ function teacherNaturalDoubtSignal(text){
 }
 
 function teacherCannotRecallSignal(text){
- return /\b(i don'?t know|i do not know|no idea|i forgot|i forget|i can'?t remember|i cannot remember|i don'?t remember|i do not remember|nothing comes|blank)\b/.test(String(text||'').toLowerCase())
-  || /(^|\s)(не знаю|не помню|забыл|забыла|ничего не помню)(\s|$)/i.test(String(text||''));
+ return /\b(i don'?t know|i do not know|no idea|i forgot|i forget|i can'?t remember|i cannot remember|i don'?t remember|i do not remember|i didn'?t get it|i did not get it|i don'?t get it|i do not get it|i didn'?t understand|i did not understand|i don'?t understand|i do not understand|nothing comes|blank)\b/.test(String(text||'').toLowerCase())
+  || /(^|\s)(я не знаю|не знаю|я не понял|я не поняла|не понял|не поняла|не понимаю|не помню|забыл|забыла|ничего не помню)(\s|$)/i.test(String(text||''));
+}
+
+function teacherHandleCannotRecall(){
+ teacherMarkRecallAttempted();
+ if(teacherInRecallWindow()){
+  teacherSay('No problem. Reveal it now, listen once, and choose Again if the sentence was not there.',{speak:true});
+  waitForTeacherPlaybackIdle().then(()=>{
+   if(studyViewActive&&!studyRevealed){revealStudyCard();scheduleTeacherGuide(350);return}
+   if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return}
+   if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return}
+  });
+  return true;
+ }
+ if(teacherInNewIntroWindow()){
+  teacherSay('No problem. Listen once, say only the beginning if you can, then go to the memory test.',{speak:true});
+  return true;
+ }
+ if(studyViewActive&&studyRevealed){
+  teacherSay('No problem. Compare with the Russian now and choose Again if you did not get it.',{speak:true});
+  return true;
+ }
+ teacherSay('No problem. Stay with one card: try a small piece, reveal, then rate honestly.',{speak:true});
+ return true;
 }
 
 function teacherIsListeningCheck(text){
@@ -2507,16 +2530,7 @@ function teacherCommand(raw){
  }
  if(teacherIsListeningCheck(text)){teacherAnswerListeningCheck();return}
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text)){teacherAskAi(transcript,{source:'voice'});return}
- if(teacherCannotRecallSignal(text)&&teacherInRecallWindow()){
-  teacherMarkRecallAttempted();
-  teacherSay('That is an honest recall attempt. Reveal it now, listen, and mark Again if the sentence was not there.');
-  waitForTeacherPlaybackIdle().then(()=>{
-   if(studyViewActive&&!studyRevealed){revealStudyCard();scheduleTeacherGuide(350);return}
-   if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return}
-   if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return}
-  });
-  return;
- }
+ if(teacherCannotRecallSignal(text)&&teacherHandleCannotRecall())return;
  if(teacherShouldAskAiFirst(text)){teacherAskAi(transcript,{source:'voice'});return}
  if(/\b(where|how).*(start|begin)|\bstart.*where|\bfirst\b/.test(text)){
   teacherAnswerMappedQuestion(text);

@@ -21,6 +21,9 @@ mustInclude('teacher-chat', chat, 'context.teacherLiveListening || context.teach
 mustInclude('teacher-chat', chat, "LANG5K_TRANSCRIBE_MODEL || 'gpt-4o-transcribe'");
 mustInclude('teacher-chat', chat, 'LANG5K_TEACHER_FAST_MODEL');
 mustInclude('teacher-chat', chat, 'LANG5K_TEACHER_PREMIUM_MODEL');
+mustInclude('teacher-chat', chat, 'LANG5K_TEACHER_REASONING_EFFORT');
+mustInclude('teacher-chat', chat, 'Default reply language is English.');
+mustInclude('teacher-chat', chat, 'teacherReasoningEffort()');
 mustInclude('teacher-chat', chat, 'typedAttempt');
 mustInclude('teacher-chat', chat, 'Sense difficulty.');
 mustInclude('teacher-chat', chat, 'spokenRecallAttempt');

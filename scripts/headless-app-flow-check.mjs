@@ -963,8 +963,52 @@ try {
     attempted: eval('teacherHasRecallAttempt()'),
     revealed: eval('studyRevealed')
   }));
-  if (teacherChatBodies.length !== beforeNaturalDoubtCount || !naturalDoubtState.revealed || !/honest recall|mark Again/i.test(naturalDoubtState.message)) {
+  if (teacherChatBodies.length !== beforeNaturalDoubtCount || !naturalDoubtState.revealed || !/No problem|Reveal it now|choose Again|mark Again/i.test(naturalDoubtState.message)) {
     throw new Error(`Live Teacher did not treat "I don't know" as an honest recall attempt: ${JSON.stringify({ naturalDoubtState, callsBefore: beforeNaturalDoubtCount, callsAfter: teacherChatBodies.length })}`);
+  }
+  const beforeDidNotGetCount = teacherChatBodies.length;
+  const didNotGetState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    showStudyCard();
+    stopPlayback();
+    teacherCapturePausedForAudio = false;
+    teacherAudioGuardUntil = 0;
+    teacherCommand("I didn't get it");
+    return {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+  })()`));
+  if (teacherChatBodies.length !== beforeDidNotGetCount || !didNotGetState.attempted || !/No problem|Reveal it now|choose Again|mark Again/i.test(didNotGetState.message)) {
+    throw new Error(`Live Teacher did not handle "I didn't get it" locally in English: ${JSON.stringify(didNotGetState)}`);
+  }
+  const beforeRussianDontKnowCount = teacherChatBodies.length;
+  const russianDontKnowState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    showStudyCard();
+    stopPlayback();
+    teacherCapturePausedForAudio = false;
+    teacherAudioGuardUntil = 0;
+    teacherCommand('Я не знаю');
+    return {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+  })()`));
+  if (teacherChatBodies.length !== beforeRussianDontKnowCount || !russianDontKnowState.attempted || /ничего страшного|послушай|попробуй/i.test(russianDontKnowState.message) || !/No problem|Reveal it now|choose Again|mark Again/i.test(russianDontKnowState.message)) {
+    throw new Error(`Live Teacher did not handle "Я не знаю" locally in English: ${JSON.stringify(russianDontKnowState)}`);
   }
   teacherChatFailure = true;
   await page.evaluate(() => eval('teacherGuide()'));
