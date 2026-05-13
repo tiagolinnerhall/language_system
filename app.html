@@ -2972,7 +2972,10 @@ async function teacherStartServerMic({announce=true}={}){
  if(teacherServerMicActive||teacherServerMicRecorder)return true;
  if(!teacherCanUsePremiumAi())return false;
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined')return false;
- if(teacherCapturePausedForAudio)return false;
+ if(teacherCapturePausedForAudio){
+  resumeTeacherCaptureAfterAudio(Math.max(250,teacherAudioGuardUntil-Date.now()+120));
+  return true;
+ }
  if(teacherAudioCaptureGuardActive()){
   resumeTeacherCaptureAfterAudio(Math.max(250,teacherAudioGuardUntil-Date.now()+120));
   return true;

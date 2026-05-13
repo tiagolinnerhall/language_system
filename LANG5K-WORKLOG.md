@@ -1492,6 +1492,7 @@ Changed:
 - Kept browser speech recognition as the instant path, but added recent-transcript dedupe so backup transcription does not double-answer the same utterance.
 - Added context keys to backup mic chunks so stale chunks are dropped after the card/state changes.
 - Reduced backup mic chunks to 2.6 seconds so missed English/Russian speech is recovered faster while staying below transcription rate limits.
+- Fixed Live Teacher startup during card audio so backup mic startup schedules a resume instead of being treated as a microphone failure.
 - Updated the headless live-teacher check to require the backup mic path to start alongside browser speech recognition.
 
 Why:
