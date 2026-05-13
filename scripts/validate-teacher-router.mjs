@@ -55,6 +55,7 @@ mustInclude('app.html', app, 'TEACHER_AUTOPILOT_COOLDOWN_MS');
 mustInclude('app.html', app, 'function teacherShouldAskAiFirst(text)');
 mustInclude('app.html', app, 'function teacherIsListeningCheck(text)');
 mustInclude('app.html', app, 'алло');
+mustInclude('app.html', app, 'はい');
 mustInclude('app.html', app, 'function teacherAnswerListeningCheck()');
 mustInclude('app.html', app, 'Yes, I am listening.');
 mustInclude('app.html', app, 'function syncTeacherRecognitionLanguage()');

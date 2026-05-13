@@ -1525,3 +1525,22 @@ Verification:
 - Ran `node .\scripts\headless-app-flow-check.mjs`.
 - Ran `git diff --check`.
 - Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+
+### Live Teacher Short Hi Misrecognition Hotfix
+
+Changed:
+- Treated `はい`/`ハイ` as local greeting/listening checks so a short English "hi" misrecognized as Japanese does not go to the AI planner or become a recall attempt.
+- Added the same tokens to filler/backchannel handling.
+- Tightened the server transcription prompt to English/Russian only and explicitly map very short hi/hello/hai-style greetings to `hi`.
+- Added a headless regression for `teacherCommand('はい')` requiring no AI request, no reveal, and no fake recall attempt.
+
+Why:
+- Production showed the mic transcript `I heard: はい.` after the user said hello/hi. The teacher was listening, but the app mishandled that recognizer output and showed a slow "Thinking" state.
+
+Verification:
+- Ran `node --check` on the extracted app script.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.

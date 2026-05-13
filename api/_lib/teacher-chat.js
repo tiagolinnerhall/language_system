@@ -367,7 +367,7 @@ async function transcribeAudio(buffer, contentType) {
   form.append('file', new Blob([buffer], { type: contentType }), `live-teacher.${extensionForType(contentType)}`);
   form.append('model', model);
   form.append('response_format', 'json');
-  form.append('prompt', 'Lang5K Russian lesson live microphone. Transcribe only clear human student speech in English or Russian. If the audio is silence, background noise, playback echo, or not clearly a person speaking to the teacher, return an empty text.');
+  form.append('prompt', 'Lang5K Russian lesson live microphone. The student speaks English and Russian only. Transcribe only clear human student speech in English or Russian. Do not output Japanese or other languages; if a very short greeting sounds like "hi", "hello", "hey", "allo", or "hai", write "hi". If the audio is silence, background noise, playback echo, or not clearly a person speaking to the teacher, return an empty text.');
   const timeoutMs = Number(process.env.LANG5K_TRANSCRIBE_TIMEOUT_MS || 8000);
   const response = await fetchWithTimeout(OPENAI_TRANSCRIPTIONS_URL, {
     method: 'POST',

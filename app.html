@@ -2446,7 +2446,7 @@ function teacherTranscriptEchoesTeacher(raw,{shortCommands=false}={}){
  return teacherEchoPhraseMatch(transcript,spoken);
 }
 
-const teacherRussianRecallFillerTokens=new Set(['ок','окей','okay','ладно','ну','но','да','нет','ага','угу','ээ','эм','мм','хм','привет','алло']);
+const teacherRussianRecallFillerTokens=new Set(['ок','окей','okay','ладно','ну','но','да','нет','ага','угу','ээ','эм','мм','хм','привет','алло','はい','ハイ']);
 const teacherRussianRecallWeakTokens=new Set(['я','ты','вы','мы','он','она','оно','они','это','этот','эта','эти','то','что','и','а','в','во','на','не','ни','же','ли','бы','с','со','к','ко','у','о','об','от','до','по','за','из','для','как']);
 
 function teacherRussianRecallFillerToken(token){
@@ -2577,7 +2577,7 @@ function teacherIsListeningCheck(text){
  if(/\b(are you listening|can you hear me|do you hear me|did you hear me|are you there|you listening|mic on|microphone on|is this working)\b/.test(clean))return true;
  if(/(ты меня слышишь|вы меня слышите|слышишь меня|слышите меня|ты тут|вы тут|ты здесь|вы здесь)/i.test(clean))return true;
  if(/^(hi|hello|hey|teacher|allo)(\s+(hi|hello|hey|teacher|allo))*$/.test(simple))return true;
- if(/^(привет|алло|здравствуй|здравствуйте)[.!?\s]*$/i.test(clean))return true;
+ if(/^(привет|алло|здравствуй|здравствуйте|はい|ハイ)[.!?\s]*$/i.test(clean))return true;
  return /^(hi|hello|hey|teacher|allo|hi teacher|hello teacher|hey teacher)[.!?\s]*$/.test(clean);
 }
 
@@ -3139,12 +3139,12 @@ function teacherTranscriptLooksUseful(transcript){
 
 function teacherBackchannelOnly(text){
  const clean=String(text||'').toLowerCase().replace(/[.!?]+$/,'').replace(/\s+/g,' ').trim();
- return /^(ok|okay|yes|yeah|yep|no|nope|right|alright|all right|got it|i see|sure|thanks|thank you|mm|mhm|uh huh|huh|ага|угу|да|нет|ладно|ок|окей|спасибо)$/.test(clean);
+ return /^(ok|okay|yes|yeah|yep|no|nope|right|alright|all right|got it|i see|sure|thanks|thank you|mm|mhm|uh huh|huh|ага|угу|да|нет|ладно|ок|окей|спасибо|はい|ハイ)$/.test(clean);
 }
 
 function teacherGreetingOnly(text){
  const clean=String(text||'').toLowerCase().replace(/[.!?]+$/,'').replace(/\s+/g,' ').trim();
- return /^(hi|hello|hey|allo|привет|алло|здравствуй|здравствуйте)$/.test(clean);
+ return /^(hi|hello|hey|allo|привет|алло|здравствуй|здравствуйте|はい|ハイ)$/.test(clean);
 }
 
 function teacherToggleLiveListening(){

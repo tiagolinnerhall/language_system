@@ -1051,6 +1051,30 @@ try {
   if (teacherChatBodies.length !== beforeCyrillicHelloCount || cyrillicHelloState.attempted || cyrillicHelloState.revealed || !/yes|listening|heard you/i.test(cyrillicHelloState.message)) {
     throw new Error(`Live Teacher routed hello transcribed as Cyrillic Алло incorrectly: ${JSON.stringify(cyrillicHelloState)}`);
   }
+  const beforeJapaneseHiCount = teacherChatBodies.length;
+  const japaneseHiState = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 0, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
+    showStudyCard();
+    stopPlayback();
+    teacherCapturePausedForAudio = false;
+    teacherAudioGuardUntil = 0;
+    teacherCommand('はい');
+    return {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+  })()`));
+  if (teacherChatBodies.length !== beforeJapaneseHiCount || japaneseHiState.attempted || japaneseHiState.revealed || !/yes|listening|heard you/i.test(japaneseHiState.message)) {
+    throw new Error(`Live Teacher routed hi transcribed as Japanese はい incorrectly: ${JSON.stringify(japaneseHiState)}`);
+  }
   const beforeNaturalDoubtCount = teacherChatBodies.length;
   await page.evaluate(() => eval(`(() => {
     studyQueue = [{ idx: 0, type: 'review' }];
