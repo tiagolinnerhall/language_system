@@ -1382,3 +1382,27 @@ Verification:
 Remaining Risk:
 - Fresh subagent audit sessions could not run because the Codex usage limit rejected them. The same checks were covered locally with headless regression tests and manual code review.
 - Headless tests still cannot prove the user’s physical microphone quality, but the app now sends valid complete audio segments and has a verified production transcription endpoint.
+
+### Live Teacher Access, Mic-First Start, And Loop Guard
+
+Changed:
+- Fixed preview/admin cloud progress sync by allowing the private preview session to save and restore progress under a separate preview account key.
+- Changed Live Teacher startup to open the microphone first and wait for the learner instead of immediately firing an autopilot AI reply.
+- Added microphone activity gating so silent/background/teacher-audio segments are not uploaded as student speech.
+- Tightened live transcription prompting to return empty text for silence, playback echo, or unclear audio.
+- Replaced stacked voice-question queues with one latest voice question so noisy mic loops cannot make the teacher talk over itself.
+- Bumped the service-worker cache version so deployed browsers fetch the corrected app shell.
+- Updated the headless regression to enforce the new “listen first, then answer after the learner speaks/asks” behavior.
+
+Why:
+- Production logs showed `401` teacher-chat failures from sessions without valid access, and headless reproduction showed the old start path could speak before a stable mic state. The teacher must not look closed, loop on its own audio, or lose admin progress.
+
+Verification:
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node --check .\api\progress.js`.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+
+Remaining Risk:
+- Real microphone quality still depends on the student browser, OS permissions, and room audio. The app now avoids the main self-loop and silent-transcript failure modes and shows explicit access/mic states.

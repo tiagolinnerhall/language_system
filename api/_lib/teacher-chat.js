@@ -365,7 +365,7 @@ async function transcribeAudio(buffer, contentType) {
   form.append('file', new Blob([buffer], { type: contentType }), `live-teacher.${extensionForType(contentType)}`);
   form.append('model', model);
   form.append('response_format', 'json');
-  form.append('prompt', 'Lang5K Russian lesson. The student may ask in English or Russian, say a Russian recall attempt, or ask the teacher what to do next.');
+  form.append('prompt', 'Lang5K Russian lesson live microphone. Transcribe only clear human student speech in English or Russian. If the audio is silence, background noise, playback echo, or not clearly a person speaking to the teacher, return an empty text.');
   const response = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}` },

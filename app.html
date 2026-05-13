@@ -625,6 +625,14 @@ let teacherLastSpokenAt=0;
 let teacherVoicePlaybackActiveUntil=0;
 let teacherAudioGuardUntil=0;
 let teacherServerMicSegmentHasAppAudio=false;
+let teacherServerMicAudioContext=null;
+let teacherServerMicAnalyser=null;
+let teacherServerMicLevelTimer=null;
+let teacherServerMicLevelData=null;
+let teacherServerMicActivityAvailable=false;
+let teacherServerMicSegmentStartedAt=0;
+let teacherServerMicSegmentVoiceMs=0;
+let teacherServerMicSegmentPeak=0;
 let teacherCapturePausedForAudio=false;
 let teacherCaptureResumeTimer=null;
 let teacherRecentAudioEchoTexts=[];
@@ -636,6 +644,8 @@ let teacherQueuedAiRequests=[];
 let teacherAttemptedRecallKey='';
 let teacherSpokenRecallAttempt={key:'',transcript:''};
 let teacherLastAutopilotAt=0;
+let teacherLastVoiceAiAt=0;
+let teacherLastVoiceAiContextKey='';
 let teacherLastAutopilotContextKey='';
 let teacherAutopilotCallTimes=[];
 let teacherAutopilotActionTimes=[];
@@ -676,6 +686,10 @@ const TEACHER_AUTOPILOT_COOLDOWN_MS=2500;
 const TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS=2500;
 const TEACHER_AUTOPILOT_MAX_CALLS_PER_MINUTE=10;
 const TEACHER_AUTOPILOT_MAX_ACTIONS_PER_MINUTE=8;
+const TEACHER_MIC_RMS_THRESHOLD=0.018;
+const TEACHER_MIC_MIN_VOICE_MS=240;
+const TEACHER_MIC_MIN_PEAK=0.026;
+const TEACHER_VOICE_AI_COOLDOWN_MS=3200;
 
 // Study session state
 let studyQueue=[];
@@ -772,6 +786,80 @@ function markTeacherAudioOutput(text='',minMs=2500){
    teacherRecentAudioEchoTexts.push({text:normalized,expiresAt});
   }
  }
+}
+
+function resetTeacherMicSegmentActivity(){
+ teacherServerMicSegmentStartedAt=Date.now();
+ teacherServerMicSegmentVoiceMs=0;
+ teacherServerMicSegmentPeak=0;
+}
+
+function stopTeacherMicLevelMonitor(){
+ if(teacherServerMicLevelTimer){
+  clearInterval(teacherServerMicLevelTimer);
+  teacherServerMicLevelTimer=null;
+ }
+ teacherServerMicAnalyser=null;
+ teacherServerMicLevelData=null;
+ teacherServerMicActivityAvailable=false;
+ if(teacherServerMicAudioContext){
+  const context=teacherServerMicAudioContext;
+  teacherServerMicAudioContext=null;
+  if(context.state!=='closed'){
+   const closing=context.close();
+   if(closing&&typeof closing.catch==='function')closing.catch(()=>null);
+  }
+ }
+}
+
+function startTeacherMicLevelMonitor(stream){
+ if(teacherServerMicLevelTimer||!stream)return;
+ const AudioContext=window.AudioContext||window.webkitAudioContext;
+ if(!AudioContext)return;
+ try{
+  teacherServerMicAudioContext=new AudioContext();
+  const source=teacherServerMicAudioContext.createMediaStreamSource(stream);
+  teacherServerMicAnalyser=teacherServerMicAudioContext.createAnalyser();
+  teacherServerMicAnalyser.fftSize=1024;
+  if(typeof teacherServerMicAnalyser.getFloatTimeDomainData!=='function'){
+   stopTeacherMicLevelMonitor();
+   return;
+  }
+  source.connect(teacherServerMicAnalyser);
+  teacherServerMicLevelData=new Float32Array(teacherServerMicAnalyser.fftSize);
+  teacherServerMicActivityAvailable=true;
+  teacherServerMicLevelTimer=setInterval(()=>{
+   if(!teacherServerMicAnalyser||!teacherServerMicLevelData)return;
+   if(typeof teacherServerMicAnalyser.getFloatTimeDomainData!=='function'){
+    stopTeacherMicLevelMonitor();
+    return;
+   }
+   if(!teacherServerMicRecorder||teacherServerMicRecorder.state!=='recording'||teacherCapturePausedForAudio)return;
+   teacherServerMicAnalyser.getFloatTimeDomainData(teacherServerMicLevelData);
+   let sum=0;
+   for(let i=0;i<teacherServerMicLevelData.length;i++){
+    const sample=teacherServerMicLevelData[i];
+    sum+=sample*sample;
+   }
+   const rms=Math.sqrt(sum/teacherServerMicLevelData.length);
+   teacherServerMicSegmentPeak=Math.max(teacherServerMicSegmentPeak,rms);
+   if(rms>=TEACHER_MIC_RMS_THRESHOLD)teacherServerMicSegmentVoiceMs+=100;
+  },100);
+  if(teacherServerMicAudioContext.state==='suspended'){
+   const resume=teacherServerMicAudioContext.resume();
+   if(resume&&typeof resume.catch==='function')resume.catch(()=>null);
+  }
+ }catch(_){
+  stopTeacherMicLevelMonitor();
+ }
+}
+
+function teacherMicSegmentLooksSpoken(){
+ if(teacherServerMicSegmentHasAppAudio||teacherAudioCaptureGuardActive())return false;
+ if(!teacherServerMicActivityAvailable)return true;
+ const segmentMs=Date.now()-teacherServerMicSegmentStartedAt;
+ if(segmentMs<700)return false;
+ return teacherServerMicSegmentVoiceMs>=TEACHER_MIC_MIN_VOICE_MS&&teacherServerMicSegmentPeak>=TEACHER_MIC_MIN_PEAK;
 }
 
 function setTeacherVoiceStatus(message='',sourceButton=null,busy=false){
@@ -1183,18 +1271,17 @@ function teacherSetMode(mode){
   teacherShowAccessRequired();
   return;
  }
- teacherAutopilotEnabled=autopilot;
- if(autopilot)teacherAutopilotAwaitingLearnerTurn=false;
- localStorage.setItem(storagePrefix+'teacher_autopilot',autopilot?'1':'0');
+  teacherAutopilotEnabled=autopilot;
+  localStorage.setItem(storagePrefix+'teacher_autopilot',autopilot?'1':'0');
  refreshTeacherStudyModeControls();
- if(autopilot){
-  teacherAutopilotActionBlockedUntil=Date.now()+TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS;
-  teacherAutopilotActivationActionsToSuppress=1;
-  toggleTeacherMode(true);
-  teacherSay('Live AI Teacher is on. I am listening and checking your lesson state now.',{speak:false});
-  teacherStartLiveListening({announce:true});
-  scheduleTeacherGuide(120);
- } else {
+  if(autopilot){
+   teacherAutopilotAwaitingLearnerTurn=true;
+   teacherAutopilotActionBlockedUntil=Date.now()+TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS;
+   teacherAutopilotActivationActionsToSuppress=1;
+   toggleTeacherMode(true);
+   teacherSay('Live AI Teacher is on. I will listen first, then guide the next step from what you do or ask.',{speak:false});
+   teacherStartLiveListening({announce:true});
+  } else {
   stopTeacherListening({disableLive:true});
   teacherAutopilotEnabled=false;
   localStorage.setItem(storagePrefix+'teacher_autopilot','0');
@@ -1786,10 +1873,17 @@ function teacherAiContext({includeSpokenRecall=true}={}){
 }
 
 function teacherMessageNeedsRecallContext(message){
- const clean=String(message||'').toLowerCase();
- if(teacherVoiceLooksLikeRecallAttempt(clean)||teacherVoiceLooksLikeShadowing(clean))return true;
- if(teacherRatingDiscussionSignal(clean)||teacherRatingQuestionSignal(clean))return true;
- return /\b(my answer|my attempt|what i said|did i say|did i get|was i|am i correct|is it correct|was it correct|wrong|mistake|rate me|score me|pronunciation|pronounce|recall)\b/.test(clean);
+  const clean=String(message||'').toLowerCase();
+  if(teacherVoiceLooksLikeRecallAttempt(clean)||teacherVoiceLooksLikeShadowing(clean))return true;
+  if(teacherRatingDiscussionSignal(clean)||teacherRatingQuestionSignal(clean))return true;
+  return /\b(my answer|my attempt|what i said|did i say|did i get|was i|am i correct|is it correct|was it correct|wrong|mistake|rate me|score me|pronunciation|pronounce|recall)\b/.test(clean);
+}
+
+function teacherVoiceBypassesCooldown(text){
+ const clean=String(text||'').toLowerCase();
+ if(teacherIsListeningCheck(clean))return true;
+ if(/\b(what does|meaning|means|pronounce|pronunciation|grammar|case|gender|why|how do i say|translate|translation|spell|spelling|mistake|wrong|correct|stuck|confused|where do i start|what should i do|what now|next step|open|go to|take me|show me|browse|study|cloze|dictation|review bin)\b/.test(clean))return true;
+ return /[а-яё]/i.test(clean)&&teacherRussianQuestionSignal(clean)&&!/(что делать|что дальше|дальше что|что теперь)/i.test(clean);
 }
 
 function teacherSubmitQuestion(event){
@@ -1845,22 +1939,31 @@ async function teacherAskAi(message,{source='typed'}={}){
  if(els.transcript){
   els.transcript.textContent=source==='autopilot'?'Teacher is checking the next step.':(source==='voice'?'I heard: ':'You asked: ')+clean;
  }
- if(teacherAiBusy){
-  if(source!=='autopilot'){
-   if(source==='voice'){
-    if(!teacherQueuedAiRequests.some(request=>request.source==='voice'&&request.message===clean)){
+  if(teacherAiBusy){
+   if(source!=='autopilot'){
+    if(source==='voice'){
+     teacherQueuedAiRequests=teacherQueuedAiRequests.filter(request=>request.source!=='voice');
      teacherQueuedAiRequests.push({message:clean,source});
+     setTeacherVoiceStatus('I heard you. I will answer right after this thought.');
+     return;
     }
-    setTeacherVoiceStatus('I heard you. I will answer right after this thought.');
-    return;
-   }
    teacherQueuedAiRequests=teacherQueuedAiRequests.filter(request=>request.source!=='typed');
    teacherQueuedAiRequests.push({message:clean,source});
    setTeacherVoiceStatus('I will answer that right after this thought.');
+   }
+   return;
   }
-  return;
- }
- setTeacherAiBusy(true);
+  if(source==='voice'){
+   const now=Date.now();
+   const voiceContextKey=teacherAutopilotContextKey();
+   if(!teacherVoiceBypassesCooldown(clean)&&now-teacherLastVoiceAiAt<TEACHER_VOICE_AI_COOLDOWN_MS&&voiceContextKey===teacherLastVoiceAiContextKey){
+    setTeacherVoiceStatus('I heard you. Give me one moment, then continue.');
+    return;
+   }
+   teacherLastVoiceAiAt=now;
+   teacherLastVoiceAiContextKey=voiceContextKey;
+  }
+  setTeacherAiBusy(true);
  setTeacherVoiceStatus(source==='autopilot'?'Thinking about the next step...':'Teacher is thinking...');
  try{
   const includeSpokenRecall=source!=='voice'||teacherMessageNeedsRecallContext(clean);
@@ -2591,13 +2694,14 @@ function stopTeacherServerMic(){
  if(recorder&&recorder.state&&recorder.state!=='inactive'){
   try{recorder.stop()}catch(_){}
  }
- if(teacherServerMicStream){
-  teacherServerMicStream.getTracks().forEach(track=>track.stop());
-  teacherServerMicStream=null;
- }
- teacherServerMicChunks=[];
- teacherServerMicPendingSegments=[];
- updateTeacherListeningUI();
+  if(teacherServerMicStream){
+   teacherServerMicStream.getTracks().forEach(track=>track.stop());
+   teacherServerMicStream=null;
+  }
+  stopTeacherMicLevelMonitor();
+  teacherServerMicChunks=[];
+  teacherServerMicPendingSegments=[];
+  updateTeacherListeningUI();
 }
 
 function teacherHadRecentTranscript(windowMs=12000){
@@ -2605,9 +2709,10 @@ function teacherHadRecentTranscript(windowMs=12000){
 }
 
 async function teacherSubmitServerMicBlob(blob,type,{force=false}={}){
- if(!force&&blob.size<900)return false;
- teacherServerMicPendingSegments.push({blob,type});
- return drainTeacherServerMicSegments();
+  if(teacherAudioCaptureGuardActive())return false;
+  if(!force&&blob.size<900)return false;
+  teacherServerMicPendingSegments.push({blob,type});
+  return drainTeacherServerMicSegments();
 }
 
 async function drainTeacherServerMicSegments(){
@@ -2671,7 +2776,7 @@ function ensureTeacherServerMicFlushTimer(){
 }
 
 function startTeacherServerMicRecorder({announce=false}={}){
- if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled||teacherCapturePausedForAudio)return false;
+  if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled||teacherCapturePausedForAudio)return false;
  const options=teacherServerMicRecorderOptions();
  if(!options.mimeType){
   setTeacherVoiceStatus('Live mic transcription needs a browser-supported audio format. Try Chrome or Edge if this browser cannot start it.');
@@ -2684,13 +2789,14 @@ function startTeacherServerMicRecorder({announce=false}={}){
   setTeacherVoiceStatus('The mic recorder could not start. Check browser permission, then start the teacher again.');
   return false;
  }
- teacherServerMicRecorder=recorder;
- teacherServerMicContentType=recorder.mimeType||options.mimeType;
- teacherServerMicChunks=[];
- teacherServerMicSegmentHasAppAudio=false;
- recorder.ondataavailable=event=>{
-  if(teacherAudioCaptureGuardActive())teacherServerMicSegmentHasAppAudio=true;
-  if(event.data&&event.data.size&&!teacherServerMicSegmentHasAppAudio)teacherServerMicChunks.push(event.data);
+  teacherServerMicRecorder=recorder;
+  teacherServerMicContentType=recorder.mimeType||options.mimeType;
+  teacherServerMicChunks=[];
+  teacherServerMicSegmentHasAppAudio=false;
+  resetTeacherMicSegmentActivity();
+  recorder.ondataavailable=event=>{
+   if(teacherAudioCaptureGuardActive())teacherServerMicSegmentHasAppAudio=true;
+   if(event.data&&event.data.size&&!teacherServerMicSegmentHasAppAudio)teacherServerMicChunks.push(event.data);
  };
  recorder.onstart=()=>{
   teacherServerMicActive=true;
@@ -2701,15 +2807,16 @@ function startTeacherServerMicRecorder({announce=false}={}){
   setTeacherVoiceStatus('The mic recorder had an issue. Press Start Live Teacher to retry.');
   stopTeacherServerMic();
  };
- recorder.onstop=()=>{
-  const chunks=teacherServerMicChunks.splice(0);
-  const type=teacherServerMicContentType||recorder.mimeType||'';
-  if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
-  teacherServerMicActive=false;
-  if(chunks.length&&!teacherServerMicSegmentHasAppAudio&&!teacherCapturePausedForAudio){
-   if(type){
-    const blob=new Blob(chunks,{type});
-    teacherSubmitServerMicBlob(blob,type);
+  recorder.onstop=()=>{
+   const chunks=teacherServerMicChunks.splice(0);
+   const type=teacherServerMicContentType||recorder.mimeType||'';
+   const looksSpoken=teacherMicSegmentLooksSpoken();
+   if(teacherServerMicRecorder===recorder)teacherServerMicRecorder=null;
+   teacherServerMicActive=false;
+   if(chunks.length&&!teacherServerMicSegmentHasAppAudio&&!teacherCapturePausedForAudio&&looksSpoken){
+    if(type){
+     const blob=new Blob(chunks,{type});
+     teacherSubmitServerMicBlob(blob,type);
    }
   }
   teacherServerMicSegmentHasAppAudio=false;
@@ -2743,12 +2850,14 @@ async function teacherStartServerMic({announce=true}={}){
    stream.getTracks().forEach(track=>track.stop());
    return false;
   }
-  teacherServerMicStream=stream;
-  if(!startTeacherServerMicRecorder({announce})){
-   stream.getTracks().forEach(track=>track.stop());
-   if(teacherServerMicStream===stream)teacherServerMicStream=null;
-   teacherServerMicActive=false;
-   updateTeacherListeningUI();
+   teacherServerMicStream=stream;
+   startTeacherMicLevelMonitor(stream);
+   if(!startTeacherServerMicRecorder({announce})){
+    stream.getTracks().forEach(track=>track.stop());
+    if(teacherServerMicStream===stream)teacherServerMicStream=null;
+    stopTeacherMicLevelMonitor();
+    teacherServerMicActive=false;
+    updateTeacherListeningUI();
    return false;
   }
   return true;
@@ -2800,13 +2909,18 @@ function teacherStartLiveListening({announce=true}={}){
  teacherLiveListening=true;
  teacherRecognitionStopping=false;
  updateTeacherListeningUI();
- if(serverMicSupported){
-  setTeacherVoiceStatus('Requesting microphone access...');
-  teacherStartServerMic({announce}).then(ok=>{
-   if(!ok&&!teacherListening&&teacherLiveListening){
-    teacherLiveListening=false;
-    updateTeacherListeningUI();
-    setTeacherVoiceStatus('Microphone could not start. Check browser permission, then press Start Live Teacher again.');
+  if(serverMicSupported){
+   setTeacherVoiceStatus('Requesting microphone access...');
+   teacherStartServerMic({announce}).then(ok=>{
+    if(ok&&announce&&teacherLiveListening){
+     teacherAutopilotAwaitingLearnerTurn=true;
+     teacherSay('I am listening now. Say what you remember, or ask one short question.',{speak:true});
+     return;
+    }
+    if(!ok&&!teacherListening&&teacherLiveListening){
+     teacherLiveListening=false;
+     updateTeacherListeningUI();
+     setTeacherVoiceStatus('Microphone could not start. Check browser permission, then press Start Live Teacher again.');
    }
   });
   return true;
@@ -2888,14 +3002,13 @@ function teacherToggleLiveListening(){
   setTeacherVoiceStatus('Live mic paused. Resume when you want the teacher to listen again.');
   return;
  }
- teacherAutopilotEnabled=true;
- teacherAutopilotAwaitingLearnerTurn=false;
- localStorage.setItem(storagePrefix+'teacher_autopilot','1');
- teacherAutopilotActionBlockedUntil=Date.now()+TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS;
- teacherAutopilotActivationActionsToSuppress=1;
- refreshTeacherStudyModeControls();
- teacherStartLiveListening();
- scheduleTeacherGuide(120);
+  teacherAutopilotEnabled=true;
+  teacherAutopilotAwaitingLearnerTurn=true;
+  localStorage.setItem(storagePrefix+'teacher_autopilot','1');
+  teacherAutopilotActionBlockedUntil=Date.now()+TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS;
+  teacherAutopilotActivationActionsToSuppress=1;
+  refreshTeacherStudyModeControls();
+  teacherStartLiveListening();
 }
 
 function teacherListenToggle(){

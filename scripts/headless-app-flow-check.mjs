@@ -842,15 +842,15 @@ try {
   }
   await page.locator('#teacherToggleBtn').click();
   await page.locator('#teacherPanel.active .teacher-title').waitFor();
+  const beforeLiveStartTeacherChatCount = teacherChatBodies.length;
   await page.getByRole('button', { name: 'Start Live Teacher' }).click();
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(900);
   const teacherMessage = await page.locator('#teacherMessage').innerText();
-  const lastTeacherChat = teacherChatBodies.at(-1);
-  if (!lastTeacherChat?.message?.includes('Autopilot: decide the next best step') || lastTeacherChat.context?.teacherMode !== 'autopilot') {
-    throw new Error(`AI Teacher Autopilot did not send full-state decision context: ${JSON.stringify(lastTeacherChat)}`);
+  if (teacherChatBodies.length !== beforeLiveStartTeacherChatCount) {
+    throw new Error('Live Teacher start should open the mic and wait, not immediately launch an autopilot AI reply.');
   }
-  if (!/AI Autopilot decided/i.test(teacherMessage)) {
-    throw new Error(`Teacher mode did not use the AI autopilot decision. Saw: ${teacherMessage}`);
+  if (!/listening|say what you remember|ask one short question/i.test(teacherMessage)) {
+    throw new Error(`Live Teacher did not enter a clear listening-first state. Saw: ${teacherMessage}`);
   }
   const activationScreenState = await page.evaluate(() => ({
     mode: eval('currentMode'),
@@ -879,6 +879,18 @@ try {
   if (/mic is off/i.test(liveTeacherState.disclosure)) {
     throw new Error(`Live Teacher disclosure contradicted active mic state: ${JSON.stringify(liveTeacherState)}`);
   }
+  await page.evaluate(() => eval(`stopPlayback(); teacherCapturePausedForAudio=false; teacherAudioGuardUntil=0; teacherCommand('what should I do')`));
+  await page.waitForTimeout(900);
+  const lastTeacherChat = teacherChatBodies.at(-1);
+  if (!/what should i do|Autopilot: decide the next best step/i.test(lastTeacherChat?.message || '') || lastTeacherChat.context?.teacherMode !== 'autopilot' || lastTeacherChat.context?.teacherLiveListening !== true) {
+    throw new Error(`AI Teacher Autopilot did not send full-state decision context after the learner asked: ${JSON.stringify(lastTeacherChat)}`);
+  }
+  const guidedTeacherMessage = await page.locator('#teacherMessage').innerText();
+  if (!/AI Autopilot decided/i.test(guidedTeacherMessage)) {
+    throw new Error(`Teacher mode did not use the AI autopilot decision after a learner prompt. Saw: ${guidedTeacherMessage}`);
+  }
+  await page.waitForFunction(() => !eval('teacherAiBusy'), null, { timeout: 5000 });
+  await page.waitForTimeout(3400);
   const teacherPanelButtons = await page.evaluate(() => [...document.querySelectorAll('#teacherPanel .teacher-actions button')].map(button => button.textContent.replace(/\s+/g, ' ').trim()));
   if (teacherPanelButtons.length > 2) {
     throw new Error(`AI Teacher panel exposes too many competing controls: ${teacherPanelButtons.join(' | ')}`);
@@ -1312,8 +1324,8 @@ try {
     teacherAudioGuardUntil = 0;
     return state;
   })()`));
-  if (queuedVoiceAudioRaceState.queued.join('|') !== 'first voice question?|second voice question?') {
-    throw new Error(`Live Teacher dropped queued voice questions when audio started: ${JSON.stringify(queuedVoiceAudioRaceState)}`);
+  if (queuedVoiceAudioRaceState.queued.join('|') !== 'second voice question?') {
+    throw new Error(`Live Teacher did not keep only the latest queued voice question during audio: ${JSON.stringify(queuedVoiceAudioRaceState)}`);
   }
   const postAudioGuardSpeechState = await page.evaluate(() => eval(`(() => {
     stopPlayback();
