@@ -575,8 +575,29 @@ try {
   if (demoTeacherGate.hasLiveButton || demoTeacherGate.hasVoiceButton || demoTeacherGate.autopilot || !/full access|unlock/i.test(demoTeacherGate.unlockText + ' ' + demoTeacherGate.status + ' ' + demoTeacherGate.message)) {
     throw new Error(`Demo AI Teacher looked broken instead of gated: ${JSON.stringify(demoTeacherGate)}`);
   }
+  const expiredTeacherAccessGate = await page.evaluate(() => eval(`(() => {
+    courseAccessMode = 'full';
+    teacherAiAccessBlocked = true;
+    teacherAutopilotEnabled = true;
+    localStorage.setItem(storagePrefix + 'teacher_autopilot', '1');
+    showStudyStart();
+    const startText = document.querySelector('.study-start')?.textContent || '';
+    teacherShowAccessRequired({ expired: true });
+    return {
+      canUse: teacherCanUsePremiumAi(),
+      hasLiveButton: Boolean(document.querySelector('.study-start .teacher-live-talk')),
+      startText,
+      panelText: document.getElementById('teacherPanel')?.textContent || '',
+      status: document.getElementById('teacherVoiceStatus')?.textContent || '',
+      autopilot: teacherAutopilotEnabled
+    };
+  })()`));
+  if (expiredTeacherAccessGate.canUse || expiredTeacherAccessGate.hasLiveButton || expiredTeacherAccessGate.autopilot || !/sign in again|recover access|expired/i.test(expiredTeacherAccessGate.startText + ' ' + expiredTeacherAccessGate.panelText + ' ' + expiredTeacherAccessGate.status)) {
+    throw new Error(`Expired AI Teacher access still looked available: ${JSON.stringify(expiredTeacherAccessGate)}`);
+  }
   const liveNoteOffState = await page.evaluate(() => eval(`(() => {
     courseAccessMode = 'full';
+    teacherAiAccessBlocked = false;
     teacherLiveListening = false;
     teacherListening = false;
     teacherServerMicActive = false;

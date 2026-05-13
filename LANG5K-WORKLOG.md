@@ -4,6 +4,29 @@ This file records the unattended premium-improvement loop so completed work does
 
 ## 2026-05-13
 
+### AI Teacher Access Expiry Gate
+
+Changed:
+- Added a client-side `teacherAiAccessBlocked` gate so a server-side 401 from AI Teacher immediately disables live teacher controls.
+- Changed expired teacher access copy to tell the user to sign in again or recover access instead of leaving the mic controls visible.
+- Added a headless regression for the exact stale/full-looking session case: `courseAccessMode=full` but teacher API access expired.
+
+Why:
+- Production logs showed repeated `401` responses from `/api/teacher-chat`. The backend was refusing the current browser session, but the UI could still look like AI Teacher was available because the page still had full-course state from an earlier load/cache.
+
+Verification:
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `node .\scripts\validate-preview-full-access.mjs`.
+- Ran `node .\scripts\validate-sell-readiness.mjs`.
+- Ran `node .\scripts\validate-safe-local-storage-startup.mjs`.
+- Ran `git diff --check`.
+
+Remaining Risk:
+- If a browser has an expired preview/full-access session, the user still has to sign in again or recover access. The UI now says that directly instead of presenting live teacher controls.
+
 ### Strongest Teacher Model Defaults
 
 Changed:

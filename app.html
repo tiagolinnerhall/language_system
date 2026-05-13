@@ -547,6 +547,7 @@ let SENTENCES=[];
 let langCode=LANG.code;
 let storagePrefix=langKey+'_';
 let courseAccessMode='demo';
+let teacherAiAccessBlocked=false;
 
 function clearStoredStudyProgress(){
  ['learned','review_bin','srs','stats','teacher_mode','teacher_autopilot','cloud_revision','progress_updated_at'].forEach(suffix=>localStorage.removeItem(storagePrefix+suffix));
@@ -1083,20 +1084,28 @@ function speakMethodGuide(button=null){
 }
 
 function teacherCanUsePremiumAi(){
- return courseAccessMode==='full';
+ return courseAccessMode==='full'&&!teacherAiAccessBlocked;
 }
 
 function teacherAccessRequiredHTML(){
- return `<div class="teacher-access-note"><strong>AI Teacher is full-access.</strong> Unlock the full course to use live listening, AI replies, and premium voice. <a href="pricing.html">Unlock full course</a></div>`;
+ const title=teacherAiAccessBlocked?'AI Teacher session expired.':'AI Teacher is full-access.';
+ const detail=teacherAiAccessBlocked
+  ? 'Sign in to the private preview again, or recover paid access, then reopen the teacher.'
+  : 'Unlock the full course to use live listening, AI replies, and premium voice.';
+ const primary=teacherAiAccessBlocked
+  ? `<a href="login.html?next=${encodeURIComponent(location.pathname+location.search+location.hash)}">Sign in again</a> <a href="access.html">Recover access</a>`
+  : '<a href="pricing.html">Unlock full course</a>';
+ return `<div class="teacher-access-note"><strong>${title}</strong> ${detail} ${primary}</div>`;
 }
 
-function teacherShowAccessRequired(){
+function teacherShowAccessRequired({expired=false}={}){
+ if(expired)teacherAiAccessBlocked=true;
  teacherAutopilotEnabled=false;
  localStorage.setItem(storagePrefix+'teacher_autopilot','0');
  stopTeacherListening({disableLive:true});
  toggleTeacherMode(true);
- setTeacherVoiceStatus('AI Teacher needs full access. The demo cards still work without live AI.');
- teacherSay('AI Teacher voice and live answers are included with full access. You can continue the demo cards now, or unlock the full course when ready.',{speak:false});
+ setTeacherVoiceStatus(teacherAiAccessBlocked?'AI Teacher access expired. Sign in again or recover access.':'AI Teacher needs full access. The demo cards still work without live AI.');
+ teacherSay(teacherAiAccessBlocked?'AI Teacher access expired. Sign in again or recover access, then I can listen and answer.':'AI Teacher voice and live answers are included with full access. You can continue the demo cards now, or unlock the full course when ready.',{speak:false});
  refreshTeacherStudyModeControls();
 }
 
@@ -1861,7 +1870,7 @@ async function teacherAskAi(message,{source='typed'}={}){
   });
   const data=await response.json().catch(()=>({}));
   if(response.status===401){
-   teacherShowAccessRequired();
+   teacherShowAccessRequired({expired:true});
    return;
   }
   if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
@@ -2617,7 +2626,7 @@ async function drainTeacherServerMicSegments(){
    teacherCommand(data.text);
    handled=true;
   }else if(response.status===401){
-   teacherShowAccessRequired();
+   teacherShowAccessRequired({expired:true});
    handled=true;
   }else if(!response.ok&&response.status!==429&&!teacherHadRecentTranscript()){
    setTeacherVoiceStatus('I can see the mic, but I could not read that clearly. Try one short sentence, or type it.');
@@ -3027,6 +3036,7 @@ async function loadLanguageData(){
   }
   SENTENCES=data.sentences||[];
   courseAccessMode=data.mode||'demo';
+  teacherAiAccessBlocked=false;
   normalizeStoredProgress();
   if(!SENTENCES.length){
    app.innerHTML='<div class="empty-state">No data loaded for this language yet.</div>';
