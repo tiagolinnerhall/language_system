@@ -617,9 +617,11 @@ let teacherServerMicSubmitting=false;
 let teacherServerMicFlushTimer=null;
 let teacherServerMicPendingSegments=[];
 let teacherServerMicContentType='';
+let teacherServerMicRateLimitedUntil=0;
 let teacherLastTranscriptAt=0;
 let teacherLastCommandText='';
 let teacherLastCommandAt=0;
+let teacherLastCommandBaseKey='';
 let teacherLastSpokenText='';
 let teacherLastSpokenAt=0;
 let teacherVoicePlaybackActiveUntil=0;
@@ -640,6 +642,8 @@ let teacherAppAudioOutputText='';
 let teacherAppAudioOutputUntil=0;
 let teacherAppAudioPreparing=false;
 let teacherAiBusy=false;
+let teacherAiAbortController=null;
+let teacherAiRequestId=0;
 let teacherQueuedAiRequests=[];
 let teacherAttemptedRecallKey='';
 let teacherSpokenRecallAttempt={key:'',transcript:''};
@@ -683,13 +687,15 @@ const THIRD_LANGUAGE_RE=/\b(french|german|spanish|italian|portuguese|esperanto|l
 const CURATED_FALLBACK_CATEGORY='Everyday Conversation';
 const METHOD_AUDIO_INSTRUCTIONS='Lang5K works like this. Do not try to browse everything or memorize by rereading. Start the guided lesson. First, listen and connect the Russian sentence to the English meaning. Then recall before you reveal. Say the answer quietly, or type Russian or transliteration if you want. After reveal, compare honestly. Choose Again if you missed it, Hard if you barely got it, Good if you got most of it, and Easy only when the answer came back quickly and cleanly. Lang5K then schedules reviews, delayed recall, and repair drills automatically.';
 const TEACHER_AUTOPILOT_COOLDOWN_MS=2500;
-const TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS=2500;
+const TEACHER_AUTOPILOT_ACTIVATION_ACTION_BLOCK_MS=1200;
 const TEACHER_AUTOPILOT_MAX_CALLS_PER_MINUTE=10;
 const TEACHER_AUTOPILOT_MAX_ACTIONS_PER_MINUTE=8;
 const TEACHER_MIC_RMS_THRESHOLD=0.018;
 const TEACHER_MIC_MIN_VOICE_MS=240;
 const TEACHER_MIC_MIN_PEAK=0.026;
 const TEACHER_VOICE_AI_COOLDOWN_MS=3200;
+const TEACHER_SERVER_MIC_FLUSH_MS=3600;
+const TEACHER_SERVER_MIC_STALE_MS=11000;
 
 // Study session state
 let studyQueue=[];
@@ -975,15 +981,15 @@ function pauseTeacherCaptureForAudio(){
 function resumeTeacherCaptureAfterAudio(delay=900){
  if(!teacherLiveListening||!teacherModeEnabled)return;
  if(teacherCaptureResumeTimer)clearTimeout(teacherCaptureResumeTimer);
+ const guardDelay=Math.max(delay,teacherAudioGuardUntil-Date.now()+120);
  teacherCaptureResumeTimer=setTimeout(()=>{
   teacherCaptureResumeTimer=null;
   if(!teacherLiveListening||!teacherModeEnabled)return;
   teacherCapturePausedForAudio=false;
   teacherRecognitionStopping=false;
-  teacherAudioGuardUntil=Math.max(teacherAudioGuardUntil,Date.now()+500);
   updateTeacherListeningUI();
   teacherStartLiveListening({announce:false});
- },delay);
+ },guardDelay);
 }
 
 function notifyTeacherPlaybackIdle(){
@@ -1130,14 +1136,13 @@ function runTeacherVoiceQueue(){
   const finish=(ok=true)=>{
    if(settled)return;
    settled=true;
+   if(generation!==teacherVoiceRequestId)return;
    teacherVoiceQueueRunning=false;
    teacherVoicePlaying=false;
-  if(generation===teacherVoiceRequestId){
    teacherVoicePlaybackActiveUntil=audioStarted?Date.now()+(ok?2000:1000):0;
    if(audioStarted)teacherAudioGuardUntil=Math.max(teacherAudioGuardUntil,Date.now()+2200);
    if(ok)clearTeacherVoiceStatus(sourceButton);
    else if(!document.getElementById('teacherVoiceStatus')?.textContent)setTeacherVoiceStatus('Premium AI voice unavailable. I will stay text only instead of using a robotic voice.',sourceButton,false);
-  }
   if(ok&&onend)onend();
   if(!ok&&onerror)onerror();
   if(audioStarted)resumeTeacherCaptureAfterAudio(ok?900:500);
@@ -1238,6 +1243,14 @@ function teacherLiveControlsHTML(){
    <div class="teacher-live-state${liveClass}"><span class="teacher-live-dot"></span>${liveText}</div>
    <div class="teacher-live-note">${liveNote}</div>
   </div>`;
+}
+
+function teacherRecallAffordanceHTML(){
+ if(!teacherModeEnabled)return '';
+ return `<div class="study-help-actions">
+  <button type="button" class="btn btn-secondary" onclick="teacherMarkQuietAttempt()">I tried quietly</button>
+  <button type="button" class="btn btn-secondary" onclick="teacherCommand('I do not remember')">I don't remember</button>
+ </div>`;
 }
 
 function teacherLiveInstructionText(){
@@ -1370,11 +1383,19 @@ function toggleTeacherMode(force){
  else teacherSay('AI Teacher is open. Stay self-guided, or choose AI Teacher Autopilot when you want me to lead the lesson.',{speak:false});
 }
 
-function teacherSay(text,{speak=true,voiceToken=''}={}){
+function teacherSpokenVersion(text){
+ const clean=String(text||'').replace(/\s+/g,' ').trim();
+ if(clean.length<=190)return clean;
+ const firstSentence=clean.match(/^.{40,190}?[.!?](\s|$)/);
+ return (firstSentence?firstSentence[0]:clean.slice(0,187)+'...').trim();
+}
+
+function teacherSay(text,{speak='auto',voiceToken='',interrupt=true}={}){
  const els=teacherEls();
  if(els.message)els.message.textContent=text;
- if(teacherModeEnabled&&speak&&teacherCanUsePremiumAi()){
-  speakTeacherVoice(text,{lang:'en-US',rate:.95,voiceToken});
+ const shouldSpeak=speak===true||(speak==='auto'&&teacherLiveListening&&teacherAutopilotEnabled);
+ if(teacherModeEnabled&&shouldSpeak&&teacherCanUsePremiumAi()){
+  speakTeacherVoice(teacherSpokenVersion(text),{lang:'en-US',rate:.95,voiceToken,interrupt});
  }
 }
 
@@ -1435,6 +1456,21 @@ function canAskAutopilotTeacher(contextKey){
  return true;
 }
 
+function teacherActionSuppressed(action=''){
+ if(!teacherAutopilotEnabled)return false;
+ const clean=String(action||'').toLowerCase().trim();
+ if(!/(start live teacher|start ai teacher|ai teacher on|teacher on|live teacher on)/i.test(clean))return false;
+ const now=Date.now();
+ if(now>=teacherAutopilotActionBlockedUntil)return false;
+ setTeacherVoiceStatus('Live Teacher is already on. I am listening.');
+ return true;
+}
+
+function teacherClearActionSuppression(){
+ teacherAutopilotActionBlockedUntil=0;
+ teacherAutopilotActivationActionsToSuppress=0;
+}
+
 function teacherCurrentItem(){
  if(studyViewActive&&studyQueue.length&&studyIndex<studyQueue.length){
   const item=studyQueue[studyIndex];
@@ -1490,6 +1526,11 @@ function teacherMarkRecallAttempted(transcript=''){
   teacherAttemptedRecallKey=key;
  const clean=String(transcript||'').trim();
  if(clean)teacherSpokenRecallAttempt={key:teacherAttemptBaseKey(),transcript:clean};
+}
+
+function teacherMarkQuietAttempt(){
+ teacherAttemptedRecallKey=teacherAttemptKey();
+ teacherSay('Good. Reveal now and compare honestly.',{speak:false});
 }
 
 function teacherRequireRecallAttempt(){
@@ -1939,40 +1980,54 @@ async function teacherAskAi(message,{source='typed'}={}){
  if(els.transcript){
   els.transcript.textContent=source==='autopilot'?'Teacher is checking the next step.':(source==='voice'?'I heard: ':'You asked: ')+clean;
  }
+  let voiceContextKey='';
+  let voiceRequestAt=0;
+  if(source==='voice'){
+   voiceRequestAt=Date.now();
+   voiceContextKey=teacherAutopilotContextKey();
+   if(!teacherVoiceBypassesCooldown(clean)&&voiceRequestAt-teacherLastVoiceAiAt<TEACHER_VOICE_AI_COOLDOWN_MS&&voiceContextKey===teacherLastVoiceAiContextKey){
+    setTeacherVoiceStatus('I heard you. Give me one moment, then continue.');
+    return;
+   }
+  }
   if(teacherAiBusy){
-   if(source!=='autopilot'){
+   if(source==='autopilot')return;
+   teacherQueuedAiRequests=[];
+   if(teacherAiAbortController){
+    teacherAiAbortController.abort();
+    teacherAiAbortController=null;
+    teacherAiBusy=false;
+   }else{
     if(source==='voice'){
-     teacherQueuedAiRequests=teacherQueuedAiRequests.filter(request=>request.source!=='voice');
      teacherQueuedAiRequests.push({message:clean,source});
      setTeacherVoiceStatus('I heard you. I will answer right after this thought.');
      return;
     }
-   teacherQueuedAiRequests=teacherQueuedAiRequests.filter(request=>request.source!=='typed');
    teacherQueuedAiRequests.push({message:clean,source});
    setTeacherVoiceStatus('I will answer that right after this thought.');
-   }
    return;
   }
+  }
   if(source==='voice'){
-   const now=Date.now();
-   const voiceContextKey=teacherAutopilotContextKey();
-   if(!teacherVoiceBypassesCooldown(clean)&&now-teacherLastVoiceAiAt<TEACHER_VOICE_AI_COOLDOWN_MS&&voiceContextKey===teacherLastVoiceAiContextKey){
-    setTeacherVoiceStatus('I heard you. Give me one moment, then continue.');
-    return;
-   }
-   teacherLastVoiceAiAt=now;
+   teacherLastVoiceAiAt=voiceRequestAt||Date.now();
    teacherLastVoiceAiContextKey=voiceContextKey;
   }
   setTeacherAiBusy(true);
+ const requestId=++teacherAiRequestId;
+ const actionContextKey=teacherAutopilotContextKey();
+ const controller=new AbortController();
+ teacherAiAbortController=controller;
  setTeacherVoiceStatus(source==='autopilot'?'Thinking about the next step...':'Teacher is thinking...');
  try{
   const includeSpokenRecall=source!=='voice'||teacherMessageNeedsRecallContext(clean);
   const response=await fetch('/api/teacher-chat',{
    method:'POST',
    headers:{'content-type':'application/json'},
-   body:JSON.stringify({message:clean,context:teacherAiContext({includeSpokenRecall})})
+   body:JSON.stringify({message:clean,context:teacherAiContext({includeSpokenRecall})}),
+   signal:controller.signal
   });
   const data=await response.json().catch(()=>({}));
+  if(requestId!==teacherAiRequestId)return;
   if(response.status===401){
    teacherShowAccessRequired({expired:true});
    return;
@@ -1980,8 +2035,9 @@ async function teacherAskAi(message,{source='typed'}={}){
   if(!response.ok||!data.ok)throw new Error(data.error||'AI teacher is unavailable.');
   teacherSay(data.reply||'I can guide the next Russian lesson step.',{speak:data.speak!==false,voiceToken:data.voiceToken||''});
   if(source==='autopilot')teacherAutopilotAwaitingLearnerTurn=true;
-  maybeApplyTeacherAiAction(data.action,source);
+  maybeApplyTeacherAiAction(data.action,source,{requestId,contextKey:actionContextKey});
  }catch(error){
+  if(error.name==='AbortError'||requestId!==teacherAiRequestId)return;
   if(source==='autopilot'){
    setTeacherVoiceStatus('Using simple guidance while the teacher reconnects.');
    teacherGuideLocal();
@@ -1991,10 +2047,13 @@ async function teacherAskAi(message,{source='typed'}={}){
   const fallbackUsed=teacherAnswerMappedQuestion(clean.toLowerCase());
   if(!fallbackUsed)teacherSay('I am here. Ask one short lesson question, or say what you remember for this card.');
  }finally{
-  setTeacherAiBusy(false);
-  const queued=teacherQueuedAiRequests.shift();
-  if(queued){
-   setTimeout(()=>teacherAskAi(queued.message,{source:queued.source}),50);
+  if(teacherAiAbortController===controller)teacherAiAbortController=null;
+  if(requestId===teacherAiRequestId){
+   setTeacherAiBusy(false);
+   const queued=teacherQueuedAiRequests.shift();
+   if(queued){
+    setTimeout(()=>teacherAskAi(queued.message,{source:queued.source}),50);
+   }
   }
  }
 }
@@ -2029,6 +2088,7 @@ function applyTeacherAiAction(action){
  if(!teacherAutopilotEnabled)return;
  if(!action||action==='none')return;
  if(action==='guide')return;
+ if(teacherActionSuppressed(action))return;
  if(/^rate_(again|hard|good|easy)$/.test(action)){
   teacherSay('You choose the rating. If you missed it choose Again, if it was partial choose Hard, if you got most choose Good, and use Easy only when it was instant and clean.',{speak:false});
   return;
@@ -2063,7 +2123,7 @@ function applyTeacherAiAction(action){
  }
 }
 
-function maybeApplyTeacherAiAction(action,source){
+function maybeApplyTeacherAiAction(action,source,{requestId=teacherAiRequestId,contextKey=teacherAutopilotContextKey()}={}){
   if(!teacherAutopilotEnabled)return;
   if(!action||action==='none')return;
   if(source==='autopilot'){
@@ -2071,7 +2131,11 @@ function maybeApplyTeacherAiAction(action,source){
    if(action!=='guide')setTeacherVoiceStatus('I will wait. Say what you want to do, or press Next step.');
    return;
   }
- waitForTeacherPlaybackIdle().then(()=>setTimeout(()=>applyTeacherAiAction(action),250));
+ setTimeout(()=>{
+  if(requestId!==teacherAiRequestId)return;
+  if(contextKey!==teacherAutopilotContextKey())return;
+  applyTeacherAiAction(action);
+ },80);
 }
 
 function teacherGuide(){
@@ -2331,26 +2395,36 @@ function teacherEchoPhraseMatch(transcript,source){
  return sourceStart.length>=18&&transcript.startsWith(sourceStart)&&transcript.length/source.length>=0.55;
 }
 
+function teacherShortCommandEchoPhraseMatch(transcript,source){
+ const transcriptTokens=String(transcript||'').split(' ').filter(Boolean);
+ if(!transcriptTokens.length||transcriptTokens.length>3)return false;
+ const sourceTokens=String(source||'').split(' ').filter(Boolean);
+ const shortEchoCommands=new Set(['again','hard','good','easy','next','continue','reveal','answer','play','listen','start','stop','pause','done','хорошо','дальше','ответ']);
+ return transcriptTokens.some(token=>shortEchoCommands.has(token))&&transcriptTokens.every(token=>sourceTokens.includes(token));
+}
+
 function teacherDuplicateTranscript(raw){
  const clean=normalizeTeacherSpeech(raw);
  const now=Date.now();
  if(!clean)return false;
- const contextKey=teacherAttemptKey()+'|'+clean;
- if(contextKey===teacherLastCommandText&&now-teacherLastCommandAt<6500)return true;
+ const baseKey=teacherAttemptBaseKey();
+ const contextKey=baseKey+'|'+clean;
+ const duplicateWindow=baseKey===teacherLastCommandBaseKey?20000:6500;
+ if(contextKey===teacherLastCommandText&&now-teacherLastCommandAt<duplicateWindow)return true;
  teacherLastCommandText=contextKey;
+ teacherLastCommandBaseKey=baseKey;
  teacherLastCommandAt=now;
  return false;
 }
 
-function teacherTranscriptEchoesTeacher(raw){
- const transcript=normalizeTeacherSpeech(raw);
- if(!transcript)return false;
- if(teacherAudioOutputActive())return true;
- const now=Date.now();
- teacherRecentAudioEchoTexts=teacherRecentAudioEchoTexts.filter(item=>item.expiresAt>now);
- for(const item of teacherRecentAudioEchoTexts){
-  if(teacherEchoPhraseMatch(transcript,item.text))return true;
- }
+function teacherTranscriptEchoesTeacher(raw,{shortCommands=false}={}){
+  const transcript=normalizeTeacherSpeech(raw);
+  if(!transcript)return false;
+  const now=Date.now();
+  teacherRecentAudioEchoTexts=teacherRecentAudioEchoTexts.filter(item=>item.expiresAt>now);
+  for(const item of teacherRecentAudioEchoTexts){
+   if(teacherEchoPhraseMatch(transcript,item.text)||shortCommands&&teacherShortCommandEchoPhraseMatch(transcript,item.text))return true;
+  }
  const spoken=normalizeTeacherSpeech(teacherLastSpokenText);
  const appAudio=normalizeTeacherSpeech(teacherAppAudioOutputText);
  if(appAudio&&Date.now()<teacherAppAudioOutputUntil){
@@ -2466,13 +2540,12 @@ function teacherCannotRecallSignal(text){
 
 function teacherHandleCannotRecall(){
  teacherMarkRecallAttempted();
+ teacherClearActionSuppression();
  if(teacherInRecallWindow()){
-  teacherSay('No problem. Reveal it now, listen once, and choose Again if the sentence was not there.',{speak:true});
-  waitForTeacherPlaybackIdle().then(()=>{
-   if(studyViewActive&&!studyRevealed){revealStudyCard();scheduleTeacherGuide(350);return}
-   if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return}
-   if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return}
-  });
+  teacherSay('No problem. I will reveal it now; listen once, then mark Again.',{speak:false});
+  if(studyViewActive&&!studyRevealed){revealStudyCard();scheduleTeacherGuide(350);return true}
+  if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return true}
+  if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return true}
   return true;
  }
  if(teacherInNewIntroWindow()){
@@ -2505,11 +2578,15 @@ function teacherAnswerListeningCheck(){
  teacherSay('Yes, I am listening. '+task,{speak:true});
 }
 
-function teacherCommand(raw){
+function teacherCommand(raw,{allowDuringAudio=false}={}){
   const transcript=String(raw||'').trim();
   const text=transcript.toLowerCase();
   const els=teacherEls();
- if(teacherAudioOutputActive()){
+ if(teacherAudioOutputActive()&&!allowDuringAudio){
+  if(els.transcript)els.transcript.textContent='';
+  return;
+ }
+ if(Date.now()<teacherAudioGuardUntil&&!allowDuringAudio&&teacherTranscriptEchoesTeacher(transcript,{shortCommands:true})){
   if(els.transcript)els.transcript.textContent='';
   return;
  }
@@ -2529,6 +2606,14 @@ function teacherCommand(raw){
   return;
  }
  if(teacherIsListeningCheck(text)){teacherAnswerListeningCheck();return}
+ if(teacherGreetingOnly(text)){
+  teacherSay('Hi. I am listening. Say your recall, or ask me about this lesson.',{speak:false});
+  return;
+ }
+ if(teacherBackchannelOnly(text)){
+  setTeacherVoiceStatus('I heard you. Continue when ready.');
+  return;
+ }
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text)){teacherAskAi(transcript,{source:'voice'});return}
  if(teacherCannotRecallSignal(text)&&teacherHandleCannotRecall())return;
  if(teacherShouldAskAiFirst(text)){teacherAskAi(transcript,{source:'voice'});return}
@@ -2551,15 +2636,16 @@ function teacherCommand(raw){
   return;
  }
  if(/\b(open|go to|take me|show me|visit)\b/.test(text)){
+  if(teacherActionSuppressed(text))return;
   if(/\b(review bin|weak|review)\b/.test(text)){teacherOpenMode('review');return}
   if(/\bbrowse\b/.test(text)){teacherOpenMode('browse');return}
   if(/\bstudy\b/.test(text)){teacherOpenMode('study');return}
   if(/\bcloze\b/.test(text)){teacherOpenMode('cloze');return}
   if(/\bdictation\b/.test(text)){teacherOpenMode('dictation');return}
  }
- if(/\b(start|begin|lesson|study)\b/.test(text)){teacherDoNext();return}
- if(/\b(next|continue|move on)\b/.test(text)){teacherDoNext();return}
- if(/\b(play|listen|repeat|audio|say it)\b/.test(text)){teacherPlayTarget();return}
+ if(/\b(start|begin|lesson|study)\b/.test(text)){if(teacherActionSuppressed(text))return;teacherDoNext();return}
+ if(/\b(next|continue|move on)\b/.test(text)){if(teacherActionSuppressed(text))return;teacherDoNext();return}
+ if(/\b(play|listen|repeat|audio|say it)\b/.test(text)){if(teacherActionSuppressed(text))return;teacherPlayTarget();return}
  if(teacherVoiceLooksLikeShadowing(text)){
   teacherSay('Good. Now test memory: go to the next screen and try to recall it without looking.');
   return;
@@ -2600,7 +2686,8 @@ function teacherCommand(raw){
   teacherGuide();
   return;
  }
- if(/\b(reveal|show answer|answer)\b/.test(text)){
+if(/\b(reveal|show answer|answer)\b/.test(text)){
+  if(teacherActionSuppressed(text))return;
   if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){
    if(!teacherRequireRecallAttempt())return;
    revealCloze();scheduleTeacherGuide(250);return
@@ -2620,12 +2707,12 @@ function teacherCommand(raw){
   teacherGuide();
   return;
  }
- if(teacherCommandHasRating(text,'again')){teacherRate('again');return}
- if(teacherCommandHasRating(text,'hard')){teacherRate('hard');return}
- if(teacherCommandHasRating(text,'good')){teacherRate('good');return}
- if(teacherCommandHasRating(text,'easy')){teacherRate('easy');return}
- if(/\bcloze\b/.test(text)){teacherOpenMode('cloze');return}
- if(/\bdictation\b/.test(text)){teacherOpenMode('dictation');return}
+if(teacherCommandHasRating(text,'again')){if(teacherActionSuppressed('rate again'))return;teacherRate('again');return}
+if(teacherCommandHasRating(text,'hard')){if(teacherActionSuppressed('rate hard'))return;teacherRate('hard');return}
+if(teacherCommandHasRating(text,'good')){if(teacherActionSuppressed('rate good'))return;teacherRate('good');return}
+if(teacherCommandHasRating(text,'easy')){if(teacherActionSuppressed('rate easy'))return;teacherRate('easy');return}
+if(/\bcloze\b/.test(text)){if(teacherActionSuppressed(text))return;teacherOpenMode('cloze');return}
+if(/\bdictation\b/.test(text)){if(teacherActionSuppressed(text))return;teacherOpenMode('dictation');return}
  teacherAskAi(transcript,{source:'voice'});
 }
 
@@ -2655,7 +2742,9 @@ function updateTeacherListeningUI(){
  const liveText=paused?'Teacher speaking':micActive?'Live mic on':teacherLiveListening?'Starting mic':'Live mic off';
  if(els.sub)els.sub.textContent=paused?'Teacher audio is playing. I resume listening right after it ends.':micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
  if(els.disclosure)els.disclosure.textContent=micActive
-  ? 'Live Teacher is listening. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher so it can guide you. Silence is ignored.'
+  ? (teacherServerMicActive
+   ? 'Live Teacher fallback mic is listening. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher. Silence is ignored.'
+   : 'Live Teacher browser speech recognition is on. Lang5K does not store audio; useful transcripts plus lesson context may be sent to the AI teacher. Silence is ignored.')
   : paused
    ? 'Teacher audio is playing, so microphone capture is paused briefly to prevent the teacher from hearing herself.'
    : teacherLiveListening
@@ -2722,10 +2811,11 @@ function teacherHadRecentTranscript(windowMs=12000){
  return teacherLastTranscriptAt&&Date.now()-teacherLastTranscriptAt<windowMs;
 }
 
-async function teacherSubmitServerMicBlob(blob,type,{force=false}={}){
-  if(teacherAudioCaptureGuardActive())return false;
+async function teacherSubmitServerMicBlob(blob,type,{force=false,capturedDuringAudio=false,capturedAt=Date.now()}={}){
+  if(teacherAudioCaptureGuardActive()&&!force)return false;
+  if(Date.now()<teacherServerMicRateLimitedUntil)return false;
   if(!force&&blob.size<900)return false;
-  teacherServerMicPendingSegments.push({blob,type});
+  teacherServerMicPendingSegments.push({blob,type,capturedDuringAudio,capturedAt});
   return drainTeacherServerMicSegments();
 }
 
@@ -2733,7 +2823,11 @@ async function drainTeacherServerMicSegments(){
  if(teacherServerMicSubmitting)return false;
  const segment=teacherServerMicPendingSegments.shift();
  if(!segment)return false;
- teacherServerMicSubmitting=true;
+ if(Date.now()-(segment.capturedAt||0)>TEACHER_SERVER_MIC_STALE_MS){
+  if(teacherServerMicPendingSegments.length)setTimeout(()=>drainTeacherServerMicSegments(),0);
+  return false;
+ }
+  teacherServerMicSubmitting=true;
  let handled=false;
  try{
   const response=await fetch('/api/teacher-chat?transcribe=1',{
@@ -2743,19 +2837,24 @@ async function drainTeacherServerMicSegments(){
   });
   const data=await response.json().catch(()=>({}));
   if(response.ok&&data.ok&&teacherTranscriptLooksUseful(data.text)){
-   teacherCommand(data.text);
+   if(!segment.capturedDuringAudio)teacherCommand(data.text,{allowDuringAudio:true});
    handled=true;
   }else if(response.status===401){
    teacherShowAccessRequired({expired:true});
    handled=true;
-  }else if(!response.ok&&response.status!==429&&!teacherHadRecentTranscript()){
+  }else if(response.status===429){
+   teacherServerMicRateLimitedUntil=Date.now()+10000;
+   teacherServerMicPendingSegments=[];
+   setTeacherVoiceStatus('Live Teacher heard too much background audio. I will listen again in a few seconds; type if urgent.');
+   handled=true;
+  }else if(!response.ok&&!teacherHadRecentTranscript()){
    setTeacherVoiceStatus('I can see the mic, but I could not read that clearly. Try one short sentence, or type it.');
   }
  }catch(_){
   if(!teacherHadRecentTranscript())setTeacherVoiceStatus('I can see the mic, but I could not read that clearly. Try one short sentence, or type it.');
  }finally{
   teacherServerMicSubmitting=false;
-  if(teacherServerMicPendingSegments.length)setTimeout(()=>drainTeacherServerMicSegments(),0);
+  if(teacherServerMicPendingSegments.length)setTimeout(()=>drainTeacherServerMicSegments(),Math.max(0,teacherServerMicRateLimitedUntil-Date.now()));
  }
  return handled;
 }
@@ -2769,7 +2868,7 @@ async function teacherSubmitServerMicSegment({force=false}={}){
   return false;
  }
  const blob=new Blob(chunks,{type});
- return teacherSubmitServerMicBlob(blob,type,{force});
+ return teacherSubmitServerMicBlob(blob,type,{force,capturedDuringAudio:teacherServerMicSegmentHasAppAudio});
 }
 
 function teacherServerMicRecorderOptions(){
@@ -2783,14 +2882,19 @@ function teacherServerMicRecorderOptions(){
 function ensureTeacherServerMicFlushTimer(){
  if(teacherServerMicFlushTimer)return;
  teacherServerMicFlushTimer=setInterval(()=>{
-  if(teacherServerMicRecorder&&teacherServerMicRecorder.state==='recording'){
-   try{teacherServerMicRecorder.stop()}catch(_){}
-  }
- },5200);
+   if(teacherServerMicRecorder&&teacherServerMicRecorder.state==='recording'){
+    try{teacherServerMicRecorder.stop()}catch(_){}
+   }
+ },TEACHER_SERVER_MIC_FLUSH_MS);
 }
 
 function startTeacherServerMicRecorder({announce=false}={}){
-  if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled||teacherCapturePausedForAudio)return false;
+  if(!teacherServerMicStream||!teacherLiveListening||!teacherModeEnabled||teacherCapturePausedForAudio||teacherAudioCaptureGuardActive())return false;
+ if(Date.now()<teacherServerMicRateLimitedUntil){
+  setTeacherVoiceStatus('Live Teacher is cooling down the fallback mic for a few seconds. Browser speech or typing still works.');
+  setTimeout(()=>startTeacherServerMicRecorder({announce:false}),Math.max(250,teacherServerMicRateLimitedUntil-Date.now()));
+  return true;
+ }
  const options=teacherServerMicRecorderOptions();
  if(!options.mimeType){
   setTeacherVoiceStatus('Live mic transcription needs a browser-supported audio format. Try Chrome or Edge if this browser cannot start it.');
@@ -2830,7 +2934,7 @@ function startTeacherServerMicRecorder({announce=false}={}){
    if(chunks.length&&!teacherServerMicSegmentHasAppAudio&&!teacherCapturePausedForAudio&&looksSpoken){
     if(type){
      const blob=new Blob(chunks,{type});
-     teacherSubmitServerMicBlob(blob,type);
+     teacherSubmitServerMicBlob(blob,type,{capturedDuringAudio:teacherServerMicSegmentHasAppAudio,capturedAt:teacherServerMicSegmentStartedAt});
    }
   }
   teacherServerMicSegmentHasAppAudio=false;
@@ -2857,6 +2961,10 @@ async function teacherStartServerMic({announce=true}={}){
  if(!teacherCanUsePremiumAi())return false;
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||typeof MediaRecorder==='undefined')return false;
  if(teacherCapturePausedForAudio)return false;
+ if(teacherAudioCaptureGuardActive()){
+  resumeTeacherCaptureAfterAudio(Math.max(250,teacherAudioGuardUntil-Date.now()+120));
+  return true;
+ }
  if(teacherServerMicStream)return startTeacherServerMicRecorder({announce});
  try{
   const stream=await navigator.mediaDevices.getUserMedia({audio:true});
@@ -2914,21 +3022,24 @@ function teacherStartLiveListening({announce=true}={}){
  }
  const serverMicSupported=Boolean(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&typeof MediaRecorder!=='undefined');
  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ const shouldStartServerMic=serverMicSupported&&!SpeechRecognition;
  if(!SpeechRecognition&&!serverMicSupported){
   teacherLiveListening=false;
   updateTeacherListeningUI();
   teacherSay('This browser does not support live voice here. You can still type to the teacher and use Next step.',{speak:false});
   return false;
  }
- teacherLiveListening=true;
- teacherRecognitionStopping=false;
- updateTeacherListeningUI();
-  if(serverMicSupported){
+teacherLiveListening=true;
+teacherRecognitionStopping=false;
+if(announce){
+ teacherAutopilotAwaitingLearnerTurn=true;
+ teacherSay('I am listening now. Say what you remember, or ask one short question.',{speak:false});
+}
+updateTeacherListeningUI();
+  if(shouldStartServerMic){
    setTeacherVoiceStatus('Requesting microphone access...');
    teacherStartServerMic({announce}).then(ok=>{
-    if(ok&&announce&&teacherLiveListening){
-     teacherAutopilotAwaitingLearnerTurn=true;
-     teacherSay('I am listening now. Say what you remember, or ask one short question.',{speak:true});
+    if(ok&&announce&&teacherLiveListening&&!teacherListening){
      return;
     }
     if(!ok&&!teacherListening&&teacherLiveListening){
@@ -2937,7 +3048,7 @@ function teacherStartLiveListening({announce=true}={}){
      setTeacherVoiceStatus('Microphone could not start. Check browser permission, then press Start Live Teacher again.');
    }
   });
-  return true;
+  if(!SpeechRecognition)return true;
  }
  if(!SpeechRecognition)return true;
  if(teacherListening||teacherRecognition){
@@ -2999,8 +3110,9 @@ function teacherStartLiveListening({announce=true}={}){
    setTeacherVoiceStatus('Live mic could not start. Check browser microphone permission, then press Start Live Teacher again.');
    return false;
   }
-  return true;
- }
+  teacherStartServerMic({announce:false});
+   return true;
+  }
 }
 
 function teacherTranscriptLooksUseful(transcript){
@@ -3008,6 +3120,16 @@ function teacherTranscriptLooksUseful(transcript){
  if(clean.length<2)return false;
  if(/^(um+|uh+|er+|ah+|hmm+|silence|noise)$/i.test(clean))return false;
  return true;
+}
+
+function teacherBackchannelOnly(text){
+ const clean=String(text||'').toLowerCase().replace(/[.!?]+$/,'').replace(/\s+/g,' ').trim();
+ return /^(ok|okay|yes|yeah|yep|no|nope|right|alright|all right|got it|i see|sure|thanks|thank you|mm|mhm|uh huh|huh|ага|угу|да|нет|ладно|ок|окей|спасибо)$/.test(clean);
+}
+
+function teacherGreetingOnly(text){
+ const clean=String(text||'').toLowerCase().replace(/[.!?]+$/,'').replace(/\s+/g,' ').trim();
+ return /^(hi|hello|hey|привет|здравствуйте)$/.test(clean);
 }
 
 function teacherToggleLiveListening(){
@@ -4937,9 +5059,10 @@ function showStudyCard(){
       <li class="teacher-live-instruction">${teacherLiveInstructionText()}</li>
     </ul>
     ${instructionButtonHTML(instruction)}
-    ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
-   </div>
+   ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
+  </div>
    <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type Russian or transliteration" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+   ${teacherRecallAffordanceHTML()}
     <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most, Easy = knew it cleanly.</div>
     <div style="font-size:.75rem;color:var(--text3);margin-top:8px">${isDelayed?'Why this now? You studied this earlier in the session, so the app is checking delayed recall before you leave.':'Why first? This sentence is due for spaced review today.'}</div>
@@ -4977,9 +5100,10 @@ function showNewRecallCard(){
      <li class="teacher-live-instruction">${teacherLiveInstructionText()}</li>
    </ul>
    ${instructionButtonHTML(instruction)}
-   ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
-  </div>
+  ${teacherAutopilotEnabled?teacherLiveControlsHTML():''}
+ </div>
   <input type="text" class="study-type-input" id="studyInput" placeholder="Optional: type Russian or transliteration" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealStudyCard()}">
+  ${teacherRecallAffordanceHTML()}
   <button class="study-reveal-btn" onclick="revealStudyCard()">Show Russian answer and play audio</button>
    <div style="font-size:.75rem;color:var(--text3);margin-top:8px">After reveal: Again = missed it, Hard = barely got it, Good = got most. Good is the highest first-pass rating so the sentence stays close.</div>
   </div>`;
@@ -5556,6 +5680,7 @@ function renderClozeCard(){
    <div class="practice-english">${escapeHtml(s[2])}</div>
    <div class="practice-target">${cloze.prompt}</div>
    <input class="practice-input" id="clozeInput" placeholder="Optional: type the missing Russian word" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealCloze()}">
+   ${teacherRecallAffordanceHTML()}
    <div class="practice-actions">
     <button class="btn btn-primary" onclick="revealCloze()">Show answer</button>
     <button class="btn btn-secondary" onclick="renderClozeCard()">Skip</button>
@@ -5622,6 +5747,7 @@ function renderDictationCard(){
    <div class="practice-hint"><strong>Your task</strong>Type the Russian if you can. If you do not have a Cyrillic keyboard yet, repeat what you hear quietly, then use Show answer to self-check.${instructionButtonHTML(instruction)}${teacherAutopilotEnabled?teacherLiveControlsHTML():''}</div>
    <button class="speak-btn" onclick="speakText('${escapeForHandler(s[0])}',${idx})" style="width:54px;height:54px;font-size:1.4rem;margin:4px auto 12px;display:flex">&#128264;</button>
    <input class="practice-input" id="dictationInput" placeholder="Optional: type the Russian sentence" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();revealDictation()}">
+   ${teacherRecallAffordanceHTML()}
    <div class="practice-actions">
     <button class="btn btn-secondary" onclick="speakText('${escapeForHandler(s[0])}',${idx})">&#128264; Replay</button>
     <button class="btn btn-primary" onclick="revealDictation()">Show answer</button>

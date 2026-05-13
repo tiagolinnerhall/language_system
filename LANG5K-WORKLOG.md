@@ -1426,3 +1426,61 @@ Verification:
 
 Remaining Risk:
 - Higher reasoning may cost more per teacher reply. This is intentional for premium teacher quality.
+
+### Live Teacher Latency, Turn-Taking, And Specialist Fixes
+
+Changed:
+- Ran independent voice-interaction, learner-UX, and frontend state-machine specialist audits on the AI Teacher.
+- Changed Live Teacher to start browser speech recognition immediately when available, while keeping server transcription as backup instead of making every spoken turn wait for a 5.2s recorder chunk.
+- Reduced server mic fallback chunking to shorter complete segments and added stricter audio-guard restart timing so the mic does not resume while teacher/app audio can still echo.
+- Replaced stacked teacher voice output with interrupting latest-response playback, shortened spoken teacher output, and made ordinary teacher status/help text visible by default instead of spoken by default.
+- Added request abort/generation guards for teacher chat so stale AI replies and actions cannot land on a later card.
+- Added short echo-command suppression for words like “good”, “again”, “next”, and “reveal” when they come from recent teacher/app audio.
+- Added “I tried quietly” and “I don’t remember” affordances so quiet learners are not trapped by the recall gate.
+- Routed simple live turns through the fast teacher path with low reasoning, while keeping hard grammar/difficulty cases on the premium teacher path.
+
+Why:
+- Specialist review found the perceived “dumb teacher” was partly a latency/state-machine problem: MediaRecorder was the first path on modern browsers, voice replies queued, actions waited for playback, and short echoed teacher words could be interpreted as learner commands.
+
+Verification:
+- Ran `node --check` on the extracted app script.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node --check .\api\_lib\teacher-voice.js`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran the guided-study, rating-lock, coach-first, new-card guidance, and neutral-tone validation scripts.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+
+Remaining Risk:
+- This is still not true realtime audio streaming. The browser speech-recognition path is now the low-latency path; server transcription remains a chunked fallback.
+
+### Live Teacher Specialist Blocker Pass
+
+Changed:
+- Ran a second specialist review after the latency fixes and patched the blockers it found.
+- Made browser speech recognition the primary live path when available; server mic transcription now acts as fallback instead of running in parallel and creating duplicate/slow turns.
+- Increased server fallback chunks to stay below transcription rate limits, surfaced 429 cooldown status, discarded stale mic chunks, and added an OpenAI transcription timeout.
+- Stopped exact backchannels like `ok` from calling the LLM or delaying the lesson.
+- Changed activation suppression so it only ignores duplicated “start live teacher” style activation echoes, not the learner’s first real `next`, `reveal`, or rating command.
+- Reworked echo protection so recent teacher audio blocks self-captured short commands only during the audio guard window while still allowing real learner questions right after playback.
+- Fixed `I tried quietly` so it opens the recall gate without creating fake “Heard: quiet attempt” feedback.
+- Added request/context guards to delayed AI actions so stale model actions cannot reveal, rate, or navigate after a newer learner turn.
+- Made duplicate transcript detection stable across recall and revealed states so repeated mic transcripts do not become accidental ratings after reveal.
+
+Why:
+- The specialist pass found live-teacher failure modes that normal “script passes” did not catch: silent rate limits, short backchannels burning AI turns, first commands being dropped, partial server chunks answering too early, stale actions, and fake quiet-attempt feedback.
+
+Verification:
+- Ran `node --check` on the extracted app script.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\validate-teacher-discoverability.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran the guided-study, rating-lock, coach-first, new-card guidance, practice-lock, and neutral-tone validation scripts.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+
+Remaining Risk:
+- Browser speech recognition quality still depends on the user’s browser, microphone, permissions, and noise. The app now avoids the known self-loop, stale-action, delayed-server, and fake-feedback failures in headless regression.

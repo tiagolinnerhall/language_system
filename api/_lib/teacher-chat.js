@@ -368,11 +368,12 @@ async function transcribeAudio(buffer, contentType) {
   form.append('model', model);
   form.append('response_format', 'json');
   form.append('prompt', 'Lang5K Russian lesson live microphone. Transcribe only clear human student speech in English or Russian. If the audio is silence, background noise, playback echo, or not clearly a person speaking to the teacher, return an empty text.');
-  const response = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
+  const timeoutMs = Number(process.env.LANG5K_TRANSCRIBE_TIMEOUT_MS || 8000);
+  const response = await fetchWithTimeout(OPENAI_TRANSCRIPTIONS_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form
-  });
+  }, Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 8000);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(data.error?.message || 'Transcription failed.');
@@ -436,16 +437,18 @@ function teacherModels() {
   };
 }
 
-function teacherReasoningEffort() {
-  const effort = String(process.env.LANG5K_TEACHER_REASONING_EFFORT || 'high').trim().toLowerCase();
-  return ['low', 'medium', 'high'].includes(effort) ? effort : 'high';
+function teacherReasoningEffort(tier = 'premium') {
+  const defaultEffort = tier === 'fast' ? 'low' : 'high';
+  const envKey = tier === 'fast' ? 'LANG5K_TEACHER_FAST_REASONING_EFFORT' : 'LANG5K_TEACHER_REASONING_EFFORT';
+  const effort = String(process.env[envKey] || (tier === 'fast' ? '' : process.env.LANG5K_TEACHER_REASONING_EFFORT) || defaultEffort).trim().toLowerCase();
+  return ['low', 'medium', 'high'].includes(effort) ? effort : defaultEffort;
 }
 
 function chooseTeacherModel(message, context) {
   const models = teacherModels();
+  if (models.premium && hardSignal(message, context)) return { model: models.premium, tier: 'premium' };
+  if (models.fast) return { model: models.fast, tier: 'fast' };
   if (models.premium) return { model: models.premium, tier: 'premium' };
-  if (context.teacherLiveListening || context.teacherAutopilotEnabled || context.studyActive) return { model: models.premium, tier: 'premium' };
-  if (hardSignal(message, context)) return { model: models.premium, tier: 'premium' };
   return { model: models.fast, tier: 'fast' };
 }
 
@@ -477,7 +480,7 @@ async function askOpenAi(message, context) {
           ]
         }
       ],
-      reasoning: { effort: teacherReasoningEffort() },
+      reasoning: { effort: teacherReasoningEffort(chosen.tier) },
       max_output_tokens: 500,
       text: {
         format: {
@@ -555,8 +558,10 @@ module.exports = async function handler(req, res) {
 
 module.exports._test = {
   audioContentType,
+  chooseTeacherModel,
   extensionForType,
   isLanguageScopeMessage,
   isOutOfScopeMessage,
-  isTranscriptionRequest
+  isTranscriptionRequest,
+  teacherReasoningEffort
 };
