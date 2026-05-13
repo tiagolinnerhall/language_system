@@ -2446,7 +2446,7 @@ function teacherTranscriptEchoesTeacher(raw,{shortCommands=false}={}){
  return teacherEchoPhraseMatch(transcript,spoken);
 }
 
-const teacherRussianRecallFillerTokens=new Set(['ок','окей','okay','ладно','ну','но','да','нет','ага','угу','ээ','эм','мм','хм','привет']);
+const teacherRussianRecallFillerTokens=new Set(['ок','окей','okay','ладно','ну','но','да','нет','ага','угу','ээ','эм','мм','хм','привет','алло']);
 const teacherRussianRecallWeakTokens=new Set(['я','ты','вы','мы','он','она','оно','они','это','этот','эта','эти','то','что','и','а','в','во','на','не','ни','же','ли','бы','с','со','к','ко','у','о','об','от','до','по','за','из','для','как']);
 
 function teacherRussianRecallFillerToken(token){
@@ -2576,9 +2576,9 @@ function teacherIsListeningCheck(text){
  const simple=clean.replace(/[^a-zа-яё\s]+/gi,' ').replace(/\s+/g,' ').trim();
  if(/\b(are you listening|can you hear me|do you hear me|did you hear me|are you there|you listening|mic on|microphone on|is this working)\b/.test(clean))return true;
  if(/(ты меня слышишь|вы меня слышите|слышишь меня|слышите меня|ты тут|вы тут|ты здесь|вы здесь)/i.test(clean))return true;
- if(/^(hi|hello|hey|teacher)(\s+(hi|hello|hey|teacher))*$/.test(simple))return true;
- if(/^(привет|здравствуй|здравствуйте)[.!?\s]*$/i.test(clean))return true;
- return /^(hi|hello|hey|teacher|hi teacher|hello teacher|hey teacher)[.!?\s]*$/.test(clean);
+ if(/^(hi|hello|hey|teacher|allo)(\s+(hi|hello|hey|teacher|allo))*$/.test(simple))return true;
+ if(/^(привет|алло|здравствуй|здравствуйте)[.!?\s]*$/i.test(clean))return true;
+ return /^(hi|hello|hey|teacher|allo|hi teacher|hello teacher|hey teacher)[.!?\s]*$/.test(clean);
 }
 
 function teacherAnswerListeningCheck(){
@@ -3144,7 +3144,7 @@ function teacherBackchannelOnly(text){
 
 function teacherGreetingOnly(text){
  const clean=String(text||'').toLowerCase().replace(/[.!?]+$/,'').replace(/\s+/g,' ').trim();
- return /^(hi|hello|hey|привет|здравствуйте)$/.test(clean);
+ return /^(hi|hello|hey|allo|привет|алло|здравствуй|здравствуйте)$/.test(clean);
 }
 
 function teacherToggleLiveListening(){

@@ -1508,3 +1508,20 @@ Verification:
 
 Remaining Risk:
 - Real mic behavior still depends on browser permission and OS audio input, but the app no longer relies on a single-language browser recognizer to hear the student.
+
+### Live Teacher Hello Recognition Hotfix
+
+Changed:
+- Treated `алло` and `allo` as local greeting/listening checks so "hello" misrecognized as Cyrillic `Алло` is acknowledged immediately instead of being sent to the AI teacher planner.
+- Added `алло` to Russian filler tokens so it cannot be scored as a learner recall attempt.
+- Added a headless regression for `teacherCommand('Алло')` requiring no AI request, no reveal, and no fake recall attempt.
+
+Why:
+- Real browser speech recognition converted the user's English "hello" into Russian `Алло`; the previous router did not classify that as a greeting, so the AI teacher replied with an inappropriate lesson instruction.
+
+Verification:
+- Ran `node --check` on the extracted app script.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
