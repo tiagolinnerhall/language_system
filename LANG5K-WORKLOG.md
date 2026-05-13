@@ -1562,3 +1562,23 @@ Verification:
 - Ran `node .\scripts\headless-app-flow-check.mjs`.
 - Ran `git diff --check`.
 - Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.
+
+### Live Teacher Current Button Guidance Hotfix
+
+Changed:
+- Added deterministic current-button guidance for questions like "which button do I click" and "what should I press".
+- Routed both voice and typed button questions locally so they do not depend on the AI planner or old transcripts.
+- Canceled stale pending AI replies and stale scheduled autopilot guides whenever a newer student turn arrives, so an old teacher thought cannot overwrite the current answer.
+- Stopped immediate autopilot follow-up after "I do not know" reveals; the teacher now reveals and leaves the learner at rating instead of overwriting itself.
+- Made the Live Teacher paused state clearer: while the teacher is speaking, the mic is paused and the learner should wait or type.
+- Added headless regressions for voice and typed current-button questions.
+
+Why:
+- A learner asked which button to click, but the teacher answered from generic recall guidance and the UI still showed an old heard transcript. The app needed direct screen-aware button guidance, stale-AI cancellation, and clearer mic-paused status during teacher audio.
+
+Verification:
+- Ran `node --check` on the extracted app script.
+- Ran `node .\scripts\validate-teacher-router.mjs`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran `git diff --check`.
+- Ran a secret-marker scan for OpenAI, Stripe, and Resend key patterns.

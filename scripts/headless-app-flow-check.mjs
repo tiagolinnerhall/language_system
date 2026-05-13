@@ -2057,12 +2057,33 @@ try {
   if (!directGateOk || /fake "I tried"|skip/i.test(directRevealMessage) || directRatingVisible) {
     throw new Error(`Direct reveal bypassed Teacher recall gate: ${JSON.stringify({ directGateOk, directRatingVisible, directRevealMessage })}`);
   }
+  const beforeButtonQuestionCount = teacherChatBodies.length;
+  await page.evaluate(() => eval('stopPlayback(); teacherAiBusy=false; teacherQueuedAiRequests=[]; teacherCapturePausedForAudio=false; teacherAudioGuardUntil=0; teacherLastCommandText=""; teacherLastCommandAt=0; teacherCommand("which button do I click")'));
+  await page.waitForTimeout(250);
+  const voiceButtonQuestion = await page.locator('#teacherMessage').innerText();
+  if (teacherChatBodies.length !== beforeButtonQuestionCount || !/Click|say or type|don.t remember|Show Russian answer|Next: test my memory|rating/i.test(voiceButtonQuestion)) {
+    throw new Error(`Teacher did not answer voice current-button question locally: ${voiceButtonQuestion}`);
+  }
+  await page.evaluate(() => eval(`(() => {
+    const input = document.getElementById('teacherQuestionInput');
+    input.value = 'which button do I click';
+    teacherSubmitQuestion();
+  })()`));
+  await page.waitForTimeout(250);
+  const typedButtonQuestion = await page.evaluate(() => ({
+    message: document.getElementById('teacherMessage')?.textContent || '',
+    transcript: document.getElementById('teacherTranscript')?.textContent || ''
+  }));
+  if (teacherChatBodies.length !== beforeButtonQuestionCount || !/You asked: which button do I click/i.test(typedButtonQuestion.transcript) || !/Click|say or type|don.t remember|Show Russian answer|Next: test my memory|rating/i.test(typedButtonQuestion.message)) {
+    throw new Error(`Teacher did not answer typed current-button question locally: ${JSON.stringify(typedButtonQuestion)}`);
+  }
   await page.evaluate(() => eval('stopPlayback(); teacherCapturePausedForAudio=false; teacherAudioGuardUntil=0; teacherLastCommandText=""; teacherLastCommandAt=0; teacherCommand("what should I do")'));
   await page.waitForTimeout(350);
   const currentHelp = await page.locator('#teacherMessage').innerText();
   if (!/Do not reveal yet|Try recall/i.test(currentHelp)) {
     throw new Error(`Teacher did not answer current-card help. Saw: ${currentHelp}`);
   }
+  await page.waitForFunction(() => !eval('teacherAiBusy'), null, { timeout: 5000 });
   await page.evaluate(() => eval('stopPlayback(); teacherCapturePausedForAudio=false; teacherAudioGuardUntil=0; teacherLastCommandText=""; teacherLastCommandAt=0; teacherCommand("why this now")'));
   await page.waitForTimeout(350);
   const whyNow = await page.locator('#teacherMessage').innerText();

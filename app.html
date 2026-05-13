@@ -659,6 +659,7 @@ let teacherAutopilotActionBlockedUntil=0;
 let teacherAutopilotActivationActionsToSuppress=0;
 let teacherAutopilotAwaitingLearnerTurn=false;
 let teacherAutopilotApplyingAction=false;
+let teacherGuideScheduleId=0;
 let selectedIdx=-1;
 let clozeCurrent=null;
 let dictationCurrent=null;
@@ -1141,7 +1142,7 @@ function runTeacherVoiceQueue(){
    teacherVoicePlaybackActiveUntil=Date.now()+estimatedMs;
    pauseTeacherCaptureForAudio();
    markTeacherAudioOutput(clean,estimatedMs);
-   setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
+   setTeacherVoiceStatus('Teacher speaking - mic paused.',sourceButton,true);
   };
   const finish=(ok=true)=>{
    if(settled)return;
@@ -1160,7 +1161,7 @@ function runTeacherVoiceQueue(){
   notifyTeacherPlaybackIdle();
  };
   playPremiumTeacherVoice(text,{onplay:markPlaying,onend:()=>finish(true),onerror:()=>finish(false),voiceToken}).then(()=>{
-   if(generation===teacherVoiceRequestId&&teacherVoicePlaying)setTeacherVoiceStatus('Premium AI voice playing.',sourceButton,true);
+   if(generation===teacherVoiceRequestId&&teacherVoicePlaying)setTeacherVoiceStatus('Teacher speaking - mic paused.',sourceButton,true);
  }).catch(error=>{
   if(error.name!=='AbortError')trackAnalytics('audio_fallback',{reason:'teacher_voice_unavailable'});
   if(generation===teacherVoiceRequestId&&error.name!=='AbortError')setTeacherVoiceStatus('Premium AI voice unavailable. I will stay text only instead of using a robotic voice.',sourceButton,false);
@@ -1266,7 +1267,7 @@ function teacherRecallAffordanceHTML(){
 function teacherLiveInstructionText(){
  const paused=teacherLiveListening&&teacherCapturePausedForAudio;
  const micActive=teacherLiveListening&&!paused&&(teacherListening||teacherServerMicActive);
- if(paused)return 'Teacher is speaking now. The mic resumes automatically when the audio ends.';
+ if(paused)return 'Teacher is speaking, so the mic is paused. Wait for me to finish, or type your question.';
  if(micActive)return 'Live Teacher is listening. Ask a question naturally, or say your Russian attempt aloud.';
  if(teacherLiveListening)return 'Live Teacher is starting the microphone. Wait for Live mic on before speaking.';
  if(teacherAutopilotEnabled)return 'AI Teacher is open, but the mic is off. Press Start Live Teacher if you want it to hear you.';
@@ -1276,7 +1277,7 @@ function teacherLiveInstructionText(){
 function teacherLiveNoteText(){
  const paused=teacherLiveListening&&teacherCapturePausedForAudio;
  const micActive=teacherLiveListening&&!paused&&(teacherListening||teacherServerMicActive);
- if(paused)return 'Teacher audio is playing; the live mic resumes automatically right after it ends.';
+ if(paused)return 'Teacher is speaking, so the mic is paused. Wait for me to finish, or type your question.';
  if(micActive)return 'The teacher is listening until paused. Ask naturally, or say the Russian you remember.';
  if(teacherLiveListening)return 'Microphone access is starting. Wait for Live mic on before speaking.';
  return 'Press Start Live Teacher when you want the teacher to listen and guide by voice.';
@@ -1414,8 +1415,9 @@ function scheduleTeacherGuide(delay=250){
   teacherAutopilotAwaitingLearnerTurn=true;
   return;
  }
+ const scheduleId=++teacherGuideScheduleId;
  waitForTeacherPlaybackIdle().then(()=>{
-  setTimeout(()=>{if(teacherModeEnabled&&teacherAutopilotEnabled&&!teacherAutopilotAwaitingLearnerTurn)teacherGuide()},delay);
+  setTimeout(()=>{if(scheduleId===teacherGuideScheduleId&&teacherModeEnabled&&teacherAutopilotEnabled&&!teacherAutopilotAwaitingLearnerTurn)teacherGuide()},delay);
  });
 }
 
@@ -1744,6 +1746,45 @@ function teacherOpenMode(key){
  return false;
 }
 
+function teacherButtonQuestionSignal(text){
+ return /\b(which|what|where|when|next).{0,24}\b(button|click|press|tap)\b|\b(button|click|press|tap).{0,24}\b(which|what|where|when|next)\b|\bwhat do i click\b|\bwhat should i click\b|\bwhat should i press\b|\bwhich one\b|\bclick now\b|\bpress now\b/.test(String(text||'').toLowerCase());
+}
+
+function teacherPrimaryButtonLabel(selector){
+ const button=document.querySelector(selector);
+ return button?(button.textContent||'').replace(/\s+/g,' ').trim():'';
+}
+
+function teacherCurrentButtonAnswer(){
+ const summaryButton=teacherPrimaryButtonLabel('.study-summary .btn-primary,.study-summary .study-start-btn');
+ if(summaryButton)return `Click "${summaryButton}". That is the recommended next step from this session.`;
+ if(document.querySelector('button[onclick="continueStudySpacing()"]'))return 'Click "Continue". This spacing pause protects delayed recall; do not rehearse the answer first.';
+ if(document.querySelector('.study-start')){
+  const startLabel=teacherPrimaryButtonLabel('button[onclick="beginStudySession()"]')||'Start guided lesson';
+  return `Click "${startLabel}". That starts the next guided study session.`;
+ }
+ if(studyViewActive&&!studyRevealed&&document.querySelector('button[onclick="showNewRecallCard()"]')){
+  return 'Click "Next: test my memory" after you listen once and say the Russian sentence once.';
+ }
+ if(studyViewActive&&!studyRevealed){
+  if(teacherHasRecallAttempt())return 'Click "Show Russian answer and play audio" now, then compare honestly.';
+  return 'If you remember anything, say or type it first. If nothing comes, click "I don\'t remember"; then reveal and mark Again.';
+ }
+ if(studyViewActive&&studyRevealed){
+  return 'Click one rating: Again if you missed it, Hard if you barely got it, Good if you got most, or Easy only if it was instant and clean.';
+ }
+ if(currentMode==='cloze'&&clozeCurrent){
+  if(clozeCurrent.revealed)return 'Click a rating for this cloze card: Again, Hard, Good, or Easy.';
+  return 'Type or say the missing word first. If you tried, click "Show answer".';
+ }
+ if(currentMode==='dictation'&&dictationCurrent){
+  if(dictationCurrent.revealed)return 'Click a rating for this dictation card: Again, Hard, Good, or Easy.';
+  return 'Listen, type what you hear if you can, then click "Show answer".';
+ }
+ const visiblePrimary=teacherPrimaryButtonLabel('#app button.study-start-btn,#app button.btn-primary');
+ if(visiblePrimary)return `Click "${visiblePrimary}".`;
+ return 'Click "Next step" in the teacher panel, or ask me what feels difficult on this card.';
+}
 function teacherAnswerMappedQuestion(text){
  const map=teacherWebsiteMap();
  const plan=teacherRecommendedPlan();
@@ -1753,6 +1794,10 @@ function teacherAnswerMappedQuestion(text){
   const nextGoal=Number(goalMatch[1]||goalMatch[2]);
   setDailyGoal(nextGoal);
   teacherSay(`Daily new-sentence goal set to ${nextGoal}. I will still slow it down when reviews or weak cards are high.`);
+  return true;
+ }
+ if(teacherButtonQuestionSignal(text)){
+  teacherSay(teacherCurrentButtonAnswer(),{speak:false});
   return true;
  }
  const pageMatch=map.pages.find(page=>new RegExp('\\b'+page.key+'\\b').test(text)||text.includes(page.label.toLowerCase()));
@@ -1933,6 +1978,7 @@ function teacherMessageNeedsRecallContext(message){
 function teacherVoiceBypassesCooldown(text){
  const clean=String(text||'').toLowerCase();
  if(teacherIsListeningCheck(clean))return true;
+ if(teacherButtonQuestionSignal(clean))return false;
  if(/\b(what does|meaning|means|pronounce|pronunciation|grammar|case|gender|why|how do i say|translate|translation|spell|spelling|mistake|wrong|correct|stuck|confused|where do i start|what should i do|what now|next step|open|go to|take me|show me|browse|study|cloze|dictation|review bin)\b/.test(clean))return true;
  return /[а-яё]/i.test(clean)&&teacherRussianQuestionSignal(clean)&&!/(что делать|что дальше|дальше что|что теперь)/i.test(clean);
 }
@@ -1943,6 +1989,11 @@ function teacherSubmitQuestion(event){
  const value=(els.input?.value||'').trim();
  if(!value)return;
  if(els.input)els.input.value='';
+ teacherCancelPendingAi();
+ const clean=value.toLowerCase();
+ if(els.transcript)els.transcript.textContent='You asked: '+value;
+ if(teacherButtonQuestionSignal(clean)){teacherSay(teacherCurrentButtonAnswer(),{speak:false});return}
+ if(teacherAnswerMappedQuestion(clean))return;
  teacherAskAi(value,{source:'typed'});
 }
 
@@ -1957,6 +2008,18 @@ function setTeacherAiBusy(busy){
  document.querySelectorAll('.teacher-live-talk').forEach(button=>{
   button.disabled=false;
  });
+}
+
+function teacherCancelPendingAi(){
+ teacherQueuedAiRequests=[];
+ teacherGuideScheduleId++;
+ if(teacherAiAbortController){
+  try{teacherAiAbortController.abort()}catch(_){}
+  teacherAiAbortController=null;
+ }
+ teacherAiBusy=false;
+ teacherAiRequestId++;
+ setTeacherAiBusy(false);
 }
 
 function teacherAutopilotInstruction(){
@@ -2563,9 +2626,9 @@ function teacherHandleCannotRecall(){
  teacherClearActionSuppression();
  if(teacherInRecallWindow()){
   teacherSay('No problem. I will reveal it now; listen once, then mark Again.',{speak:false});
-  if(studyViewActive&&!studyRevealed){revealStudyCard();scheduleTeacherGuide(350);return true}
-  if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();scheduleTeacherGuide(250);return true}
-  if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();scheduleTeacherGuide(250);return true}
+  if(studyViewActive&&!studyRevealed){revealStudyCard();return true}
+  if(currentMode==='cloze'&&clozeCurrent&&!clozeCurrent.revealed){revealCloze();return true}
+  if(currentMode==='dictation'&&dictationCurrent&&!dictationCurrent.revealed){revealDictation();return true}
   return true;
  }
  if(teacherInNewIntroWindow()){
@@ -2619,6 +2682,7 @@ function teacherCommand(raw,{allowDuringAudio=false}={}){
  teacherLastTranscriptAt=Date.now();
  if(els.transcript)els.transcript.textContent=transcript?'I heard: '+transcript:'';
  if(!text){teacherGuide();return}
+ teacherCancelPendingAi();
  if(teacherStopTeacherRequested(text)){toggleTeacherMode(false);return}
  if(teacherPauseListeningRequested(text)){
   stopTeacherListening({disableLive:true});
@@ -2634,6 +2698,7 @@ function teacherCommand(raw,{allowDuringAudio=false}={}){
   setTeacherVoiceStatus('I heard you. Continue when ready.');
   return;
  }
+ if(teacherButtonQuestionSignal(text)){teacherSay(teacherCurrentButtonAnswer());return}
  if(teacherHardOffTopic(text)&&!teacherLanguageOverride(text)){teacherAskAi(transcript,{source:'voice'});return}
  if(teacherCannotRecallSignal(text)&&teacherHandleCannotRecall())return;
  if(teacherShouldAskAiFirst(text)){teacherAskAi(transcript,{source:'voice'});return}
@@ -2760,13 +2825,13 @@ function updateTeacherListeningUI(){
  const paused=teacherLiveListening&&teacherCapturePausedForAudio;
  const micActive=teacherLiveListening&&!paused&&(teacherListening||teacherServerMicActive);
  const liveText=paused?'Teacher speaking':micActive?'Live mic on':teacherLiveListening?'Starting mic':'Live mic off';
- if(els.sub)els.sub.textContent=paused?'Teacher audio is playing. I resume listening right after it ends.':micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
+ if(els.sub)els.sub.textContent=paused?'Teacher is speaking, so the mic is paused. Wait for me to finish, or type your question.':micActive?'Live mic is on. I listen until you pause or stop Teacher.':teacherLiveListening?'Requesting microphone access...':'Mic is off until you start Live Teacher.';
  if(els.disclosure)els.disclosure.textContent=micActive
   ? (teacherServerMicActive
    ? 'Live Teacher fallback mic is listening. Short audio segments may be sent for transcription, but Lang5K does not store audio. Useful transcripts plus lesson context may be sent to the AI teacher. Silence is ignored.'
    : 'Live Teacher browser speech recognition is on. Lang5K does not store audio; useful transcripts plus lesson context may be sent to the AI teacher. Silence is ignored.')
   : paused
-   ? 'Teacher audio is playing, so microphone capture is paused briefly to prevent the teacher from hearing herself.'
+   ? 'Teacher is speaking, so microphone capture is paused briefly. Wait for the voice to finish, or type your question.'
    : teacherLiveListening
    ? 'Microphone access is starting. Short audio segments may be sent only after the live teacher is listening.'
    : 'Mic is off until you start the live teacher. Short audio segments may be sent for transcription only while Live Teacher is on; Lang5K does not store audio.';
