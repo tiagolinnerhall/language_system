@@ -29,8 +29,8 @@ if (!/sanitizeProgressBackupStats\(data\.userStats\)/.test(importProgressBackup)
 }
 
 const sanitizeMap = extractFunction('sanitizeProgressBackupMap');
-if (!/idx>=0&&idx<SENTENCES\.length/.test(sanitizeMap)) {
-  throw new Error('Backup map sanitizer must reject sentence IDs outside the loaded course.');
+if (!/sanitizeProgressBackupMap\(source,maxIndex=SENTENCES\.length\)/.test(sanitizeMap) || !/idx>=0&&idx<maxIndex/.test(sanitizeMap)) {
+  throw new Error('Backup map sanitizer must reject sentence IDs outside the active progress limit.');
 }
 
 const sanitizeSrs = extractFunction('sanitizeProgressBackupSrs');

@@ -13,7 +13,7 @@ function extractFunction(name) {
 const sanitizeStats = extractFunction('sanitizeProgressBackupStats');
 
 for (const marker of [
-  'const maxDailyCount=SENTENCES.length;',
+  'function sanitizeProgressBackupStats(source,maxDailyCount=SENTENCES.length)',
   'const maxStreakDays=3650;',
   "assignBoundedStat('todayNew',maxDailyCount);",
   "assignBoundedStat('todayReviews',maxDailyCount);",

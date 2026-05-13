@@ -1114,6 +1114,49 @@ try {
   if (echoState.attempted || echoState.revealed || !/Yes, I am listening/i.test(echoState.message)) {
     throw new Error(`Teacher voice echo was treated as learner recall: ${JSON.stringify(echoState)}`);
   }
+  const partialRussianRecallGate = await page.evaluate(() => eval(`(() => {
+    studyQueue = [{ idx: 542, type: 'review' }];
+    studyIndex = 0;
+    currentMode = 'study';
+    studyViewActive = true;
+    studyRevealed = false;
+    teacherAutopilotEnabled = true;
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
+    teacherLastCommandText = '';
+    teacherLastCommandAt = 0;
+    SENTENCES[542] = ['Скажи, пожалуйста, что мы здесь делаем?', 'Skazhi, pozhaluysta, chto my zdes delaem?', 'Please, what are we doing here?', 'Core Social Language'];
+    showStudyCard();
+    stopPlayback();
+    teacherCapturePausedForAudio = false;
+    teacherAudioGuardUntil = 0;
+    teacherCommand('Окей, но мы');
+    const afterNoise = {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+    teacherAttemptedRecallKey = '';
+    teacherSpokenRecallAttempt = { key: '', transcript: '' };
+    teacherLastCommandText = '';
+    teacherLastCommandAt = 0;
+    stopPlayback();
+    teacherCapturePausedForAudio = false;
+    teacherAudioGuardUntil = 0;
+    teacherCommand('скажи пожалуйста');
+    const afterPartialAnswer = {
+      message: document.getElementById('teacherMessage')?.textContent || '',
+      attempted: teacherHasRecallAttempt(),
+      revealed: studyRevealed
+    };
+    return { afterNoise, afterPartialAnswer };
+  })()`));
+  if (partialRussianRecallGate.afterNoise.attempted || partialRussianRecallGate.afterNoise.revealed || /Heard:/i.test(partialRussianRecallGate.afterNoise.message)) {
+    throw new Error(`Tiny Russian chatter was treated as learner recall: ${JSON.stringify(partialRussianRecallGate.afterNoise)}`);
+  }
+  if (!partialRussianRecallGate.afterPartialAnswer.attempted || !/Heard:/i.test(partialRussianRecallGate.afterPartialAnswer.message)) {
+    throw new Error(`Real partial Russian recall was rejected: ${JSON.stringify(partialRussianRecallGate.afterPartialAnswer)}`);
+  }
   const partialEchoState = await page.evaluate(() => eval(`(() => {
     stopPlayback();
     teacherCapturePausedForAudio = false;

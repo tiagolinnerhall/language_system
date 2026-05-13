@@ -436,6 +436,7 @@ function teacherModels() {
 
 function chooseTeacherModel(message, context) {
   const models = teacherModels();
+  if (context.teacherLiveListening || context.teacherAutopilotEnabled || context.studyActive) return { model: models.premium, tier: 'premium' };
   if (hardSignal(message, context)) return { model: models.premium, tier: 'premium' };
   return { model: models.fast, tier: 'fast' };
 }

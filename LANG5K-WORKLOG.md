@@ -2,6 +2,35 @@
 
 This file records the unattended premium-improvement loop so completed work does not get lost between 15-minute runs.
 
+## 2026-05-13
+
+### Live Teacher Recall Classifier And Premium Model Routing
+
+Changed:
+- Tightened Russian spoken-recall detection so a tiny fragment with only weak overlap, such as `Окей, но мы`, is not treated as a valid answer attempt.
+- Added local handling for short Russian fragments so the teacher asks for a complete attempt or question instead of judging the student too early.
+- Routed Live Teacher, Autopilot, and active study AI replies to the premium teacher model by default instead of waiting for the message to look difficult.
+- Added a headless regression that rejects the bad fragment while still accepting a real partial Russian answer like `скажи пожалуйста`.
+- Updated progress guard validators so they preserve full-course paid progress indexes when a paid user lands on a demo-limited page, while still checking backup restore sanitization.
+
+Why:
+- A premium live teacher must not mistake fragments, teacher/self echo, or hesitation for a real recall attempt. The model also needs to be reserved for reasoning-heavy teacher behavior during live study, not just after the app detects an obvious hard case.
+
+Verification:
+- Confirmed `node .\scripts\headless-app-flow-check.mjs` failed before the recall fix on `Окей, но мы` being treated as `Heard:`.
+- Ran `node .\scripts\headless-app-flow-check.mjs`.
+- Ran every `node .\scripts\validate-*.mjs` validator.
+- Ran `node .\scripts\headless-visual-quality-check.mjs`.
+- Ran `node .\scripts\smoke-test.mjs`.
+- Ran `node --check .\api\_lib\teacher-chat.js`.
+- Ran `node --check .\api\_lib\teacher-voice.js`.
+- Ran `node --check .\api\_lib\http.js`.
+- Ran `node --check .\scripts\headless-app-flow-check.mjs`.
+- Ran `git diff --check`.
+
+Remaining Risk:
+- Real microphone quality still depends on the learner's browser, microphone permission, and provider transcription quality. Headless tests verify routing and regression behavior, not the user's physical microphone.
+
 ## 2026-04-30
 
 ### Worklog Started

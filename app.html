@@ -2249,6 +2249,33 @@ function teacherTranscriptEchoesTeacher(raw){
  return teacherEchoPhraseMatch(transcript,spoken);
 }
 
+const teacherRussianRecallFillerTokens=new Set(['ок','окей','okay','ладно','ну','но','да','нет','ага','угу','ээ','эм','мм','хм','привет']);
+const teacherRussianRecallWeakTokens=new Set(['я','ты','вы','мы','он','она','оно','они','это','этот','эта','эти','то','что','и','а','в','во','на','не','ни','же','ли','бы','с','со','к','ко','у','о','об','от','до','по','за','из','для','как']);
+
+function teacherRussianRecallFillerToken(token){
+ return teacherRussianRecallFillerTokens.has(String(token||'').toLowerCase());
+}
+
+function teacherRussianRecallWeakToken(token){
+ const clean=String(token||'').toLowerCase();
+ return clean.length<2||teacherRussianRecallWeakTokens.has(clean);
+}
+
+function teacherRussianRecallEvidence(rawSpokenTokens,targetTokens){
+ const spokenTokens=rawSpokenTokens.filter(token=>!teacherRussianRecallFillerToken(token));
+ const comparison=compareTokenRecall(spokenTokens,targetTokens);
+ const meaningfulSpoken=spokenTokens.filter(token=>!teacherRussianRecallWeakToken(token));
+ const meaningfulTarget=targetTokens.filter(token=>!teacherRussianRecallWeakToken(token));
+ const meaningfulComparison=compareTokenRecall(meaningfulSpoken,meaningfulTarget);
+ const totalShared=comparison.sharedUnique.length;
+ const meaningfulShared=meaningfulComparison.sharedUnique.length;
+ const hasFiller=rawSpokenTokens.some(token=>teacherRussianRecallFillerToken(token));
+ const shortTarget=targetTokens.length<=3;
+ const enoughForShort=shortTarget&&(meaningfulShared>=1||totalShared>=Math.min(2,targetTokens.length));
+ const enoughForLong=meaningfulShared>=2||(!hasFiller&&totalShared>=2&&meaningfulShared>=1)||(totalShared>=3&&meaningfulShared>=1)||(comparison.overlap>=0.5&&totalShared>=2&&meaningfulShared>=1);
+ return {spokenTokens,comparison,meaningfulComparison,totalShared,meaningfulShared,hasFiller,matches:enoughForShort||enoughForLong};
+}
+
 function teacherRecallTranscriptSignal(text){
  const clean=String(text||'').toLowerCase().replace(/\s+/g,' ').trim();
  if(!clean)return false;
@@ -2257,19 +2284,31 @@ function teacherRecallTranscriptSignal(text){
  const sentence=current?.sentence||[];
  if(hasCyrillic(clean)){
   const targetCyrillic=answerTokens(sentence[0]||'');
-  const spokenCyrillic=answerTokens(clean);
-  if(!spokenCyrillic.length)return false;
-  const comparison=compareTokenRecall(spokenCyrillic,targetCyrillic);
+  const rawSpokenCyrillic=answerTokens(clean);
+  if(!rawSpokenCyrillic.length)return false;
+  const evidence=teacherRussianRecallEvidence(rawSpokenCyrillic,targetCyrillic);
   if(teacherRussianQuestionSignal(clean)||/(^|\s)(не знаю|не помню|забыл|забыла|не понимаю|сложно|трудно)(\s|$)/i.test(clean)){
-   return comparison.sharedUnique.length>=2||comparison.overlap>=0.35;
+   return evidence.meaningfulShared>=2||(evidence.totalShared>=2&&evidence.meaningfulShared>=1)||evidence.comparison.overlap>=0.45;
   }
-  return targetCyrillic.length>0&&(comparison.sharedUnique.length>=1||comparison.overlap>=0.25);
+  return targetCyrillic.length>0&&evidence.matches;
  }
  const target=latinTokens(`${sentence[0]||''} ${sentence[1]||''}`);
  const spoken=latinTokens(clean);
  if(spoken.length<2)return false;
  if(target.length&&compareTokenRecall(spoken,target).sharedUnique.length>0)return true;
  return /\b(?:zh|kh|ts|ch|sh|sch|ya|ye|yo|yu|iy|yy|aya|ogo|ovo|cht|cto|chto|vy|my|eto|kak|gde|skazhi|pozhaluysta|spasibo|prostite)\b/.test(clean);
+}
+
+function teacherRussianFragmentChatterSignal(text){
+ const clean=String(text||'').toLowerCase().replace(/\s+/g,' ').trim();
+ if(!teacherInRecallWindow()||!hasCyrillic(clean)||teacherRussianQuestionSignal(clean)||teacherCannotRecallSignal(clean))return false;
+ const current=teacherCurrentItem();
+ const sentence=current?.sentence||[];
+ const rawTokens=answerTokens(clean);
+ if(!rawTokens.length||rawTokens.length>5)return false;
+ const evidence=teacherRussianRecallEvidence(rawTokens,answerTokens(sentence[0]||''));
+ if(evidence.matches)return false;
+ return evidence.hasFiller||(evidence.totalShared>0&&evidence.meaningfulShared===0);
 }
 
 function teacherVoiceLooksLikeRecallAttempt(text){
@@ -2380,6 +2419,10 @@ function teacherCommand(raw){
  }
  if(/\b(explain|why|where|how|should i|can i|do you think|am i)\b/.test(text)){teacherAskAi(transcript,{source:'voice'});return}
  if(/\b(help|guide)\b/.test(text)){teacherGuide();return}
+ if(teacherRussianFragmentChatterSignal(text)){
+  teacherSay('I only caught a fragment. Finish the Russian attempt, or ask me the question in one full sentence.',{speak:false});
+  return;
+ }
  if(/\b(open|go to|take me|show me|visit)\b/.test(text)){
   if(/\b(review bin|weak|review)\b/.test(text)){teacherOpenMode('review');return}
   if(/\bbrowse\b/.test(text)){teacherOpenMode('browse');return}
@@ -4200,7 +4243,7 @@ function sanitizeProgressBackupStats(source,maxDailyCount=SENTENCES.length){
  const clean={};
  let skipped=0;
  if(!source || typeof source!=='object' || Array.isArray(source))return {value:clean,skipped};
-  const maxStreakDays=3650;
+ const maxStreakDays=3650;
  function assignBoundedStat(key,maxValue){
   if(source[key]===undefined)return;
   const value=Number(source[key]);
